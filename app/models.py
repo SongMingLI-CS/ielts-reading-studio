@@ -185,6 +185,8 @@ class QualityIssue(BaseModel):
     code: str
     message: str
     severity: str = "error"
+    stage: str = "validation"
+    affected_ids: list[str] = Field(default_factory=list)
     question_number: int | None = None
 
 
@@ -196,6 +198,10 @@ class QualityReport(BaseModel):
     paragraph_count: int | None = None
     metrics: dict[str, Any] = Field(default_factory=dict)
     revision_count: int = 0
+
+    @property
+    def codes(self) -> list[str]:
+        return [issue.code for issue in self.issues]
 
 
 class ReadingPackage(BaseModel):
