@@ -75,7 +75,13 @@ class UnitRunner:
             self._write_failure(
                 unit,
                 exc.code,
-                [{"code": exc.code, "message": redact_secrets(exc)}],
+                [
+                    {
+                        "code": exc.code,
+                        "message": redact_secrets(exc),
+                        "retries": exc.retries,
+                    }
+                ],
             )
             raise
         except AgentSchemaError as exc:

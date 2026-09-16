@@ -148,6 +148,11 @@ class BatchRunner:
         total = len(units)
         completed = len(summary.completed)
         failed = len(summary.failed) + len(summary.needs_review)
+        usage_by_unit = {
+            unit.id: self.repository.list_usage_records(unit.id)
+            for unit in units
+        }
+        all_usage = [usage for records in usage_by_unit.values() for usage in records]
         self.store.write_json(
             f"reports/{job_id}-summary.json",
             {
@@ -157,21 +162,18 @@ class BatchRunner:
                 "failed": failed,
                 "completion_rate": completed / total if total else 0.0,
                 "failure_rate": failed / total if total else 0.0,
+                "mean_calls_per_unit": len(all_usage) / completed if completed else 0.0,
                 "difficulty_distribution": _counts(unit.difficulty.value for unit in units),
                 "question_type_distribution": _counts(
                     value.value for unit in units for value in unit.question_types
                 ),
                 "token_totals": {
-                    "input": sum(
-                        usage.input_tokens
-                        for unit in units
-                        for usage in self.repository.list_usage_records(unit.id)
-                    ),
-                    "output": sum(
-                        usage.output_tokens
-                        for unit in units
-                        for usage in self.repository.list_usage_records(unit.id)
-                    ),
+                    "input": sum(usage.input_tokens for usage in all_usage),
+                    "output": sum(usage.output_tokens for usage in all_usage),
+                },
+                "revision_counts": {
+                    "author": sum("author_passage_revision" in usage.stage for usage in all_usage),
+                    "examiner": sum("examiner_assessment_revision" in usage.stage for usage in all_usage),
                 },
             },
         )
