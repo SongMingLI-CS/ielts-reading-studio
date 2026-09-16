@@ -32,5 +32,23 @@ def test_explicit_base_dir_and_env_are_resolved_from_yaml_parent(tmp_path, monke
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     config = AppConfig.load(path, require_api_key=True)
     assert config.base_dir == path.parent / "workspace"
-    assert config.input_dir == path.parent / "workspace" / "source"
+    assert config.input_dir == path.parent / "source"
     assert config.deepseek_api_key.get_secret_value() == "env-secret"
+
+
+def test_yaml_cannot_supply_api_key(tmp_path, monkeypatch):
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    path = tmp_path / "config.yaml"
+    path.write_text("deepseek_api_key: yaml-secret\n", encoding="utf-8")
+    config = AppConfig.load(path)
+    assert config.deepseek_api_key is None
+    with pytest.raises(ConfigurationError, match="DEEPSEEK_API_KEY"):
+        AppConfig.load(path, require_api_key=True)
+
+
+def test_revision_limits_cannot_exceed_two(tmp_path):
+    for field in ("author_revision_limit", "examiner_revision_limit"):
+        path = tmp_path / f"{field}.yaml"
+        path.write_text(f"{field}: 3\n", encoding="utf-8")
+        with pytest.raises(ConfigurationError, match=field):
+            AppConfig.load(path)

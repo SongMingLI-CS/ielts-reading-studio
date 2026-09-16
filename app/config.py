@@ -33,8 +33,8 @@ class AppConfig(BaseModel):
     examiner_model: str = "deepseek-v4-pro"
     concurrency: int = Field(2, ge=1, le=8)
     batch_size: int = Field(20, ge=1, le=100)
-    author_revision_limit: int = Field(2, ge=0, le=5)
-    examiner_revision_limit: int = Field(2, ge=0, le=5)
+    author_revision_limit: int = Field(2, ge=0, le=2)
+    examiner_revision_limit: int = Field(2, ge=0, le=2)
     min_source_chars: int = Field(800, ge=100)
     max_merged_chapters: int = Field(4, ge=1, le=20)
     max_merged_chars: int = Field(4000, ge=500)
@@ -67,10 +67,14 @@ class AppConfig(BaseModel):
         if not base_dir.is_absolute():
             base_dir = config_parent / base_dir
         raw["base_dir"] = base_dir.resolve()
+        # These paths are relative to the YAML file, while base_dir itself is
+        # independently configurable and may point elsewhere.
         for field in ("input_dir", "output_dir", "database_path"):
             candidate = Path(raw.get(field, cls.model_fields[field].default))
-            raw[field] = candidate if candidate.is_absolute() else raw["base_dir"] / candidate
-        if "deepseek_api_key" not in raw and os.getenv("DEEPSEEK_API_KEY"):
+            raw[field] = candidate if candidate.is_absolute() else config_parent / candidate
+        # Secrets are accepted only from the process environment/.env.
+        raw.pop("deepseek_api_key", None)
+        if os.getenv("DEEPSEEK_API_KEY"):
             raw["deepseek_api_key"] = os.environ["DEEPSEEK_API_KEY"]
         if require_api_key and not raw.get("deepseek_api_key"):
             raise ConfigurationError("DEEPSEEK_API_KEY is required for API work")
