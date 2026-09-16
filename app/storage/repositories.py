@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -122,6 +122,55 @@ class Repository:
                     payload=_payload(unit),
                 )
             )
+
+    def add_units(self, units: Sequence[GenerationUnit], *, job_id: str | None = None) -> None:
+        """Insert one batch of planned units in a single transaction."""
+        if not units:
+            return
+        rows = [
+            {
+                "id": unit.id,
+                "corpus_id": unit.corpus_id,
+                "job_id": job_id,
+                "ordinal": unit.ordinal,
+                "status": unit.status.value,
+                "payload": _payload(unit),
+            }
+            for unit in units
+        ]
+        with self.database.engine.begin() as connection:
+            connection.execute(insert(generation_units), rows)
+
+    def add_source_chapters(self, corpus_id: str, chapters: Sequence[SourceChapter]) -> None:
+        """Insert one batch of chapters in a single transaction."""
+        if not chapters:
+            return
+        rows = [
+            {
+                "id": chapter.id,
+                "corpus_id": corpus_id,
+                "ordinal": chapter.ordinal,
+                "payload": _payload(chapter),
+            }
+            for chapter in chapters
+        ]
+        with self.database.engine.begin() as connection:
+            connection.execute(insert(source_chapters), rows)
+
+    def count_source_chapters(self, corpus_id: str) -> int:
+        with self.database.engine.connect() as connection:
+            return connection.execute(
+                select(func.count()).select_from(source_chapters).where(source_chapters.c.corpus_id == corpus_id)
+            ).scalar_one()
+
+    def list_units(self, corpus_id: str) -> list[GenerationUnit]:
+        with self.database.engine.connect() as connection:
+            rows = connection.execute(
+                select(generation_units)
+                .where(generation_units.c.corpus_id == corpus_id)
+                .order_by(generation_units.c.ordinal)
+            ).mappings()
+            return [_model(row, GenerationUnit) for row in rows]
 
     def get_unit(self, unit_id: str) -> GenerationUnit | None:
         with self.database.engine.connect() as connection:

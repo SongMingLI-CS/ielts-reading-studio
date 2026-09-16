@@ -75,6 +75,15 @@ class SourceChapter(BaseModel):
         return self
 
 
+class SourceSpan(BaseModel):
+    """An exact character range inside one source chapter."""
+
+    chapter_id: str
+    start: int = Field(ge=0)
+    end: int = Field(ge=0)
+    character_count: int = Field(ge=0)
+
+
 class GenerationUnit(BaseModel):
     id: str
     corpus_id: str
@@ -86,6 +95,9 @@ class GenerationUnit(BaseModel):
     prompt_version: str
     status: UnitStatus
     limited_source: bool = False
+    ordinal: int = Field(0, ge=0)
+    source_character_count: int = Field(0, ge=0)
+    source_spans: list[SourceSpan] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def three_distinct_question_types(self) -> GenerationUnit:
@@ -200,3 +212,29 @@ class ReadingPackage(BaseModel):
         if numbers != list(range(1, len(numbers) + 1)):
             raise ValueError("question numbers must be contiguous starting at 1")
         return self
+
+
+class ChapterSummary(BaseModel):
+    """Boundary metadata kept in the corpus manifest instead of full chapter text."""
+
+    id: str
+    ordinal: int
+    title: str | None = None
+    volume_title: str | None = None
+    character_count: int = 0
+    paragraph_count: int = 0
+
+
+class CorpusManifest(BaseModel):
+    """Offline index of one imported corpus: chapter boundaries and generation units."""
+
+    corpus: Corpus
+    created_at: datetime = Field(default_factory=datetime.now)
+    confidence: float = 0.0
+    diagnostics: list[str] = Field(default_factory=list)
+    total_characters: int = 0
+    chapter_count: int = 0
+    unit_count: int = 0
+    chapters: list[ChapterSummary] = Field(default_factory=list)
+    candidate_chapters: list[ChapterSummary] = Field(default_factory=list)
+    units: list[GenerationUnit] = Field(default_factory=list)
