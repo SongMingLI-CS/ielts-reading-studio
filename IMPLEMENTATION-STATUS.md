@@ -1,13 +1,14 @@
 # IELTS Reading Studio — 实施进度说明
 
-> 本文件记录截至 **2026-09-16** 的实施进度、验证证据、关键设计裁定与后续计划。
+> 本文件记录截至 **2026-09-17** 的实施进度、验证证据、关键设计裁定与后续计划。
 > 完整方案见 `docs/superpowers/plans/2026-09-16-ielts-reading-studio.md`，
 > 设计规格见 `docs/superpowers/specs/2026-09-16-ielts-reading-studio-design.md`。
 
 ## 1. 状态速览
 
-**总体进度：13 个任务完成 4 个（约 31%），全部为可离线验证的基础设施层。**
-尚未接入 DeepSeek API，因此到目前为止 **没有任何 API 调用、没有任何 Token 消耗**。
+**总体进度：13 个任务的代码与离线验收全部完成。**
+DeepSeek 适配器与双智能体已接入应用，但真实样篇门禁尚未执行；到目前为止
+**没有任何真实 API 调用、没有任何 Token 消耗**。真实验收必须等待用户提供本地密钥和指定源文件。
 
 | 任务 | 内容 | 状态 | 提交 |
 |---|---|---|---|
@@ -15,30 +16,32 @@
 | 2 | SQLite 状态、原子写入、缓存键 | ✅ 已完成（含 1 轮修复） | `baa64d9` `97c8897` |
 | 3 | 四种格式解析与章节边界识别 | ✅ 已完成 | `465934f` `4649158` |
 | 4 | 生成单元规划、语料清单、离线估算 | ✅ 已完成 | `384d4d9` |
-| 5 | DeepSeek JSON 适配器 | ⏳ 未开始 | — |
-| 6 | 作者 Agent A 与考官 Agent B | ⏳ 未开始 | — |
-| 7 | Passage / 题目程序化质量门禁 | ⏳ 未开始 | — |
-| 8 | 可恢复的双智能体单元与批量流水线 | ⏳ 未开始 | — |
-| 9 | JSON / HTML / 有界 DOCX 导出 | ⏳ 未开始 | — |
-| 10 | Typer CLI 与安全确认 | ⏳ 未开始 | — |
-| 11 | FastAPI 语料库与任务监控页面 | ⏳ 未开始 | — |
-| 12 | 浏览器练习、评分、解析与导出中心 | ⏳ 未开始 | — |
-| 13 | 端到端加固、真实样篇门禁、运维文档 | ⏳ 未开始 | — |
+| 5 | DeepSeek JSON 适配器 | ✅ 已完成 | `d45a34f` |
+| 6 | 作者 Agent A 与考官 Agent B | ✅ 已完成 | `c250c5e` |
+| 7 | Passage / 题目程序化质量门禁 | ✅ 已完成 | `bde43d3` |
+| 8 | 可恢复的双智能体单元与批量流水线 | ✅ 已完成 | `ee960ba` |
+| 9 | JSON / HTML / 有界 DOCX 导出 | ✅ 已完成 | `1a0037f` |
+| 10 | Typer CLI 与安全确认 | ✅ 已完成 | `6264be1` |
+| 11 | FastAPI 语料库与任务监控页面 | ✅ 已完成 | `da81231` |
+| 12 | 浏览器练习、评分、解析与导出中心 | ✅ 已完成 | `da81231` |
+| 13 | 端到端加固、真实样篇门禁、运维文档 | ✅ 离线完成；真实样篇待用户输入 | `fcf90ee` |
 
-代码走 `main` 之外的独立分支：`codex/ielts-reading-studio`（位于 `.worktrees/ielts-reading-studio`），
-每个任务完成后合并回 `main`。
+当前实现位于本地 `main`，相对 `origin/main` 包含任务 5–13 的新增提交。
 
 ## 2. 当前验证结果
 
 | 检查项 | 命令 | 结果 |
 |---|---|---|
-| 单元 + 集成测试 | `python -m pytest -q` | **78 passed** |
+| 单元 + 集成测试 | `python -m pytest -q` | **171 passed** |
 | 静态检查 | `python -m ruff check app tests` | **All checks passed!** |
+| 语法编译 | `python -m compileall -q app` | 通过 |
+| CLI 烟雾检查 | `python -m app.cli --help` | 通过，列出 10 个命令 |
 | 2,000 章导入（离线） | 见第 4.4 节 | 2,000 章 / 1,000 单元 / 0.07 秒 / 无网络访问 |
+| 假 Provider 端到端 | `tests/integration/test_end_to_end.py` | 三种难度 + 样篇审批 + 批量 + 三格式导出 |
+| 失败矩阵与密钥扫描 | `test_failure_matrix.py` / `test_secret_redaction.py` | 通过 |
 
-已提交文件共 39 个（另加本说明文件），全部位于 `app/`、`tests/`、`docs/`、`config.yaml`、`pyproject.toml`。
-仓库内不含任何真实密钥：`.env` 未提交，`.env.example` 只有变量名，追踪文件中
-仅存在两处刻意的脱敏测试假值 `sk-1234567890abcdef`。
+仓库内不含任何真实密钥：`.env` 未提交，`.env.example` 只有变量名。密钥哨兵回归会扫描
+异常、SQLite 和输出产物，唯一允许含哨兵值的文件是测试临时目录中的 `.env`。
 
 ## 3. 已完成工作明细
 
@@ -161,25 +164,25 @@ SQLite：2000 章、1000 单元全部落库
 6. **大任务可恢复**：单元状态、阶段尝试、缓存键全部落 SQLite；已被证明可
    并发认领互斥、可中断恢复、可复用已完成阶段。
 
-## 5. 尚未完成的部分（任务 5–13 摘要）
+## 5. 已完成的应用层能力（任务 5–13 摘要）
 
-| 待做能力 | 说明 |
+| 能力 | 实现结果 |
 |---|---|
-| DeepSeek 适配器 | JSON 模式调用、错误分类、带抖动的有界重试，拒绝 `finish_reason=length` |
-| 双智能体 | Agent A 只写文章（brief / passage / 修订），Agent B 只审稿与命题；提示词与用量记录彼此独立；文章定稿后 Agent B 才能命题 |
-| 质量门禁 | 700–900 词、6–9 段、来源覆盖、禁止虚构年份/机构/数据/引文；题号连续、证据必须为原文子串、填空答案受字数限制、Matching Headings 标题数多于段落数、选择题唯一正确答案 |
-| 流水线 | 单元状态机、定向返工（文章问题只退回 A，题目问题只重写失败题组）、返工上限 2+2、有界并发 2、暂停/恢复/仅重试失败、每 20 篇刷新语料汇总报告 |
-| 导出 | 规范 JSON、离线单文件 HTML（交卷前不暴露答案）、单篇 DOCX 与 20–50 篇有界练习册 |
+| DeepSeek 适配器 | JSON 模式、错误分类、1/2/4 秒加抖动的有界重试，截断先于 JSON 解析被拒绝 |
+| 双智能体 | Agent A 只写文章，Agent B 只审稿与命题；提示词、模型、阶段和用量记录相互独立 |
+| 质量门禁 | Passage 形状/来源/具体事实/透明难度指标，以及全部题型的编号、证据、答案和类型约束 |
+| 流水线 | 阶段缓存、原子落盘、定向返工、2+2 上限、滚动有界并发、暂停恢复、失败隔离和汇总报告 |
+| 导出 | 规范 JSON、离线单文件 HTML、单篇 DOCX 与 20–50 篇有界练习册 |
 | CLI | `import / inspect / estimate / sample / approve-sample / generate / resume / retry / export / serve`，全量生成需字面确认 |
-| 本地网页 | 导入与边界预览、生成配置与估算、任务监控、在线练习与本地评分、学习解析、导出中心，默认仅监听 `127.0.0.1` |
-| 验收 | 端到端假客户端测试、失败矩阵（401/402/429/5xx/超时/空响应/截断/坏 JSON/校验失败/超返工上限）、密钥脱敏回归、`scripts/verify.ps1` 一键验证、README 与运维文档 |
+| 本地网页 | 安全上传、分页预览、独立边界修正、配置/估算/审批、任务监控、练习评分、解析和导出 |
+| 验收 | 三难度假 Provider 端到端、失败矩阵、密钥扫描、`scripts/verify.ps1`、README 与运维指南 |
 
 ## 6. 如何验证当前状态
 
 ```powershell
 cd C:\Users\Lenovo\Desktop\ielts-reading-studio
 python -m pip install -e ".[dev]"      # 若尚未安装
-python -m pytest -q                    # 预期 78 passed
+python -m pytest -q                    # 预期 171 passed
 python -m compileall -q app            # 语法编译检查
 python -m ruff check app tests         # 预期 All checks passed!
 ```
@@ -196,11 +199,8 @@ python -m ruff check app tests         # 预期 All checks passed!
 | 编排位置 | 离线导入由 `app/planning/importer.py` 的 `CorpusImporter` 承担，任务 8 的服务层复用 | 任务 4 的集成测试需要 `service.import_source`，而该接口在任务 8 才出现 |
 | 静态检查修复 | 一次性 `ruff --fix` 顺带修好任务 1/2 的既有告警，单独提交 | 任务 13 的验收要求 `ruff check` 全绿 |
 
-## 8. 下一步
+## 8. 唯一剩余的外部验收门禁
 
-1. 实现任务 5（DeepSeek JSON 适配器）与任务 6（双智能体），仍以假客户端测试为主，不消耗 Token。
-2. 依次完成任务 7 → 8，打通「文章定稿 → 命题 → 程序化校验 → 定向返工」的可恢复流水线。
-3. 完成任务 9–12，产出 CLI、导出与本地网页练习闭环。
-4. 完成任务 13：一键验证脚本、失败矩阵、密钥脱敏回归与运维文档。
-5. **只有在你本机配置好 `DEEPSEEK_API_KEY` 并指定中文源文件之后**，才执行一次真实样篇；
+1. **只有在用户本机配置好 `DEEPSEEK_API_KEY` 并指定中文源文件之后**，才执行一次真实样篇；
    样篇经你人工确认前，不会开启批量生成、不会替你批准任何单元。
+2. 真实样篇完成后记录 API 返回的实际模型名、输入/输出 Token、三种导出路径和人工复核结论。
