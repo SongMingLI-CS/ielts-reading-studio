@@ -14,15 +14,14 @@ from app.models import Corpus, GenerationUnit, SourceChapter, UnitStatus, UsageR
 
 from .database import (
     Database,
-    corpus_approvals,
     corpora,
+    corpus_approvals,
     generation_units,
     jobs,
     source_chapters,
     stage_attempts,
     usage_records,
 )
-
 
 RUNNING_RECOVERY_STATUSES: dict[UnitStatus, UnitStatus] = {
     UnitStatus.AUTHOR_GENERATING: UnitStatus.INDEXED,
@@ -42,7 +41,7 @@ def _json_value(value: Any) -> Any:
     return value
 
 
-def _model(row: RowMapping, model_type: type[Corpus] | type[GenerationUnit] | type[SourceChapter] | type[UsageRecord]):
+def _model(row: RowMapping, model_type: type[Corpus | GenerationUnit | SourceChapter | UsageRecord]):
     return model_type.model_validate_json(row["payload"])
 
 

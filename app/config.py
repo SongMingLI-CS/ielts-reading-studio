@@ -46,7 +46,7 @@ class AppConfig(BaseModel):
     max_consecutive_failures: int = Field(5, ge=1)
 
     @classmethod
-    def load(cls, path: str | Path, require_api_key: bool = False) -> "AppConfig":
+    def load(cls, path: str | Path, require_api_key: bool = False) -> AppConfig:
         config_path = Path(path).expanduser().resolve()
         config_parent = config_path.parent
         load_dotenv(config_parent / ".env", override=False)

@@ -68,7 +68,7 @@ class SourceChapter(BaseModel):
     source_offsets: dict[str, int] | None = None
 
     @model_validator(mode="after")
-    def unique_labels(self) -> "SourceChapter":
+    def unique_labels(self) -> SourceChapter:
         labels = [p.label for p in self.paragraphs if p.label is not None]
         if len(labels) != len(set(labels)):
             raise ValueError("paragraph labels must be unique")
@@ -88,7 +88,7 @@ class GenerationUnit(BaseModel):
     limited_source: bool = False
 
     @model_validator(mode="after")
-    def three_distinct_question_types(self) -> "GenerationUnit":
+    def three_distinct_question_types(self) -> GenerationUnit:
         if len(self.question_types) != 3 or len(set(self.question_types)) != 3:
             raise ValueError("exactly three distinct question types are required")
         return self
@@ -134,7 +134,7 @@ class ReadingPassage(BaseModel):
     author_revision: int = 0
 
     @model_validator(mode="after")
-    def unique_labels(self) -> "ReadingPassage":
+    def unique_labels(self) -> ReadingPassage:
         labels = [p.label for p in self.paragraphs]
         if len(labels) != len(set(labels)):
             raise ValueError("paragraph labels must be unique")
@@ -195,7 +195,7 @@ class ReadingPackage(BaseModel):
     usage_records: list[UsageRecord] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def contiguous_question_numbers(self) -> "ReadingPackage":
+    def contiguous_question_numbers(self) -> ReadingPackage:
         numbers = [q.number for group in self.question_groups for q in group.questions]
         if numbers != list(range(1, len(numbers) + 1)):
             raise ValueError("question numbers must be contiguous starting at 1")

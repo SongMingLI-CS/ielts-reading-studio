@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-from app.models import Corpus, Difficulty, GenerationUnit, QuestionType, SourceBrief, UnitStatus
+from app.models import (
+    Corpus,
+    Difficulty,
+    GenerationUnit,
+    QuestionType,
+    SourceBrief,
+    UnitStatus,
+)
 from app.storage.artifacts import ArtifactStore
 from app.storage.database import Database
 from app.storage.repositories import Repository

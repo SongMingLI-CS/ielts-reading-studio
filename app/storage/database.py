@@ -6,8 +6,8 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
-    Integer,
     Index,
+    Integer,
     MetaData,
     String,
     Table,
@@ -18,7 +18,6 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.engine import Engine
-
 
 metadata = MetaData()
 
