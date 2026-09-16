@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block title %}导出中心{% endblock %}
+{% block content %}<p class="eyebrow">规范 Package</p><h1>导出中心</h1>{% if created %}<p class="success">已创建 {{ created }} 个文件。</p>{% endif %}
+<form class="panel" action="/exports" method="post"><fieldset><legend>已完成单元</legend>{% for unit in units %}<label class="check"><input type="checkbox" name="unit_ids" value="{{ unit.id }}"> #{{ unit.ordinal }} · {{ unit.id }}</label>{% endfor %}</fieldset>
+<label>格式<select name="format"><option>json</option><option>html</option><option>docx</option></select></label><label>练习册大小<input type="number" name="workbook_size" min="20" max="50" value="20"></label><button>创建导出</button></form>{% endblock %}

@@ -94,6 +94,11 @@ class Repository:
             row = connection.execute(select(corpora).where(corpora.c.id == corpus_id)).mappings().one_or_none()
         return _model(row, Corpus) if row is not None else None
 
+    def list_corpora(self) -> list[Corpus]:
+        with self.database.engine.connect() as connection:
+            rows = connection.execute(select(corpora).order_by(corpora.c.created_at.desc())).mappings()
+            return [_model(row, Corpus) for row in rows]
+
     def add_source_chapter(self, corpus_id: str, chapter: SourceChapter) -> None:
         with self.database.engine.begin() as connection:
             connection.execute(
@@ -109,6 +114,41 @@ class Repository:
         with self.database.engine.connect() as connection:
             row = connection.execute(select(source_chapters).where(source_chapters.c.id == chapter_id)).mappings().one_or_none()
         return _model(row, SourceChapter) if row is not None else None
+
+    def list_source_chapters(
+        self,
+        corpus_id: str,
+        *,
+        offset: int = 0,
+        limit: int | None = None,
+    ) -> list[SourceChapter]:
+        statement = (
+            select(source_chapters)
+            .where(source_chapters.c.corpus_id == corpus_id)
+            .order_by(source_chapters.c.ordinal)
+            .offset(max(0, offset))
+        )
+        if limit is not None:
+            statement = statement.limit(max(0, limit))
+        with self.database.engine.connect() as connection:
+            rows = connection.execute(statement).mappings()
+            return [_model(row, SourceChapter) for row in rows]
+
+    def list_jobs(self, corpus_id: str | None = None) -> list[dict[str, Any]]:
+        statement = select(jobs).order_by(jobs.c.created_at.desc())
+        if corpus_id is not None:
+            statement = statement.where(jobs.c.corpus_id == corpus_id)
+        with self.database.engine.connect() as connection:
+            rows = connection.execute(statement).mappings()
+            return [
+                {
+                    "id": row["id"],
+                    "corpus_id": row["corpus_id"],
+                    "status": row["status"],
+                    "payload": json.loads(row["payload"]),
+                }
+                for row in rows
+            ]
 
     def add_unit(self, unit: GenerationUnit, *, job_id: str | None = None, ordinal: int | None = None) -> None:
         with self.database.engine.begin() as connection:

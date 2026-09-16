@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}生成配置{% endblock %}
+{% block content %}
+<p class="eyebrow">{{ details.corpus.name }}</p><h1>生成配置与估算</h1>
+<div class="stats"><span>{{ estimate.unit_count }} 单元</span><span>{{ estimate.minimum_requests }}–{{ estimate.maximum_requests }} 次请求</span><span>{{ estimate.minimum_tokens }}–{{ estimate.maximum_tokens }} Token</span></div>
+{% if details.approval %}
+<form class="panel" action="/corpora/{{ details.corpus.id }}/jobs" method="post">
+  <label>范围<input name="range_spec" value="1-20" required></label>
+  <label>难度<select name="difficulty"><option value="standard" {% if selected_difficulty == 'standard' %}selected{% endif %}>Standard</option><option value="foundation" {% if selected_difficulty == 'foundation' %}selected{% endif %}>Foundation</option><option value="advanced" {% if selected_difficulty == 'advanced' %}selected{% endif %}>Advanced</option></select></label>
+  <fieldset><legend>恰好选择三种题型</legend>{% for value in question_types %}<label class="check"><input type="checkbox" name="question_types" value="{{ value.value }}" {% if value.value in selected_question_types %}checked{% endif %}>{{ value.value|replace('_',' ')|title }}</label>{% endfor %}</fieldset>
+  <label>批次大小<input type="number" name="batch_size" min="1" max="100" value="20"></label><label>并发数<input type="number" name="concurrency" min="1" max="8" value="2"></label><button type="submit">创建任务</button>
+</form>
+{% else %}<div class="warning"><strong>批量生成已锁定</strong><p>请先生成一篇样篇，并明确批准。</p>{% if completed_units %}<form action="/corpora/{{ details.corpus.id }}/approve-sample" method="post"><label>已完成样篇<select name="unit_id">{% for unit in completed_units %}<option value="{{ unit.id }}">#{{ unit.ordinal }} · {{ unit.id }}</option>{% endfor %}</select></label><button>批准所选样篇</button></form>{% endif %}</div>{% endif %}
+{% endblock %}

@@ -49,13 +49,16 @@ class BatchRunner:
             for unit in self.repository.list_job_units(job_id)
             if unit.status not in {UnitStatus.COMPLETED, UnitStatus.CANCELLED}
         ]
-        candidates = self._within_limits(candidates)
+        batch_size = int(job["payload"].get("batch_size", self.config.batch_size))
+        concurrency = int(job["payload"].get("concurrency", self.config.concurrency))
+        concurrency = max(1, min(8, concurrency))
+        candidates = self._within_limits(candidates, batch_size=batch_size)
         pending_units = iter(candidates)
         in_flight: dict[Future, GenerationUnit] = {}
         consecutive_failures = 0
 
-        with ThreadPoolExecutor(max_workers=self.config.concurrency) as executor:
-            self._fill(executor, in_flight, pending_units, job_id)
+        with ThreadPoolExecutor(max_workers=concurrency) as executor:
+            self._fill(executor, in_flight, pending_units, job_id, concurrency)
             while in_flight:
                 done, _ = wait(in_flight, return_when=FIRST_COMPLETED)
                 for future in done:
@@ -95,7 +98,7 @@ class BatchRunner:
                     or current["status"] in {"paused", "cancelled", "blocked"}
                 )
                 if not should_stop:
-                    self._fill(executor, in_flight, pending_units, job_id)
+                    self._fill(executor, in_flight, pending_units, job_id, concurrency)
 
         current = self.repository.get_job(job_id)
         if current is not None and current["status"] == "running":
@@ -110,8 +113,9 @@ class BatchRunner:
         in_flight: dict[Future, GenerationUnit],
         pending_units,
         job_id: str,
+        concurrency: int,
     ) -> None:
-        while len(in_flight) < self.config.concurrency:
+        while len(in_flight) < concurrency:
             try:
                 unit = next(pending_units)
             except StopIteration:
@@ -119,9 +123,15 @@ class BatchRunner:
             future = executor.submit(self.unit_runner.run, unit.id, job_id=job_id)
             in_flight[future] = unit
 
-    def _within_limits(self, units: list[GenerationUnit]) -> list[GenerationUnit]:
+    def _within_limits(
+        self,
+        units: list[GenerationUnit],
+        *,
+        batch_size: int,
+    ) -> list[GenerationUnit]:
         selected: list[GenerationUnit] = []
-        for unit in units[: self.config.max_units_per_run]:
+        limit = min(self.config.max_units_per_run, max(1, batch_size))
+        for unit in units[:limit]:
             proposed = [*selected, unit]
             estimate = estimate_run(
                 proposed,

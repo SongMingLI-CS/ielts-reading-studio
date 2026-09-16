@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}章节解析预览{% endblock %}
+{% block content %}
+<p class="eyebrow">{{ corpus.name }}</p><h1>章节解析预览</h1>
+<div class="stats"><span>{{ corpus.chapter_count }} 章</span><span>{{ unit_count }} 个生成单元</span><span>第 {{ page }} 页</span></div>
+<ol class="chapter-list">
+{% for chapter in chapters %}<li><strong>{{ chapter.chapter_title or ('章节 ' ~ chapter.ordinal) }}</strong><span>{{ chapter.character_count or 0 }} 字</span></li>{% endfor %}
+</ol>
+<form class="panel" action="/corpora/{{ corpus.id }}/boundaries" method="post">
+  <label>边界修正说明<textarea name="overrides" rows="4" placeholder="记录需要调整的章节边界；不会修改原文件"></textarea></label>
+  <button type="submit">保存独立修正记录</button>
+</form>
+<a class="button" href="/corpora/{{ corpus.id }}/configure">下一步：生成配置</a>
+{% endblock %}

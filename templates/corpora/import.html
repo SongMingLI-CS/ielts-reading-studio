@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}导入语料{% endblock %}
+{% block content %}
+<p class="eyebrow">离线操作</p><h1>导入源文件</h1>
+<form class="panel" action="/corpora/import" method="post" enctype="multipart/form-data">
+  <label>选择 TXT、DOCX、EPUB、MD 文件<input type="file" name="source" accept=".txt,.docx,.epub,.md,.markdown" required></label>
+  <p class="muted">文件只读解析；此步骤不创建模型客户端，也不会产生费用。</p>
+  <button type="submit">导入并建立索引</button>
+</form>
+{% endblock %}

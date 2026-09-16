@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ package.passage.title }} · 在线练习{% endblock %}
+{% block content %}
+<p class="eyebrow">在线练习 · <span id="timer">00:00</span></p><h1>{{ package.passage.title }}</h1>
+<article class="passage">{% for paragraph in package.passage.paragraphs %}<p id="paragraph-{{ paragraph.label }}"><strong>{{ paragraph.label }}</strong> {{ paragraph.text }}</p>{% endfor %}</article>
+<form id="practice-form" data-unit-id="{{ package.unit.id }}">
+{% for group in package.question_groups %}<section class="question-group"><h2>{{ group.type.value|replace('_',' ')|title }}</h2><p>{{ group.instructions }}</p>
+{% for question in group.questions %}<div class="question"><label><strong>{{ question.number }}.</strong> {{ question.prompt }}
+{% if group.type.value in ['true_false_not_given','yes_no_not_given'] %}<select name="q{{ question.number }}"><option></option>{% set vals = ['TRUE','FALSE','NOT GIVEN'] if group.type.value == 'true_false_not_given' else ['YES','NO','NOT GIVEN'] %}{% for value in vals %}<option>{{ value }}</option>{% endfor %}</select>
+{% elif group.options %}<select name="q{{ question.number }}"><option></option>{% for option in group.options %}<option>{{ option }}</option>{% endfor %}</select>
+{% else %}<input name="q{{ question.number }}" autocomplete="off">{% endif %}</label></div>{% endfor %}</section>{% endfor %}
+<button type="submit">交卷</button></form><section id="practice-result" hidden></section>
+{% endblock %}
+{% block scripts %}<script src="/static/practice.js"></script>{% endblock %}

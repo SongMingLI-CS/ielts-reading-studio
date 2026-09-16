@@ -137,12 +137,30 @@ class ReadingStudioService:
         approval = self.repository.get_latest_corpus_approval(corpus_id)
         return approval is not None and approval["status"] == "approved"
 
-    def create_job(self, corpus_id: str, ordinals: list[int] | None = None) -> dict[str, Any]:
+    def create_job(
+        self,
+        corpus_id: str,
+        ordinals: list[int] | None = None,
+        *,
+        batch_size: int | None = None,
+        concurrency: int | None = None,
+    ) -> dict[str, Any]:
         if not self.is_corpus_approved(corpus_id):
             raise PermissionError("A completed sample must be explicitly approved before batch generation")
         units = [unit for unit in self.selected_units(corpus_id, ordinals) if unit.status != UnitStatus.COMPLETED]
         job_id = str(uuid4())
-        payload = {"unit_ids": [unit.id for unit in units], "ordinals": [unit.ordinal for unit in units]}
+        selected_batch_size = batch_size or self.config.batch_size
+        selected_concurrency = concurrency or self.config.concurrency
+        if not 1 <= selected_batch_size <= 100:
+            raise ValueError("batch_size must be between 1 and 100")
+        if not 1 <= selected_concurrency <= 8:
+            raise ValueError("concurrency must be between 1 and 8")
+        payload = {
+            "unit_ids": [unit.id for unit in units],
+            "ordinals": [unit.ordinal for unit in units],
+            "batch_size": selected_batch_size,
+            "concurrency": selected_concurrency,
+        }
         self.repository.create_job(job_id, corpus_id, "queued", payload)
         self.repository.assign_units_to_job(payload["unit_ids"], job_id)
         return self.repository.get_job(job_id)

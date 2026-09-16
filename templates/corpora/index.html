@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}语料库 · IELTS Reading Studio{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">本地语料库</p><h1>阅读材料</h1></div><a class="button" href="/corpora/import">导入新文件</a></div>
+{% if corpora %}
+<div class="card-grid">
+{% for corpus in corpora %}
+  <article class="card"><h2>{{ corpus.name }}</h2><p>{{ corpus.chapter_count }} 章 · {{ corpus.format|upper }}</p>
+  <a href="/corpora/{{ corpus.id }}/preview">查看解析</a> · <a href="/corpora/{{ corpus.id }}/configure">生成配置</a></article>
+{% endfor %}
+</div>
+{% else %}<div class="empty"><h2>还没有语料</h2><p>导入 TXT、DOCX、EPUB 或 Markdown。导入过程不会调用 API。</p></div>{% endif %}
+{% endblock %}

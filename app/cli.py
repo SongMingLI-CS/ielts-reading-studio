@@ -230,5 +230,9 @@ def _abort(message: object) -> None:
     raise typer.Exit(code=2)
 
 
-if __name__ == "__main__":
+def main() -> None:
     app()
+
+
+if __name__ == "__main__":
+    main()
