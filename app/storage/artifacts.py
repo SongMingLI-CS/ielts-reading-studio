@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 from uuid import uuid4
 
+from pydantic import BaseModel
+
 
 class ArtifactStore:
     """Writes generation artifacts atomically underneath one output directory."""
@@ -18,7 +20,7 @@ class ArtifactStore:
         temporary = path.parent / f"{path.name}.{uuid4().hex}.tmp"
         try:
             with temporary.open("w", encoding="utf-8", newline="\n") as handle:
-                json.dump(value, handle, ensure_ascii=False, indent=2, sort_keys=True)
+                json.dump(self._json_value(value), handle, ensure_ascii=False, indent=2, sort_keys=True)
                 handle.write("\n")
                 handle.flush()
                 os.fsync(handle.fileno())
@@ -35,6 +37,23 @@ class ArtifactStore:
             Path("raw_responses") / unit_id / f"{stage}-attempt-{attempt}.json",
             value,
         )
+
+    def write_package(self, unit_id: str, value: object) -> Path:
+        return self.write_json(Path("packages") / f"{unit_id}.json", value)
+
+    def write_stage_payload(self, unit_id: str, stage: str, attempt: int, value: object) -> Path:
+        if attempt < 1:
+            raise ValueError("attempt must be at least 1")
+        return self.write_json(
+            Path("stage_payloads") / unit_id / f"{stage}-attempt-{attempt}.json",
+            value,
+        )
+
+    @staticmethod
+    def _json_value(value: object) -> object:
+        if isinstance(value, BaseModel):
+            return value.model_dump(mode="json")
+        return value
 
     def _destination(self, relative_path: str | Path) -> Path:
         relative = Path(relative_path)

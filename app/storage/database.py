@@ -7,10 +7,12 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    Index,
     MetaData,
     String,
     Table,
     Text,
+    UniqueConstraint,
     create_engine,
     event,
     func,
@@ -59,9 +61,7 @@ generation_units = Table(
     "generation_units",
     metadata,
     Column("id", String, primary_key=True),
-    # Units may be indexed before their corpus record is persisted, so this is
-    # deliberately an indexed identifier rather than an immediate FK.
-    Column("corpus_id", String, nullable=False, index=True),
+    Column("corpus_id", String, ForeignKey("corpora.id"), nullable=False, index=True),
     Column("job_id", String, ForeignKey("jobs.id"), index=True),
     Column("ordinal", Integer, index=True),
     Column("status", String, nullable=False, index=True),
@@ -80,9 +80,19 @@ stage_attempts = Table(
     Column("attempt", Integer, nullable=False),
     Column("status", String, nullable=False, index=True),
     Column("cache_key", String, index=True),
-    Column("payload", Text, nullable=False),
+    Column("payload", Text, nullable=False, server_default="{}"),
+    Column("artifact_path", Text),
+    Column("error", Text),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("unit_id", "stage", "attempt", name="uq_stage_attempt_identity"),
+)
+
+Index(
+    "uq_stage_attempt_completed_cache_key",
+    stage_attempts.c.cache_key,
+    unique=True,
+    sqlite_where=stage_attempts.c.status == "completed",
 )
 
 usage_records = Table(
@@ -128,6 +138,8 @@ class Database:
         @event.listens_for(engine, "connect")
         def enable_foreign_keys(connection, _connection_record):
             connection.execute("PRAGMA foreign_keys=ON")
+            connection.execute("PRAGMA busy_timeout=5000")
+            connection.execute("PRAGMA journal_mode=WAL")
 
         return engine
 

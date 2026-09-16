@@ -1,18 +1,25 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Any
 
+from pydantic import BaseModel
 from sqlalchemy import func, insert, select, update
 from sqlalchemy.engine import RowMapping
+from sqlalchemy.exc import IntegrityError
 
 from app.models import Corpus, GenerationUnit, SourceChapter, UnitStatus, UsageRecord
 
 from .database import (
     Database,
+    corpus_approvals,
     corpora,
     generation_units,
+    jobs,
     source_chapters,
+    stage_attempts,
     usage_records,
 )
 
@@ -26,11 +33,39 @@ RUNNING_RECOVERY_STATUSES: dict[UnitStatus, UnitStatus] = {
 
 
 def _payload(model: Any) -> str:
-    return model.model_dump_json()
+    return json.dumps(_json_value(model), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _json_value(value: Any) -> Any:
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode="json")
+    return value
 
 
 def _model(row: RowMapping, model_type: type[Corpus] | type[GenerationUnit] | type[SourceChapter] | type[UsageRecord]):
     return model_type.model_validate_json(row["payload"])
+
+
+@dataclass(frozen=True)
+class StageAttempt:
+    id: str
+    unit_id: str
+    job_id: str | None
+    stage: str
+    attempt: int
+    status: str
+    cache_key: str | None
+    payload: Any
+    artifact_path: str | None
+    error: str | None
+
+
+def _stage_attempt(row: RowMapping) -> StageAttempt:
+    return StageAttempt(
+        id=row["id"], unit_id=row["unit_id"], job_id=row["job_id"], stage=row["stage"],
+        attempt=row["attempt"], status=row["status"], cache_key=row["cache_key"],
+        payload=json.loads(row["payload"]), artifact_path=row["artifact_path"], error=row["error"],
+    )
 
 
 class Repository:
@@ -97,23 +132,17 @@ class Repository:
     def transition(self, unit_id: str, expected: UnitStatus, target: UnitStatus) -> bool:
         """Atomically move a unit only when it is still in ``expected`` status."""
         with self.database.engine.begin() as connection:
-            row = connection.execute(
-                select(generation_units.c.payload).where(
-                    generation_units.c.id == unit_id,
-                    generation_units.c.status == expected.value,
-                )
-            ).mappings().one_or_none()
-            if row is None:
-                return False
-            unit = GenerationUnit.model_validate_json(row["payload"])
-            updated = unit.model_copy(update={"status": target})
             result = connection.execute(
                 update(generation_units)
                 .where(
                     generation_units.c.id == unit_id,
                     generation_units.c.status == expected.value,
                 )
-                .values(status=target.value, payload=_payload(updated), updated_at=func.now())
+                .values(
+                    status=target.value,
+                    payload=func.json_set(generation_units.c.payload, "$.status", target.value),
+                    updated_at=func.now(),
+                )
             )
             return result.rowcount == 1
 
@@ -161,3 +190,167 @@ class Repository:
                 .order_by(usage_records.c.id)
             ).mappings()
             return [_model(row, UsageRecord) for row in rows]
+
+    def create_job(self, job_id: str, corpus_id: str, status: str, payload: dict[str, Any] | None = None) -> None:
+        with self.database.engine.begin() as connection:
+            connection.execute(insert(jobs).values(
+                id=job_id, corpus_id=corpus_id, status=status, payload=_payload(payload or {}),
+            ))
+
+    def get_job(self, job_id: str) -> dict[str, Any] | None:
+        with self.database.engine.connect() as connection:
+            row = connection.execute(select(jobs).where(jobs.c.id == job_id)).mappings().one_or_none()
+        if row is None:
+            return None
+        return {"id": row["id"], "corpus_id": row["corpus_id"], "status": row["status"], "payload": json.loads(row["payload"])}
+
+    def update_job(self, job_id: str, *, status: str | None = None, payload: dict[str, Any] | None = None) -> bool:
+        values: dict[str, Any] = {"updated_at": func.now()}
+        if status is not None:
+            values["status"] = status
+        if payload is not None:
+            values["payload"] = _payload(payload)
+        with self.database.engine.begin() as connection:
+            result = connection.execute(update(jobs).where(jobs.c.id == job_id).values(**values))
+        return result.rowcount == 1
+
+    def record_corpus_approval(
+        self, approval_id: str, corpus_id: str, status: str, payload: dict[str, Any] | None = None,
+    ) -> None:
+        with self.database.engine.begin() as connection:
+            connection.execute(insert(corpus_approvals).values(
+                id=approval_id, corpus_id=corpus_id, status=status, payload=_payload(payload or {}),
+            ))
+
+    def get_corpus_approval(self, approval_id: str) -> dict[str, Any] | None:
+        with self.database.engine.connect() as connection:
+            row = connection.execute(select(corpus_approvals).where(corpus_approvals.c.id == approval_id)).mappings().one_or_none()
+        if row is None:
+            return None
+        return {"id": row["id"], "corpus_id": row["corpus_id"], "status": row["status"], "payload": json.loads(row["payload"])}
+
+    def create_stage_attempt(
+        self,
+        unit_id: str,
+        stage: str,
+        attempt: int,
+        *,
+        job_id: str | None = None,
+        cache_key: str | None = None,
+        payload: dict[str, Any] | BaseModel | None = None,
+    ) -> None:
+        if attempt < 1:
+            raise ValueError("attempt must be at least 1")
+        with self.database.engine.begin() as connection:
+            connection.execute(insert(stage_attempts).values(
+                id=f"{unit_id}:{stage}:{attempt}", unit_id=unit_id, job_id=job_id,
+                stage=stage, attempt=attempt, status="running", cache_key=cache_key,
+                payload=_payload(payload or {}),
+            ))
+
+    def get_stage_attempt(self, unit_id: str, stage: str, attempt: int) -> StageAttempt | None:
+        with self.database.engine.connect() as connection:
+            row = connection.execute(
+                select(stage_attempts).where(
+                    stage_attempts.c.unit_id == unit_id,
+                    stage_attempts.c.stage == stage,
+                    stage_attempts.c.attempt == attempt,
+                )
+            ).mappings().one_or_none()
+        return _stage_attempt(row) if row is not None else None
+
+    def update_stage_attempt(
+        self,
+        unit_id: str,
+        stage: str,
+        attempt: int,
+        *,
+        cache_key: str | None = None,
+        payload: dict[str, Any] | BaseModel | None = None,
+        artifact_path: str | None = None,
+        error: str | None = None,
+    ) -> bool:
+        """Update mutable metadata while an attempt remains resumable."""
+        values: dict[str, Any] = {"updated_at": func.now()}
+        if cache_key is not None:
+            values["cache_key"] = cache_key
+        if payload is not None:
+            values["payload"] = _payload(payload)
+        if artifact_path is not None:
+            values["artifact_path"] = artifact_path
+        if error is not None:
+            values["error"] = error
+        with self.database.engine.begin() as connection:
+            result = connection.execute(
+                update(stage_attempts)
+                .where(
+                    stage_attempts.c.unit_id == unit_id,
+                    stage_attempts.c.stage == stage,
+                    stage_attempts.c.attempt == attempt,
+                    stage_attempts.c.status == "running",
+                )
+                .values(**values)
+            )
+        return result.rowcount == 1
+
+    def get_cached_stage(self, cache_key: str) -> StageAttempt | None:
+        with self.database.engine.connect() as connection:
+            row = connection.execute(
+                select(stage_attempts)
+                .where(stage_attempts.c.cache_key == cache_key, stage_attempts.c.status == "completed")
+            ).mappings().one_or_none()
+        return _stage_attempt(row) if row is not None else None
+
+    def complete_stage_attempt(
+        self,
+        unit_id: str,
+        stage: str,
+        attempt: int,
+        *,
+        artifact_path: str,
+        payload: dict[str, Any] | BaseModel,
+    ) -> bool:
+        """Commit completion metadata after the caller has atomically saved its artifact."""
+        try:
+            with self.database.engine.begin() as connection:
+                result = connection.execute(
+                    update(stage_attempts)
+                    .where(
+                        stage_attempts.c.unit_id == unit_id,
+                        stage_attempts.c.stage == stage,
+                        stage_attempts.c.attempt == attempt,
+                        stage_attempts.c.status == "running",
+                    )
+                    .values(
+                        status="completed", payload=_payload(payload), artifact_path=artifact_path,
+                        error=None, updated_at=func.now(),
+                    )
+                )
+                return result.rowcount == 1
+        except IntegrityError:
+            return False
+
+    def fail_stage_attempt(
+        self,
+        unit_id: str,
+        stage: str,
+        attempt: int,
+        *,
+        error: str,
+        payload: dict[str, Any] | BaseModel | None = None,
+    ) -> bool:
+        with self.database.engine.begin() as connection:
+            result = connection.execute(
+                update(stage_attempts)
+                .where(
+                    stage_attempts.c.unit_id == unit_id,
+                    stage_attempts.c.stage == stage,
+                    stage_attempts.c.attempt == attempt,
+                    stage_attempts.c.status == "running",
+                )
+                .values(
+                    status="failed", error=error,
+                    payload=_payload(payload or {}), updated_at=func.now(),
+                )
+            )
+        return result.rowcount == 1
