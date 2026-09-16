@@ -49,6 +49,18 @@ def test_stage_cache_reuses_completed_attempt_and_rejects_duplicate_commit(tmp_p
     )
     assert repository.get_stage_attempt(second_unit.id, "author", 1).status == "running"
 
+    assert repository.reuse_stage_attempt(
+        second_unit.id,
+        "author",
+        1,
+        artifact_path=cached.artifact_path,
+        payload=cached.payload,
+    )
+    reused = repository.get_stage_attempt(second_unit.id, "author", 1)
+    assert reused.status == "completed"
+    assert reused.cache_key is None
+    assert reused.error == "reused_completed_cache"
+
 
 def test_stage_attempt_records_failure_without_affecting_other_attempts(tmp_path):
     repository, unit = make_repository(tmp_path)

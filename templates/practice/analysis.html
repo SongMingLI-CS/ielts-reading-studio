@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ package.passage.title }} · 学习解析{% endblock %}
 {% block content %}<p class="eyebrow">学习解析</p><h1>{{ package.passage.title }}</h1>
+<article class="passage">{% for paragraph in package.passage.paragraphs %}<p class="{% if paragraph.label in evidence_labels %}evidence-highlight{% endif %}"><strong>{{ paragraph.label }}</strong> {{ paragraph.text }}</p>{% endfor %}</article>
 {% for group in package.question_groups %}{% for question in group.questions %}<article class="analysis-card"><h2>{{ question.number }}. {{ question.answer }}</h2><p><strong>证据 {{ question.evidence_paragraph }}：</strong>{{ question.evidence_quote }}</p><p>{{ question.chinese_explanation }}</p>{% for option, explanation in question.distractor_explanations.items() %}<p>{{ option }}：{{ explanation }}</p>{% endfor %}</article>{% endfor %}{% endfor %}
 <h2>重点词汇</h2>{% for word in package.passage.vocabulary %}<details><summary>{{ word.word }} {{ word.pronunciation or '' }}</summary><p>{{ word.chinese_meaning or '' }} · {{ word.collocations|join(', ') }}</p><p>{{ word.example or '' }}</p></details>{% endfor %}{% endblock %}

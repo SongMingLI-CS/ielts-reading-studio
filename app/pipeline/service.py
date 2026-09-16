@@ -16,9 +16,15 @@ from app.models import (
     ReadingPackage,
     UnitStatus,
 )
+from app.planning.boundaries import BoundaryEdit, apply_boundary_edits
 from app.planning.estimate import estimate_run
 from app.planning.importer import CorpusImporter
-from app.planning.units import default_question_types, unit_source_text
+from app.planning.units import (
+    build_manifest,
+    default_question_types,
+    plan_units,
+    unit_source_text,
+)
 from app.storage.artifacts import ArtifactStore
 from app.storage.database import Database
 from app.storage.repositories import Repository
@@ -92,6 +98,53 @@ class ReadingStudioService:
             "statuses": _counts(unit.status.value for unit in units),
             "approval": self.repository.get_latest_corpus_approval(corpus_id),
         }
+
+    def apply_boundary_overrides(
+        self,
+        corpus_id: str,
+        edits: list[BoundaryEdit],
+    ):
+        corpus = self.repository.get_corpus(corpus_id)
+        if corpus is None:
+            raise KeyError(f"Unknown corpus: {corpus_id}")
+        units = self.repository.list_units(corpus_id)
+        if any(unit.status != UnitStatus.INDEXED for unit in units):
+            raise PermissionError("Chapter boundaries are frozen after generation starts")
+        if (
+            self.repository.list_jobs(corpus_id)
+            or self.repository.get_latest_corpus_approval(corpus_id)
+            or self.repository.corpus_has_stage_attempts(corpus_id)
+        ):
+            raise PermissionError("Chapter boundaries are frozen after job creation or sample approval")
+        chapters = self.repository.list_source_chapters(corpus_id)
+        changed_chapters = apply_boundary_edits(chapters, edits)
+        difficulty = units[0].difficulty if units else Difficulty.STANDARD
+        question_types = units[0].question_types if units else default_question_types(difficulty)
+        changed_units = plan_units(
+            changed_chapters,
+            self.config,
+            difficulty,
+            question_types,
+            corpus_id=corpus_id,
+        )
+        changed_corpus = corpus.model_copy(update={"chapter_count": len(changed_chapters)})
+        previous = self.importer.load_manifest(corpus)
+        manifest = build_manifest(
+            changed_corpus,
+            changed_chapters,
+            changed_units,
+            confidence=previous.confidence if previous else 1.0,
+            diagnostics=previous.diagnostics if previous else [],
+            candidate_chapters=[],
+        )
+        self.repository.replace_corpus_index(changed_corpus, changed_chapters, changed_units)
+        relative = self.importer.manifest_relative_path(changed_corpus)
+        self.store.write_json(relative, manifest)
+        self.store.write_json(
+            relative.parent / "boundary-overrides.json",
+            {"edits": [edit.model_dump(mode="json") for edit in edits]},
+        )
+        return manifest
 
     def selected_units(self, corpus_id: str, ordinals: list[int] | None = None) -> list[GenerationUnit]:
         units = self.repository.list_units(corpus_id)

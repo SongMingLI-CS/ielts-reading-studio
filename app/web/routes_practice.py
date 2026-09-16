@@ -76,10 +76,16 @@ def practice_analysis(
     unit_id: str,
     service: Annotated[ReadingStudioService, Depends(get_service)],
 ):
+    package = _completed_package(service, unit_id)
+    evidence_labels = {
+        question.evidence_paragraph
+        for group in package.question_groups
+        for question in group.questions
+    }
     return TEMPLATES.TemplateResponse(
         request,
         "practice/analysis.html",
-        {"package": _completed_package(service, unit_id)},
+        {"package": package, "evidence_labels": evidence_labels},
     )
 
 

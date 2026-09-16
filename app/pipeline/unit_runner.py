@@ -295,7 +295,7 @@ class UnitRunner:
             unit.difficulty.value,
             [value.value for value in unit.question_types],
             model,
-            unit.prompt_version,
+            getattr(owner, "prompt_version", unit.prompt_version),
             parameters,
         )
         cached = self.repository.get_cached_stage(cache_key)
@@ -329,6 +329,14 @@ class UnitRunner:
                 cached = self.repository.get_cached_stage(cache_key)
                 if cached is None:
                     raise RuntimeError(f"Could not commit stage {stage}")
+                if not self.repository.reuse_stage_attempt(
+                    unit.id,
+                    stage,
+                    attempt,
+                    artifact_path=cached.artifact_path,
+                    payload=cached.payload,
+                ):
+                    raise RuntimeError(f"Could not record cache reuse for stage {stage}")
                 value = decode(cached.payload)
             if self.after_stage is not None:
                 self.after_stage(stage)
@@ -340,6 +348,16 @@ class UnitRunner:
                 attempt,
                 error=redact_secrets(exc),
             )
+            if isinstance(exc, ProviderError):
+                self.repository.add_usage_record(
+                    unit.id,
+                    UsageRecord(
+                        stage=stage,
+                        retries=exc.retries,
+                        error_type=exc.code,
+                    ),
+                    job_id=job_id,
+                )
             raise
 
     def _record_model_result(
@@ -358,6 +376,7 @@ class UnitRunner:
                 "response_id": result.response_id,
                 "model": result.model,
                 "finish_reason": result.finish_reason,
+                "raw_text": result.raw_text,
                 "payload": result.payload,
                 "usage": {
                     "input_tokens": result.input_tokens,

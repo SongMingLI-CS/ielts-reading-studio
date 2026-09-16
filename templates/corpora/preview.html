@@ -7,7 +7,8 @@
 {% for chapter in chapters %}<li><strong>{{ chapter.chapter_title or ('章节 ' ~ chapter.ordinal) }}</strong><span>{{ chapter.character_count or 0 }} 字</span></li>{% endfor %}
 </ol>
 <form class="panel" action="/corpora/{{ corpus.id }}/boundaries" method="post">
-  <label>边界修正说明<textarea name="overrides" rows="4" placeholder="记录需要调整的章节边界；不会修改原文件"></textarea></label>
+  <label>结构化边界修正（JSON）<textarea name="overrides" rows="7" placeholder='[{"action":"merge_next","chapter_id":"章节 ID"}]'></textarea></label>
+  <p class="muted">支持 rename、merge_next、split_before_paragraph；修改独立清单与索引，不修改原文件。章节开始生成后边界冻结。</p>
   <button type="submit">保存独立修正记录</button>
 </form>
 <a class="button" href="/corpora/{{ corpus.id }}/configure">下一步：生成配置</a>

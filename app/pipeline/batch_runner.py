@@ -146,8 +146,8 @@ class BatchRunner:
     def _write_summary(self, job_id: str, summary: BatchRunSummary) -> None:
         units = self.repository.list_job_units(job_id)
         total = len(units)
-        completed = len(summary.completed)
-        failed = len(summary.failed) + len(summary.needs_review)
+        completed = sum(unit.status == UnitStatus.COMPLETED for unit in units)
+        failed = sum(unit.status in {UnitStatus.FAILED, UnitStatus.NEEDS_REVIEW} for unit in units)
         usage_by_unit = {
             unit.id: self.repository.list_usage_records(unit.id)
             for unit in units

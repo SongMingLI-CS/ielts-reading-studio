@@ -147,6 +147,9 @@ def test_provider_failure_sets_exact_unit_state_and_saved_error(tmp_path, error)
     assert repository.get_unit(unit.id).status == UnitStatus.FAILED
     attempt = repository.get_stage_attempt(unit.id, "author_brief", 1)
     assert attempt.status == "failed"
+    usage = repository.list_usage_records(unit.id)
+    assert usage[-1].error_type == error.code
+    assert usage[-1].retries == error.retries
     failure = json.loads(store._destination(f"failed/{unit.id}.json").read_text(encoding="utf-8"))
     assert failure["code"] == error.code
     assert failure["issues"][0]["retries"] == error.retries

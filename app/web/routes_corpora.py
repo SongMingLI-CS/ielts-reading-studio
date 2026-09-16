@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import os
+from hashlib import sha256
 from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
@@ -10,7 +13,8 @@ from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
 from app.pipeline.service import ReadingStudioService
-from app.planning.importer import corpus_directory
+from app.planning.boundaries import BoundaryEdit
+from app.planning.importer import corpus_id_for
 
 from .dependencies import get_service
 
@@ -50,20 +54,29 @@ async def import_upload(
     extension = Path(source.filename or "").suffix.casefold()
     if extension not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=415, detail="Unsupported source format")
-    upload_dir = service.config.input_dir / uuid4().hex
-    upload_dir.mkdir(parents=True, exist_ok=False)
-    destination = upload_dir / f"source{extension}"
+    temporary_dir = service.config.input_dir / ".uploads"
+    temporary_dir.mkdir(parents=True, exist_ok=True)
+    temporary = temporary_dir / f"{uuid4().hex}.upload"
+    destination: Path | None = None
     written = 0
+    digest = sha256()
     try:
-        with destination.open("wb") as handle:
+        with temporary.open("wb") as handle:
             while chunk := await source.read(1024 * 1024):
                 written += len(chunk)
                 if written > MAX_UPLOAD_BYTES:
                     raise HTTPException(status_code=413, detail="Upload exceeds 250 MB")
+                digest.update(chunk)
                 handle.write(chunk)
+        upload_dir = service.config.input_dir / corpus_id_for(digest.hexdigest())
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        destination = upload_dir / f"source{extension}"
+        os.replace(temporary, destination)
         manifest = service.import_source(destination)
     except Exception:
-        if destination.exists():
+        if temporary.exists():
+            temporary.unlink()
+        if destination is not None and destination.exists():
             destination.unlink()
         raise
     finally:
@@ -106,11 +119,16 @@ def save_boundary_overrides(
     overrides: Annotated[str, Form()],
     service: Annotated[ReadingStudioService, Depends(get_service)],
 ):
-    corpus = service.repository.get_corpus(corpus_id)
-    if corpus is None:
-        raise HTTPException(status_code=404, detail="Corpus not found")
-    service.store.write_json(
-        Path(corpus_directory(corpus)) / "boundary-overrides.json",
-        {"overrides": overrides},
-    )
+    try:
+        raw_edits = json.loads(overrides)
+        if not isinstance(raw_edits, list):
+            raise TypeError("Boundary overrides must be a JSON list")
+        edits = [BoundaryEdit.model_validate(value) for value in raw_edits]
+        service.apply_boundary_overrides(corpus_id, edits)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return RedirectResponse(f"/corpora/{corpus_id}/preview", status_code=303)

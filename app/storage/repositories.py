@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel
-from sqlalchemy import func, insert, select, update
+from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import IntegrityError
 
@@ -196,6 +196,46 @@ class Repository:
         ]
         with self.database.engine.begin() as connection:
             connection.execute(insert(source_chapters), rows)
+
+    def replace_corpus_index(
+        self,
+        corpus: Corpus,
+        chapters: Sequence[SourceChapter],
+        units: Sequence[GenerationUnit],
+    ) -> None:
+        """Atomically replace a not-yet-started corpus index after boundary edits."""
+        chapter_rows = [
+            {
+                "id": chapter.id,
+                "corpus_id": corpus.id,
+                "ordinal": chapter.ordinal,
+                "payload": _payload(chapter),
+            }
+            for chapter in chapters
+        ]
+        unit_rows = [
+            {
+                "id": unit.id,
+                "corpus_id": unit.corpus_id,
+                "job_id": None,
+                "ordinal": unit.ordinal,
+                "status": unit.status.value,
+                "payload": _payload(unit),
+            }
+            for unit in units
+        ]
+        with self.database.engine.begin() as connection:
+            connection.execute(delete(generation_units).where(generation_units.c.corpus_id == corpus.id))
+            connection.execute(delete(source_chapters).where(source_chapters.c.corpus_id == corpus.id))
+            connection.execute(
+                update(corpora)
+                .where(corpora.c.id == corpus.id)
+                .values(chapter_count=corpus.chapter_count, payload=_payload(corpus))
+            )
+            if chapter_rows:
+                connection.execute(insert(source_chapters), chapter_rows)
+            if unit_rows:
+                connection.execute(insert(generation_units), unit_rows)
 
     def count_source_chapters(self, corpus_id: str) -> int:
         with self.database.engine.connect() as connection:
@@ -407,6 +447,20 @@ class Repository:
             ).scalar_one()
         return int(maximum or 0) + 1
 
+    def corpus_has_stage_attempts(self, corpus_id: str) -> bool:
+        with self.database.engine.connect() as connection:
+            count = connection.execute(
+                select(func.count())
+                .select_from(
+                    stage_attempts.join(
+                        generation_units,
+                        stage_attempts.c.unit_id == generation_units.c.id,
+                    )
+                )
+                .where(generation_units.c.corpus_id == corpus_id)
+            ).scalar_one()
+        return bool(count)
+
     def update_stage_attempt(
         self,
         unit_id: str,
@@ -477,6 +531,36 @@ class Repository:
                 return result.rowcount == 1
         except IntegrityError:
             return False
+
+    def reuse_stage_attempt(
+        self,
+        unit_id: str,
+        stage: str,
+        attempt: int,
+        *,
+        artifact_path: str | None,
+        payload: dict[str, Any] | BaseModel,
+    ) -> bool:
+        """Finish a losing cache race without duplicating the unique cache key."""
+        with self.database.engine.begin() as connection:
+            result = connection.execute(
+                update(stage_attempts)
+                .where(
+                    stage_attempts.c.unit_id == unit_id,
+                    stage_attempts.c.stage == stage,
+                    stage_attempts.c.attempt == attempt,
+                    stage_attempts.c.status == "running",
+                )
+                .values(
+                    status="completed",
+                    cache_key=None,
+                    payload=_payload(payload),
+                    artifact_path=artifact_path,
+                    error="reused_completed_cache",
+                    updated_at=func.now(),
+                )
+            )
+        return result.rowcount == 1
 
     def fail_stage_attempt(
         self,
