@@ -75,3 +75,7 @@ class TruncatedResponseError(ProviderError):
 class InvalidResponseError(ProviderError):
     code = "invalid_json_response"
 
+
+class AgentSchemaError(RuntimeError):
+    """Raised when a syntactically valid provider payload violates an agent contract."""
+
