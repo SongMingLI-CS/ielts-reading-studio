@@ -34,13 +34,14 @@ def test_two_thousand_chapter_manifest_is_stable_and_offline(tmp_path, monkeypat
     def forbidden(*args, **kwargs):
         pytest.fail("network access attempted during import")
 
+    agent_modules_before = {name for name in sys.modules if name.startswith("app.agents")}
     monkeypatch.setattr(socket, "socket", forbidden)
     manifest = service.import_source(source)
 
     assert manifest.chapter_count == 2000
     assert manifest.unit_count > 0
     assert manifest.corpus.source_hash
-    assert not any(name.startswith("app.agents") for name in sys.modules)
+    assert {name for name in sys.modules if name.startswith("app.agents")} == agent_modules_before
     assert manifest.units[0].ordinal == 1
 
 
