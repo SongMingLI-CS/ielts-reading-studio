@@ -297,6 +297,23 @@ class Repository:
             return None
         return {"id": row["id"], "corpus_id": row["corpus_id"], "status": row["status"], "payload": json.loads(row["payload"])}
 
+    def get_latest_corpus_approval(self, corpus_id: str) -> dict[str, Any] | None:
+        with self.database.engine.connect() as connection:
+            row = connection.execute(
+                select(corpus_approvals)
+                .where(corpus_approvals.c.corpus_id == corpus_id)
+                .order_by(corpus_approvals.c.created_at.desc())
+                .limit(1)
+            ).mappings().one_or_none()
+        if row is None:
+            return None
+        return {
+            "id": row["id"],
+            "corpus_id": row["corpus_id"],
+            "status": row["status"],
+            "payload": json.loads(row["payload"]),
+        }
+
     def create_stage_attempt(
         self,
         unit_id: str,

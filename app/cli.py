@@ -1,0 +1,234 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Annotated
+
+import typer
+
+from app.config import AppConfig, ConfigurationError, redact_secrets
+from app.models import Difficulty
+from app.pipeline.service import ReadingStudioService
+from app.planning.units import default_question_types
+
+app = typer.Typer(
+    no_args_is_help=True,
+    help="Local IELTS Academic Reading generation and practice studio.",
+)
+
+
+def build_service(config_path: Path, *, require_api_key: bool = False) -> ReadingStudioService:
+    return ReadingStudioService(AppConfig.load(config_path, require_api_key=require_api_key))
+
+
+@app.command("import")
+def import_source(
+    source: Annotated[Path, typer.Argument(exists=True, readable=True)],
+    config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
+) -> None:
+    """Import and index a source without making any API request."""
+    service = _service(config)
+    manifest = _guard(lambda: service.import_source(source))
+    typer.echo(f"Corpus ID: {manifest.corpus.id}")
+    typer.echo(f"章节: {manifest.chapter_count}; 生成单元: {manifest.unit_count}")
+    typer.echo(f"解析置信度: {manifest.confidence:.3f}")
+    if manifest.diagnostics:
+        typer.echo("诊断: " + ", ".join(manifest.diagnostics))
+
+
+@app.command()
+def inspect(
+    corpus_id: str,
+    config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
+) -> None:
+    """Inspect corpus metadata, status counts, and sample approval."""
+    details = _guard(lambda: _service(config).inspect_corpus(corpus_id))
+    corpus = details["corpus"]
+    typer.echo(f"Corpus ID: {corpus.id}")
+    typer.echo(f"Name: {corpus.name}")
+    typer.echo(f"Chapters: {corpus.chapter_count}; Units: {details['unit_count']}")
+    typer.echo("Statuses: " + json.dumps(details["statuses"], ensure_ascii=False, sort_keys=True))
+    typer.echo(f"Sample approved: {'yes' if details['approval'] else 'no'}")
+
+
+@app.command()
+def estimate(
+    corpus_id: str,
+    range_spec: Annotated[str | None, typer.Option("--range")] = None,
+    level: Annotated[Difficulty, typer.Option("--level")] = Difficulty.STANDARD,
+    config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
+) -> None:
+    """Estimate requests and tokens entirely offline."""
+    del level  # Units retain the immutable difficulty recorded in the manifest.
+    service = _service(config)
+    ordinals = _guard(lambda: parse_range(range_spec))
+    value = _guard(lambda: service.estimate_corpus(corpus_id, ordinals))
+    _print_estimate(value)
+
+
+@app.command()
+def sample(
+    corpus_id: str,
+    level: Annotated[Difficulty, typer.Option("--level")] = Difficulty.STANDARD,
+    config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
+) -> None:
+    """Generate exactly one sample; never approves it automatically."""
+    service = _service(config, require_api_key=True)
+    result = _guard(
+        lambda: service.generate_sample(corpus_id, level, default_question_types(level))
+    )
+    typer.echo(f"Sample unit: {result.unit_id}")
+    typer.echo(f"Status: {result.status.value}")
+    typer.echo("Review this sample before running approve-sample.")
+
+
+@app.command("approve-sample")
+def approve_sample(
+    corpus_id: str,
+    unit_id: str,
+    config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
+) -> None:
+    """Record explicit human approval of a completed sample."""
+    approval = _guard(lambda: _service(config).approve_sample(corpus_id, unit_id))
+    typer.echo(f"Approved sample: {approval['payload']['unit_id']}")
+
+
+@app.command()
+def generate(
+    corpus_id: str,
+    range_spec: Annotated[str | None, typer.Option("--range")] = None,
+    all_units: Annotated[bool, typer.Option("--all")] = False,
+    level: Annotated[Difficulty, typer.Option("--level")] = Difficulty.STANDARD,
+    yes: Annotated[bool, typer.Option("--yes")] = False,
+    config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
+) -> None:
+    """Create and synchronously run an approved batch."""
+    del level
+    if all_units and range_spec:
+        _abort("--all and --range cannot be used together")
+    service = _service(config)
+    if not service.is_corpus_approved(corpus_id):
+        _abort("样篇尚未批准；请先运行 approve-sample")
+    ordinals = None if all_units else _guard(lambda: parse_range(range_spec))
+    value = _guard(lambda: service.estimate_corpus(corpus_id, ordinals))
+    _print_estimate(value)
+    if all_units and not yes:
+        confirmation = typer.prompt("输入“确认全部生成”以继续", default="")
+        if confirmation != "确认全部生成":
+            _abort("未开始生成")
+    if service.config.deepseek_api_key is None:
+        _abort("DEEPSEEK_API_KEY is required for API work")
+    job = _guard(lambda: service.create_job(corpus_id, ordinals))
+    typer.echo(f"Job ID: {job['id']}")
+    summary = _guard(lambda: service.run_job(job["id"]))
+    typer.echo(
+        f"Completed: {len(summary.completed)}; Failed: {len(summary.failed)}; "
+        f"Needs review: {len(summary.needs_review)}"
+    )
+
+
+@app.command()
+def resume(
+    job_id: str,
+    config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
+) -> None:
+    """Recover interrupted units and continue a job."""
+    service = _service(config, require_api_key=True)
+    summary = _guard(lambda: service.resume_job(job_id))
+    typer.echo(f"Resumed {job_id}; completed this run: {len(summary.completed)}")
+
+
+@app.command()
+def retry(
+    job_id: str,
+    failed_only: Annotated[bool, typer.Option("--failed-only")] = False,
+    config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
+) -> None:
+    """Create a retry job, optionally containing failed units only."""
+    service = _service(config, require_api_key=True)
+    job = _guard(lambda: service.retry_job(job_id, failed_only=failed_only))
+    typer.echo(f"Retry Job ID: {job['id']}")
+
+
+@app.command("export")
+def export_command(
+    job_id: str,
+    format_name: Annotated[str, typer.Option("--format")] = "json",
+    workbook_size: Annotated[int, typer.Option("--workbook-size", min=20, max=50)] = 20,
+    config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
+) -> None:
+    """Export completed packages without making an API request."""
+    formats = {part.strip().lower() for part in format_name.split(",") if part.strip()}
+    if not formats or not formats <= {"json", "html", "docx"}:
+        _abort("--format must contain json, html, or docx")
+    paths = _guard(lambda: _service(config).export_job(job_id, formats, workbook_size=workbook_size))
+    for path in paths:
+        typer.echo(str(path))
+
+
+@app.command()
+def serve(
+    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8000,
+    config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
+) -> None:
+    """Start the local FastAPI interface."""
+    if host != "127.0.0.1":
+        _abort("The first release only serves on 127.0.0.1")
+    import uvicorn
+
+    from app.web.app import create_app
+
+    service = _service(config)
+    typer.echo(f"http://{host}:{port}")
+    uvicorn.run(create_app(config=service.config, service=service), host=host, port=port)
+
+
+def parse_range(value: str | None) -> list[int] | None:
+    if value is None or not value.strip() or value.strip().casefold() == "all":
+        return None
+    result: list[int] = []
+    for part in value.split(","):
+        token = part.strip()
+        if not token:
+            raise ValueError("Range contains an empty item")
+        if "-" in token:
+            pieces = token.split("-", 1)
+            start, end = (int(piece) for piece in pieces)
+            if start < 1 or end < start:
+                raise ValueError(f"Invalid range: {token}")
+            result.extend(range(start, end + 1))
+        else:
+            ordinal = int(token)
+            if ordinal < 1:
+                raise ValueError("Unit ordinals start at 1")
+            result.append(ordinal)
+    return list(dict.fromkeys(result))
+
+
+def _service(config: Path, *, require_api_key: bool = False) -> ReadingStudioService:
+    return _guard(lambda: build_service(config, require_api_key=require_api_key))
+
+
+def _print_estimate(value) -> None:
+    typer.echo(f"生成单元: {value.unit_count}")
+    typer.echo(f"预计 API 请求: {value.minimum_requests}–{value.maximum_requests}")
+    typer.echo(f"预计 Token: {value.minimum_tokens}–{value.maximum_tokens}")
+    if not value.pricing_available:
+        typer.echo("未配置价格，不显示金额估算。")
+
+
+def _guard(action):
+    try:
+        return action()
+    except (ConfigurationError, KeyError, ValueError, PermissionError, FileNotFoundError) as exc:
+        _abort(redact_secrets(exc))
+
+
+def _abort(message: object) -> None:
+    typer.echo(str(message), err=True)
+    raise typer.Exit(code=2)
+
+
+if __name__ == "__main__":
+    app()
