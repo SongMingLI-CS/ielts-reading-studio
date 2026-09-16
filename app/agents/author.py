@@ -59,7 +59,7 @@ class AuthorAgent:
             source_text=source_text,
             author_revision=0,
         )
-        return self._call(
+        passage = self._call(
             ModelRequest(
                 stage="author_passage",
                 model=self.config.author_model,
@@ -70,6 +70,7 @@ class AuthorAgent:
             ),
             ReadingPassage,
         )
+        return _validate_passage_contract(unit, passage, expected_revision=0)
 
     def revise_passage(
         self,
@@ -88,7 +89,7 @@ class AuthorAgent:
             passage_issues=issues,
             author_revision=passage.author_revision + 1,
         )
-        return self._call(
+        revised = self._call(
             ModelRequest(
                 stage="author_passage_revision",
                 model=self.config.author_model,
@@ -98,6 +99,11 @@ class AuthorAgent:
                 temperature=0.2,
             ),
             ReadingPassage,
+        )
+        return _validate_passage_contract(
+            unit,
+            revised,
+            expected_revision=passage.author_revision + 1,
         )
 
     def _call(self, request: ModelRequest, model_type: type[T]) -> T:
@@ -122,3 +128,19 @@ def _unit_context(unit: GenerationUnit) -> dict[str, Any]:
 def _json_context(instruction: str, **values: Any) -> str:
     return f"{instruction}\nJSON input:\n{json.dumps(values, ensure_ascii=False, sort_keys=True)}"
 
+
+def _validate_passage_contract(
+    unit: GenerationUnit,
+    passage: ReadingPassage,
+    *,
+    expected_revision: int,
+) -> ReadingPassage:
+    if passage.difficulty != unit.difficulty:
+        raise AgentSchemaError(
+            f"author_passage difficulty must be {unit.difficulty.value}, got {passage.difficulty.value}"
+        )
+    if passage.author_revision != expected_revision:
+        raise AgentSchemaError(
+            f"author_passage revision must be {expected_revision}, got {passage.author_revision}"
+        )
+    return passage

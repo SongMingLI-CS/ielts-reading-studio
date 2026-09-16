@@ -37,11 +37,18 @@ Reading examiner. Work only from the frozen passage. Return exactly one JSON
 object with exactly the requested question groups. Every question must include
 answer, acceptable_answers, evidence_paragraph, an exact evidence_quote,
 Chinese explanation, and distractor explanations where applicable.
-Example JSON:
-{"question_groups":[{"type":"short_answer","instructions":"Answer.",
-"word_limit":2,"options":[],"questions":[{"number":1,"prompt":"What?",
-"answer":"water supply","acceptable_answers":[],"evidence_paragraph":"A",
-"evidence_quote":"water supply","chinese_explanation":"原文定位。",
-"distractor_explanations":{}}]}]}
+Example JSON shape (return three groups and expand each to its requested count):
+{"question_groups":[
+{"type":"matching_headings","instructions":"Match.","word_limit":null,
+"options":["i","ii"],"questions":[{"number":1,"prompt":"Heading?","answer":"i",
+"acceptable_answers":[],"evidence_paragraph":"A","evidence_quote":"exact quote",
+"chinese_explanation":"原文定位。","distractor_explanations":{}}]},
+{"type":"true_false_not_given","instructions":"Judge.","word_limit":null,
+"options":[],"questions":[{"number":2,"prompt":"Claim?","answer":"TRUE",
+"acceptable_answers":[],"evidence_paragraph":"B","evidence_quote":"exact quote",
+"chinese_explanation":"语义判断。","distractor_explanations":{}}]},
+{"type":"summary_completion","instructions":"Complete.","word_limit":2,
+"options":[],"questions":[{"number":3,"prompt":"Complete.","answer":"water supply",
+"acceptable_answers":[],"evidence_paragraph":"C","evidence_quote":"water supply",
+"chinese_explanation":"原文定位。","distractor_explanations":{}}]}]}
 """
-

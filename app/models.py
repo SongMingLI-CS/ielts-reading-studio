@@ -120,6 +120,19 @@ class SourceBrief(BaseModel):
     prohibited_inventions: list[str] = Field(default_factory=list)
     suggested_structure: list[str] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def unique_item_ids(self) -> SourceBrief:
+        items = [
+            *self.core_facts,
+            *self.core_claims,
+            *self.causal_links,
+            *self.uncertainties,
+        ]
+        identifiers = [item.id for item in items]
+        if len(identifiers) != len(set(identifiers)):
+            raise ValueError("source brief item IDs must be unique")
+        return self
+
 
 class PassageParagraph(BaseModel):
     label: str

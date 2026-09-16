@@ -72,3 +72,26 @@ def test_author_retains_usage_result(recording_provider, author_agent, unit):
     author_agent.create_brief(unit, source_text="原文")
     assert author_agent.last_result is not None
     assert author_agent.last_result.input_tokens == 10
+
+
+def test_author_rejects_wrong_difficulty_or_revision(recording_provider, author_agent, unit):
+    wrong_difficulty = passage_payload()
+    wrong_difficulty["difficulty"] = "advanced"
+    recording_provider.queue(wrong_difficulty)
+    with pytest.raises(AgentSchemaError, match="difficulty"):
+        author_agent.write_passage(
+            unit,
+            SourceBrief.model_validate(brief_payload()),
+            source_text="原文",
+        )
+
+    wrong_revision = passage_payload(revision=0)
+    recording_provider.queue(wrong_revision)
+    with pytest.raises(AgentSchemaError, match="revision"):
+        author_agent.revise_passage(
+            unit,
+            SourceBrief.model_validate(brief_payload()),
+            source_text="原文",
+            passage=ReadingPassage.model_validate(passage_payload()),
+            issues=[],
+        )

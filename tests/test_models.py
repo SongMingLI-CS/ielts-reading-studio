@@ -7,6 +7,7 @@ from app.models import (
     GenerationUnit,
     QuestionType,
     ReadingPackage,
+    SourceBrief,
     UnitStatus,
 )
 
@@ -48,3 +49,11 @@ def test_source_chapter_rejects_duplicate_paragraph_labels():
             {"id": "p1", "label": "A", "text": "one"},
             {"id": "p2", "label": "A", "text": "two"},
         ])
+
+
+def test_source_brief_rejects_duplicate_item_ids_across_categories():
+    with pytest.raises(ValidationError, match="item IDs"):
+        SourceBrief(
+            core_facts=[{"id": "same", "text": "fact"}],
+            core_claims=[{"id": "same", "text": "claim"}],
+        )

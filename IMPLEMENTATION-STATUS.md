@@ -32,7 +32,7 @@ DeepSeek 适配器与双智能体已接入应用，但真实样篇门禁尚未�
 
 | 检查项 | 命令 | 结果 |
 |---|---|---|
-| 单元 + 集成测试 | `python -m pytest -q` | **177 passed** |
+| 单元 + 集成测试 | `python -m pytest -q` | **179 passed** |
 | 静态检查 | `python -m ruff check app tests` | **All checks passed!** |
 | 语法编译 | `python -m compileall -q app` | 通过 |
 | CLI 烟雾检查 | `python -m app.cli --help` | 通过，列出 10 个命令 |
@@ -182,7 +182,7 @@ SQLite：2000 章、1000 单元全部落库
 ```powershell
 cd C:\Users\Lenovo\Desktop\ielts-reading-studio
 python -m pip install -e ".[dev]"      # 若尚未安装
-python -m pytest -q                    # 预期 177 passed
+python -m pytest -q                    # 预期 179 passed
 python -m compileall -q app            # 语法编译检查
 python -m ruff check app tests         # 预期 All checks passed!
 ```
