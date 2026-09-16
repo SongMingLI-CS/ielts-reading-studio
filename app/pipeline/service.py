@@ -45,8 +45,18 @@ class ReadingStudioService:
         self.exporter = ExportService()
         self._provider = provider
 
-    def import_source(self, path: str | Path):
-        return self.importer.import_source(Path(path))
+    def import_source(
+        self,
+        path: str | Path,
+        *,
+        difficulty: Difficulty = Difficulty.STANDARD,
+        question_types: list[QuestionType] | None = None,
+    ):
+        return self.importer.import_source(
+            Path(path),
+            difficulty=difficulty,
+            question_types=question_types,
+        )
 
     def source_text_for_unit(self, unit: GenerationUnit) -> str:
         chapters = {
@@ -112,13 +122,41 @@ class ReadingStudioService:
         units = self.selected_units(corpus_id)
         if not units:
             raise ValueError("Corpus has no reliable generation units")
-        unit = units[0]
         selected_types = question_types or default_question_types(difficulty)
-        if unit.difficulty != difficulty or unit.question_types != selected_types:
-            raise ValueError(
-                "The requested sample settings differ from the immutable corpus manifest; re-plan the corpus"
-            )
+        unit = self.configure_units(corpus_id, [units[0].ordinal], difficulty, selected_types)[0]
         return self.unit_runner().run(unit.id)
+
+    def configure_units(
+        self,
+        corpus_id: str,
+        ordinals: list[int] | None,
+        difficulty: Difficulty,
+        question_types: list[QuestionType],
+    ) -> list[GenerationUnit]:
+        if len(question_types) != 3 or len(set(question_types)) != 3:
+            raise ValueError("Exactly three distinct question types are required")
+        configured: list[GenerationUnit] = []
+        for unit in self.selected_units(corpus_id, ordinals):
+            if unit.difficulty == difficulty and unit.question_types == question_types:
+                configured.append(unit)
+                continue
+            if unit.status != UnitStatus.INDEXED:
+                raise ValueError(f"Unit {unit.ordinal} has started and its generation settings are frozen")
+            changed = unit.model_copy(
+                update={
+                    "difficulty": difficulty,
+                    "question_types": list(question_types),
+                    "config_snapshot": {
+                        **unit.config_snapshot,
+                        "difficulty": difficulty.value,
+                        "question_types": [value.value for value in question_types],
+                    },
+                }
+            )
+            if not self.repository.update_indexed_unit(changed):
+                raise RuntimeError(f"Could not configure unit {unit.id}")
+            configured.append(changed)
+        return configured
 
     def approve_sample(self, corpus_id: str, unit_id: str) -> dict[str, Any]:
         unit = self.repository.get_unit(unit_id)
@@ -127,7 +165,12 @@ class ReadingStudioService:
         if unit.status != UnitStatus.COMPLETED:
             raise ValueError("Sample unit must be completed before approval")
         approval_id = f"{corpus_id}:{unit_id}"
-        payload = {"unit_id": unit_id, "approved": True}
+        payload = {
+            "unit_id": unit_id,
+            "approved": True,
+            "difficulty": unit.difficulty.value,
+            "question_types": [value.value for value in unit.question_types],
+        }
         existing = self.repository.get_corpus_approval(approval_id)
         if existing is None:
             self.repository.record_corpus_approval(approval_id, corpus_id, "approved", payload)
@@ -144,10 +187,28 @@ class ReadingStudioService:
         *,
         batch_size: int | None = None,
         concurrency: int | None = None,
+        difficulty: Difficulty | None = None,
+        question_types: list[QuestionType] | None = None,
     ) -> dict[str, Any]:
-        if not self.is_corpus_approved(corpus_id):
+        approval = self.repository.get_latest_corpus_approval(corpus_id)
+        if approval is None or approval["status"] != "approved":
             raise PermissionError("A completed sample must be explicitly approved before batch generation")
-        units = [unit for unit in self.selected_units(corpus_id, ordinals) if unit.status != UnitStatus.COMPLETED]
+        approved_difficulty = Difficulty(approval["payload"]["difficulty"])
+        approved_types = [QuestionType(value) for value in approval["payload"]["question_types"]]
+        selected_difficulty = difficulty or approved_difficulty
+        selected_types = question_types or approved_types
+        if selected_difficulty != approved_difficulty or selected_types != approved_types:
+            raise PermissionError("Batch settings must match the explicitly approved sample")
+        units = [
+            unit
+            for unit in self.configure_units(
+                corpus_id,
+                ordinals,
+                selected_difficulty,
+                selected_types,
+            )
+            if unit.status != UnitStatus.COMPLETED
+        ]
         job_id = str(uuid4())
         selected_batch_size = batch_size or self.config.batch_size
         selected_concurrency = concurrency or self.config.concurrency
@@ -160,6 +221,8 @@ class ReadingStudioService:
             "ordinals": [unit.ordinal for unit in units],
             "batch_size": selected_batch_size,
             "concurrency": selected_concurrency,
+            "difficulty": selected_difficulty.value,
+            "question_types": [value.value for value in selected_types],
         }
         self.repository.create_job(job_id, corpus_id, "queued", payload)
         self.repository.assign_units_to_job(payload["unit_ids"], job_id)

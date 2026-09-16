@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.agents.base import AgentSchemaError
 from app.models import UnitStatus
 from app.pipeline.unit_runner import UnitRunner
 
@@ -93,3 +94,18 @@ def test_restart_reuses_frozen_passage_without_recalling_author(pipeline_app, fa
     assert result.status == UnitStatus.COMPLETED
     assert fakes.author.write_calls == 1
     assert fakes.examiner.assessment_calls == 1
+
+
+def test_invalid_agent_schema_is_saved_as_failed_unit(pipeline_app, fakes):
+    def malformed(*args, **kwargs):
+        raise AgentSchemaError("invalid Passage schema")
+
+    fakes.author.write_passage = malformed
+    _config, repository, store, unit = pipeline_app
+
+    result = make_runner(pipeline_app, fakes).run(unit.id)
+
+    assert result.status == UnitStatus.FAILED
+    assert result.error_code == "agent_schema_error"
+    assert repository.get_unit(unit.id).status == UnitStatus.FAILED
+    assert store._destination(f"failed/{unit.id}.json").is_file()

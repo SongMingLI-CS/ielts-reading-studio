@@ -6,3 +6,14 @@ author_model: deepseek-flash
 examiner_model: deepseek-v4-pro
 concurrency: 2
 batch_size: 20
+author_revision_limit: 2
+examiner_revision_limit: 2
+min_source_chars: 800
+max_merged_chapters: 4
+max_merged_chars: 4000
+split_source_chars: 6000
+split_min_chars: 2500
+split_max_chars: 4500
+max_units_per_run: 20
+max_estimated_tokens_per_run: 500000
+max_consecutive_failures: 5

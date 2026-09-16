@@ -24,11 +24,18 @@ def build_service(config_path: Path, *, require_api_key: bool = False) -> Readin
 @app.command("import")
 def import_source(
     source: Annotated[Path, typer.Argument(exists=True, readable=True)],
+    level: Annotated[Difficulty, typer.Option("--level")] = Difficulty.STANDARD,
     config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
 ) -> None:
     """Import and index a source without making any API request."""
     service = _service(config)
-    manifest = _guard(lambda: service.import_source(source))
+    manifest = _guard(
+        lambda: service.import_source(
+            source,
+            difficulty=level,
+            question_types=default_question_types(level),
+        )
+    )
     typer.echo(f"Corpus ID: {manifest.corpus.id}")
     typer.echo(f"章节: {manifest.chapter_count}; 生成单元: {manifest.unit_count}")
     typer.echo(f"解析置信度: {manifest.confidence:.3f}")
@@ -59,10 +66,10 @@ def estimate(
     config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
 ) -> None:
     """Estimate requests and tokens entirely offline."""
-    del level  # Units retain the immutable difficulty recorded in the manifest.
     service = _service(config)
     ordinals = _guard(lambda: parse_range(range_spec))
     value = _guard(lambda: service.estimate_corpus(corpus_id, ordinals))
+    typer.echo(f"目标难度: {level.value}")
     _print_estimate(value)
 
 
@@ -103,7 +110,6 @@ def generate(
     config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
 ) -> None:
     """Create and synchronously run an approved batch."""
-    del level
     if all_units and range_spec:
         _abort("--all and --range cannot be used together")
     service = _service(config)
@@ -118,7 +124,14 @@ def generate(
             _abort("未开始生成")
     if service.config.deepseek_api_key is None:
         _abort("DEEPSEEK_API_KEY is required for API work")
-    job = _guard(lambda: service.create_job(corpus_id, ordinals))
+    job = _guard(
+        lambda: service.create_job(
+            corpus_id,
+            ordinals,
+            difficulty=level,
+            question_types=default_question_types(level),
+        )
+    )
     typer.echo(f"Job ID: {job['id']}")
     summary = _guard(lambda: service.run_job(job["id"]))
     typer.echo(
@@ -148,6 +161,8 @@ def retry(
     service = _service(config, require_api_key=True)
     job = _guard(lambda: service.retry_job(job_id, failed_only=failed_only))
     typer.echo(f"Retry Job ID: {job['id']}")
+    summary = _guard(lambda: service.run_job(job["id"]))
+    typer.echo(f"Completed this retry: {len(summary.completed)}")
 
 
 @app.command("export")

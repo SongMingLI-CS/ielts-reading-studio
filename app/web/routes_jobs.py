@@ -82,17 +82,13 @@ def start_job(
         selected_types = [QuestionType(value) for value in (question_types or [])]
         if len(selected_types) != 3 or len(set(selected_types)) != 3:
             raise ValueError("Exactly three distinct question types are required")
-        units = service.selected_units(corpus_id, ordinals)
-        if any(
-            unit.difficulty != difficulty or unit.question_types != selected_types
-            for unit in units
-        ):
-            raise ValueError("Selected difficulty and question types must match the corpus manifest")
         job = service.create_job(
             corpus_id,
             ordinals,
             batch_size=batch_size,
             concurrency=concurrency,
+            difficulty=difficulty,
+            question_types=selected_types,
         )
     except PermissionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

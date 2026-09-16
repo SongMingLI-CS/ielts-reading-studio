@@ -237,6 +237,19 @@ class Repository:
             row = connection.execute(select(generation_units).where(generation_units.c.id == unit_id)).mappings().one_or_none()
         return _model(row, GenerationUnit) if row is not None else None
 
+    def update_indexed_unit(self, unit: GenerationUnit) -> bool:
+        """Replace immutable generation settings only before a unit has started."""
+        with self.database.engine.begin() as connection:
+            result = connection.execute(
+                update(generation_units)
+                .where(
+                    generation_units.c.id == unit.id,
+                    generation_units.c.status == UnitStatus.INDEXED.value,
+                )
+                .values(payload=_payload(unit), updated_at=func.now())
+            )
+        return result.rowcount == 1
+
     def transition(self, unit_id: str, expected: UnitStatus, target: UnitStatus) -> bool:
         """Atomically move a unit only when it is still in ``expected`` status."""
         with self.database.engine.begin() as connection:

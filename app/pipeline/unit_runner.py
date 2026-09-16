@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
-from app.agents.base import ModelResult, ProviderError
+from app.agents.base import AgentSchemaError, ModelResult, ProviderError
 from app.agents.examiner import AssessmentPayload, PassageReview
 from app.config import AppConfig, redact_secrets
 from app.models import (
@@ -78,6 +78,20 @@ class UnitRunner:
                 [{"code": exc.code, "message": redact_secrets(exc)}],
             )
             raise
+        except AgentSchemaError as exc:
+            unit = self._required_unit(unit_id)
+            if can_transition(unit.status, UnitStatus.FAILED):
+                self.repository.transition(unit.id, unit.status, UnitStatus.FAILED)
+            self._write_failure(
+                unit,
+                "agent_schema_error",
+                [{"code": "agent_schema_error", "message": redact_secrets(exc)}],
+            )
+            return UnitRunResult(
+                unit_id=unit.id,
+                status=UnitStatus.FAILED,
+                error_code="agent_schema_error",
+            )
 
     def _run(self, unit_id: str, *, job_id: str | None = None) -> UnitRunResult:
         unit = self._required_unit(unit_id)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -54,7 +54,7 @@ class Corpus(BaseModel):
     format: str
     encoding: str | None = None
     chapter_count: int = Field(ge=0)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     parser_version: str
 
 

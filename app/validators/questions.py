@@ -191,7 +191,12 @@ def _validate_question(
                 question_number=question.number,
             )
 
-    if question.answer.strip() and question.answer.casefold() in question.prompt.casefold():
+    answer_pattern = re.escape(question.answer.strip())
+    if answer_pattern and re.search(
+        rf"(?<!\w){answer_pattern}(?!\w)",
+        question.prompt,
+        flags=re.IGNORECASE,
+    ):
         report.add(
             "question_leaks_answer",
             "Question prompt directly contains its answer.",
@@ -202,4 +207,3 @@ def _validate_question(
 
 def _word_count(text: str) -> int:
     return len(re.findall(r"\b[\w'’-]+\b", text, flags=re.UNICODE))
-
