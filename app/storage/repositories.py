@@ -172,6 +172,26 @@ class Repository:
             ).mappings()
             return [_model(row, GenerationUnit) for row in rows]
 
+    def list_job_units(self, job_id: str) -> list[GenerationUnit]:
+        with self.database.engine.connect() as connection:
+            rows = connection.execute(
+                select(generation_units)
+                .where(generation_units.c.job_id == job_id)
+                .order_by(generation_units.c.ordinal)
+            ).mappings()
+            return [_model(row, GenerationUnit) for row in rows]
+
+    def assign_units_to_job(self, unit_ids: Sequence[str], job_id: str) -> int:
+        if not unit_ids:
+            return 0
+        with self.database.engine.begin() as connection:
+            result = connection.execute(
+                update(generation_units)
+                .where(generation_units.c.id.in_(unit_ids))
+                .values(job_id=job_id, updated_at=func.now())
+            )
+        return result.rowcount
+
     def get_unit(self, unit_id: str) -> GenerationUnit | None:
         with self.database.engine.connect() as connection:
             row = connection.execute(select(generation_units).where(generation_units.c.id == unit_id)).mappings().one_or_none()
@@ -306,6 +326,16 @@ class Repository:
                 )
             ).mappings().one_or_none()
         return _stage_attempt(row) if row is not None else None
+
+    def next_stage_attempt_number(self, unit_id: str, stage: str) -> int:
+        with self.database.engine.connect() as connection:
+            maximum = connection.execute(
+                select(func.max(stage_attempts.c.attempt)).where(
+                    stage_attempts.c.unit_id == unit_id,
+                    stage_attempts.c.stage == stage,
+                )
+            ).scalar_one()
+        return int(maximum or 0) + 1
 
     def update_stage_attempt(
         self,
