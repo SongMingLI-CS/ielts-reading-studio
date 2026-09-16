@@ -1,0 +1,8 @@
+input_dir: input
+output_dir: output
+database_path: output/state.db
+deepseek_base_url: https://api.deepseek.com
+author_model: deepseek-flash
+examiner_model: deepseek-v4-pro
+concurrency: 2
+batch_size: 20

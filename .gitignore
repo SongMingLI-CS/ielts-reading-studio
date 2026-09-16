@@ -1,1 +1,10 @@
 .worktrees/
+.env
+.venv/
+output/
+input/
+*.db
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*.egg-info/
