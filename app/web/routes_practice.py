@@ -698,61 +698,6 @@ def practice_analysis(
     )
 
 
-@router.get("/exports")
-def export_center(
-    request: Request,
-    service: Annotated[ReadingStudioService, Depends(get_service)],
-    created: str | None = None,
-):
-    completed = [
-        unit
-        for corpus in service.repository.list_corpora()
-        for unit in service.repository.list_units(corpus.id)
-        if unit.status == UnitStatus.COMPLETED
-    ]
-    return TEMPLATES.TemplateResponse(
-        request,
-        "exports/index.html",
-        {"units": completed, "created": created},
-    )
-
-
-@router.post("/exports")
-def create_exports(
-    unit_ids: Annotated[list[str], Form()],
-    format_name: Annotated[str, Form(alias="format")],
-    service: Annotated[ReadingStudioService, Depends(get_service)],
-    workbook_size: Annotated[int, Form(ge=20, le=50)] = 20,
-):
-    units = [service.repository.get_unit(unit_id) for unit_id in unit_ids]
-    if any(unit is None or unit.status != UnitStatus.COMPLETED for unit in units):
-        raise HTTPException(
-            status_code=409, detail="Only completed units can be exported"
-        )
-    try:
-        packages = [service.load_package(unit_id) for unit_id in unit_ids]
-    except (FileNotFoundError, ValueError) as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    if any(not package.quality_report.passed for package in packages):
-        raise HTTPException(
-            status_code=409, detail="Only validated packages can be exported"
-        )
-    destination = service.config.output_dir / "exports" / f"manual-{uuid4().hex}"
-    if format_name == "docx" and len(packages) > 1:
-        paths = service.exporter.export_workbooks(packages, destination, workbook_size)
-    elif format_name in {"json", "html", "docx"}:
-        paths = [
-            path
-            for package in packages
-            for path in service.exporter.export_package(
-                package, destination, {format_name}
-            )
-        ]
-    else:
-        raise HTTPException(status_code=422, detail="Unsupported export format")
-    return RedirectResponse(f"/exports?created={len(paths)}", status_code=303)
-
-
 def _completed_package(service: ReadingStudioService, unit_id: str):
     unit = service.repository.get_unit(unit_id)
     if unit is None:

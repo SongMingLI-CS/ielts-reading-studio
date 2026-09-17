@@ -13,10 +13,12 @@ from app.pipeline.service import ReadingStudioService
 
 from .routes_backup import router as backup_router
 from .routes_corpora import router as corpora_router
+from .routes_exports import router as exports_router
 from .routes_home import router as home_router
 from .routes_jobs import router as jobs_router
 from .routes_novel import router as novel_router
 from .routes_practice import router as practice_router
+from .routes_settings import router as settings_router
 
 
 def create_app(
@@ -65,8 +67,10 @@ def create_app(
     application.include_router(corpora_router)
     application.include_router(jobs_router)
     application.include_router(practice_router)
+    application.include_router(exports_router)
     application.include_router(novel_router)
     application.include_router(backup_router)
+    application.include_router(settings_router)
     static_dir = Path(__file__).parents[2] / "static"
     application.mount("/static", StaticFiles(directory=static_dir), name="static")
     return application

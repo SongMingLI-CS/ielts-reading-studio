@@ -1,5 +1,147 @@
 {% extends "base.html" %}
-{% block title %}导出中心{% endblock %}
-{% block content %}<p class="eyebrow">规范 Package</p><h1>导出中心</h1>{% if created %}<p class="success">已创建 {{ created }} 个文件。</p>{% endif %}
-<form class="panel" action="/exports" method="post"><fieldset><legend>已完成单元</legend>{% for unit in units %}<label class="check"><input type="checkbox" name="unit_ids" value="{{ unit.id }}"> #{{ unit.ordinal }} · {{ unit.id }}</label>{% endfor %}</fieldset>
-<label>格式<select name="format"><option>json</option><option>html</option><option>docx</option></select></label><label>练习册大小<input type="number" name="workbook_size" min="20" max="50" value="20"></label><button>创建导出</button></form>{% endblock %}
+{% block title %}导出中心 · IELTS Reading Studio{% endblock %}
+{% block content %}
+{% if created_batch %}<p class="library-flash">已生成导出批次「{{ created_batch }}」，共 {{ created_count }} 个文件。在下方「已生成的文件」里点击文件名即可下载。</p>{% endif %}
+
+<section class="library-hero">
+  <div class="library-copy">
+    <p class="eyebrow">Take your practice away</p>
+    <h1>导出中心</h1>
+    <p class="lead">把已经生成并通过质检的练习变成可以带走的文件：单文件练习页、Word 练习册，或原始 JSON 数据。<b>生成后直接在下方下载，不需要登录服务器取文件。</b></p>
+    <div class="library-actions">
+      <a class="button ghost" href="/practice">去练习中心</a>
+      <a class="button ghost" href="/corpora">回材料库</a>
+    </div>
+  </div>
+  <aside class="library-totals">
+    <p class="eyebrow">可导出</p>
+    <div class="totals-grid">
+      <div><strong>{{ exportable|length }}</strong><span>篇可导出</span></div>
+      <div><strong>{{ batches|length }}</strong><span>批历史导出</span></div>
+    </div>
+    {% if blocked %}<p class="totals-note">⚠ {{ blocked|length }} 篇质检未通过，需先在材料库处理</p>{% endif %}
+  </aside>
+</section>
+
+<section class="workflow-strip" aria-label="导出流程">
+  <div class="flow-step"><span>1</span><div><strong>挑练习</strong><p>只列已完成且质检通过的篇目</p></div></div>
+  <div class="flow-step"><span>2</span><div><strong>选格式</strong><p>练习页 / Word / JSON</p></div></div>
+  <div class="flow-step"><span>3</span><div><strong>生成</strong><p>文件写到服务器的 output/exports</p></div></div>
+  <div class="flow-step"><span>4</span><div><strong>下载</strong><p>单文件或整批 zip 一键取走</p></div></div>
+</section>
+
+<form class="export-form" action="/exports" method="post">
+  <section class="config-block">
+    <header class="config-head">
+      <div><h2>第 1 步 · 选要导出的练习</h2><p>只有「已完成」且质检通过的篇目能导出；其他篇目会在材料库标为待审阅。</p></div>
+      {% if exportable %}
+      <div class="pick-tools">
+        <button type="button" class="button ghost small" data-pick="all">全选</button>
+        <button type="button" class="button ghost small" data-pick="none">清空</button>
+      </div>
+      {% endif %}
+    </header>
+    {% if exportable %}
+    <div class="pick-list">
+      {% for unit in exportable %}
+      <label class="pick-row">
+        <input type="checkbox" name="unit_ids" value="{{ unit.id }}">
+        <span class="pick-main">
+          <strong>{{ unit.title or unit.id }}</strong>
+          <span class="pick-meta">#{{ unit.ordinal }} · {{ unit.difficulty|title }} · {{ unit.questions }} 题{% if unit.passed is none %} · 未读到质检报告{% endif %}</span>
+        </span>
+        <span class="badge status-practice">可导出</span>
+      </label>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="inline-note plain">还没有可导出的篇目。先在材料库生成题目——每篇生成完会自动质检，通过后就会出现在这里。</p>
+    {% endif %}
+    {% if blocked %}
+    <details class="export-blocked">
+      <summary>{{ blocked|length }} 篇被跳过（质检未通过）</summary>
+      <ul class="keep-list">
+        {% for unit in blocked %}<li>#{{ unit.ordinal }} · {{ unit.title or unit.id }} <span class="badge status-review">待审阅</span></li>{% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+  </section>
+
+  <section class="config-block">
+    <header class="config-head"><div><h2>第 2 步 · 选格式</h2><p>同一批练习可以分别导几次，互不影响。</p></div></header>
+    <div class="format-cards">
+      {% for format in formats %}
+      <label class="format-card">
+        <input type="radio" name="format" value="{{ format.value }}"{% if format.value == 'html' %} checked{% endif %}>
+        <span class="format-body">
+          <strong>{{ format.name }}</strong>
+          <span class="format-who">适合：{{ format.who }}</span>
+          <span class="format-what">{{ format.what }}</span>
+          <span class="format-keeps">包含：{{ format.keeps }}</span>
+        </span>
+      </label>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="config-block">
+    <header class="config-head"><div><h2>第 3 步 · 生成</h2><p>点一下就写文件，输出位置固定，随时可以重复导出。</p></div></header>
+    <div class="export-actions">
+      <label class="export-size">练习册大小（每卷篇数）
+        <input type="number" name="workbook_size" min="20" max="50" value="20">
+        <span class="muted">仅当第 2 步选 Word 且勾选 2 篇以上时生效，每卷 20–50 篇。</span>
+      </label>
+      <button type="submit">生成导出</button>
+    </div>
+  </section>
+</form>
+
+<section class="config-block">
+  <header class="config-head"><div><h2>已生成的文件</h2><p>点文件名下载单个文件；文件多时用「打包下载 zip」一次取走。</p></div></header>
+  {% if batches %}
+  {% for batch in batches %}
+  <div class="export-batch">
+    <div class="batch-head">
+      <strong>{{ batch.name }}</strong>
+      <span class="badge">{{ batch.files|length }} 个文件</span>
+      <span class="badge">{{ batch.total_kb }} KB</span>
+      <span class="muted">{{ batch.created.strftime('%Y-%m-%d %H:%M') }}</span>
+      <a class="button ghost small" href="/exports/bundle/{{ batch.name }}">打包下载 zip</a>
+    </div>
+    <ul class="file-list">
+      {% for file in batch.files %}
+      <li>
+        <a class="text-link" href="/exports/file/{{ file.relative }}">{{ file.name }}</a>
+        <span class="badge format">{{ file.suffix }}</span>
+        <span class="muted">{{ file.kb }} KB</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+  {% else %}
+  <p class="inline-note plain">还没有导出过任何文件。上面选好篇目和格式，点「生成导出」，文件就会出现在这里。</p>
+  {% endif %}
+  <p class="inline-note plain">文件保存在服务器 <code>{{ exports_dir }}</code>。导出只是复制，不会改动数据库里的题目；要删掉旧导出，用 SSH 删除对应批次目录即可。</p>
+</section>
+
+<section class="config-block">
+  <header class="config-head"><div><h2>三种格式怎么选</h2><p>一句话版本：发给人做 → HTML；打印批注 → Word；给程序用 → JSON。</p></div></header>
+  <ul class="keep-list">
+    <li><b>HTML</b>：单个 .html 文件，双击就能做题，交卷后显示判分与解析；交卷前界面上没有答案。</li>
+    <li><b>DOCX</b>：Word 排版，含文章、题目、答案与解析、词汇表，适合打印；多篇时按练习册分卷。</li>
+    <li><b>JSON</b>：与数据库里完全一致的 ReadingPackage，含来源覆盖、模型用量与质检报告。</li>
+  </ul>
+</section>
+
+<script>
+  document.querySelectorAll('[data-pick]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var check = button.dataset.pick === 'all';
+      document.querySelectorAll('.pick-row input[name="unit_ids"]').forEach(function (box) {
+        box.checked = check;
+      });
+    });
+  });
+</script>
+{% endblock %}

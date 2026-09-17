@@ -78,8 +78,9 @@
     - 提交后才返回正确性、正确答案、可接受答案、原文证据、中文解析和干扰项说明。
     - 结果页与解析页共用同一份复习片段；解析页可带 `?attempt=` 对照当次作答，并高亮证据段落、展示词汇。
     - 评分执行 Unicode、大小写和空白规范化，不使用模糊匹配；多选 API 使用无序集合比较；匹配题接受选项标号或完整选项文本。
-    - 导出中心拒绝未完成或未校验单元。
-    - 证据：`tests/web/test_practice.py`、`tests/web/test_exports.py`。
+    - 导出中心拒绝未完成或未校验单元，列出标题与题量，并提供单文件与整批 zip 下载；下载路径限制在 `output/exports/` 内，路径穿越返回 404。
+    - 设置页只读展示生效配置、密钥来源与存储占用，并用一次极小真实请求测试模型连通性；密钥值与前缀都不出现在页面或重定向参数里。
+    - 证据：`tests/web/test_practice.py`、`tests/web/test_exports.py`、`tests/web/test_settings.py`。
 
 13. **端到端加固与运维**
     - 假 Provider 覆盖 Foundation、Standard、Advanced，及 import → sample → approve → batch → JSON/HTML/DOCX 全流程。

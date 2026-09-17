@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}设置 · IELTS Reading Studio{% endblock %}
+{% block content %}
+<section class="library-hero">
+  <div class="library-copy">
+    <p class="eyebrow">Settings &amp; health</p>
+    <h1>设置</h1>
+    <p class="lead">这一页把当前生效的配置、密钥状态和数据位置摊开给你看，并且可以一键测试出题模型是否连得上。<b>网页只读配置、不回写</b>——需要改动时改服务器上的 <code>config.yaml</code> 或 <code>.env</code>，重启服务后这里会显示新值。</p>
+    <div class="library-actions">
+      <a class="button ghost" href="/backup">备份与恢复</a>
+      <a class="button ghost" href="/exports">导出中心</a>
+    </div>
+  </div>
+  <aside class="library-totals">
+    <p class="eyebrow">连接状态</p>
+    <form class="probe-form" action="/settings/test-provider" method="post">
+      <p class="probe-hint">向 {{ groups[0].rows[0].value }} 发一次极小的真实请求（约几十 token），确认密钥、余额和模型名都可用。</p>
+      <button type="submit">测试模型连接</button>
+    </form>
+    {% if probe %}
+    <p class="probe-result {{ 'ok' if probe.ok else 'bad' }}">
+      {{ '✓' if probe.ok else '✗' }} {{ probe.status }}{% if probe.elapsed %} · {{ probe.elapsed }}s{% endif %}
+    </p>
+    <p class="probe-detail">{{ probe.detail }}</p>
+    {% endif %}
+  </aside>
+</section>
+
+<section class="config-block">
+  <header class="config-head"><div><h2>密钥与访问</h2><p>只看状态，页面不会显示密钥内容。</p></div></header>
+  <div class="secret-list">
+    {% for secret in secrets %}
+    <div class="secret-row">
+      <span class="secret-dot {{ 'ok' if secret.ok else 'bad' }}" aria-hidden="true"></span>
+      <strong>{{ secret.name }}</strong>
+      <span class="badge {{ 'status-practice' if secret.ok else 'status-review' }}">{{ secret.state }}</span>
+      <span class="muted">{{ secret.detail }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+{% for group in groups %}
+<section class="config-block">
+  <header class="config-head"><div><h2>{{ group.title }}</h2><p>{{ group.blurb }}</p></div></header>
+  <div class="settings-rows">
+    {% for row in group.rows %}
+    <div class="settings-row">
+      <span class="settings-name">{{ row.name }}</span>
+      <code class="settings-value">{{ row.value }}</code>
+      <span class="settings-note">{{ row.note }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+
+<section class="config-block">
+  <header class="config-head"><div><h2>占用空间</h2><p>数据都在服务器上，定期下载备份更安心。</p></div></header>
+  <dl class="preview-facts">
+    {% for item in storage %}
+    <div{% if not item.exists %} class="alert"{% endif %}>
+      <dt>{{ item.label }}</dt>
+      <dd>{{ item.size }}</dd>
+    </div>
+    {% endfor %}
+  </dl>
+  <ul class="keep-list">
+    <li>备份会把数据库、<code>output/</code> 与 <code>input/</code> 打成 zip，且<b>不包含</b>任何密钥文件。</li>
+    <li>想换模型或调整并发、返工次数：改 <code>config.yaml</code> 后执行 <code>sudo systemctl restart ielts-reading-studio</code>。</li>
+    <li>想换 API Key 或网页登录口令：改 <code>.env.web</code>（服务器专用）后同样重启服务。</li>
+  </ul>
+</section>
+{% endblock %}

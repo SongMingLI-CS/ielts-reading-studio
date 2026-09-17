@@ -1,17 +1,35 @@
+import datetime as dt
+import os
 import sqlite3
+import tempfile
 import zipfile
+from pathlib import Path
+
+from app.web.routes_backup import _clean_stale_archives
+
+
+def test_backup_cleans_stale_export_archives(tmp_path, monkeypatch):
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
+    stale = tmp_path / "ielts-export-stale.zip"
+    fresh = tmp_path / "ielts-export-fresh.zip"
+    keep = tmp_path / "unrelated.zip"
+    for path in (stale, fresh, keep):
+        path.write_bytes(b"PK")
+    old = dt.datetime.now(dt.UTC).timestamp() - 7200
+    os.utime(stale, (old, old))
+
+    _clean_stale_archives()
+
+    assert not stale.exists()
+    assert fresh.exists()
+    assert keep.exists()
 
 
 def test_backup_cleans_stale_temp_archives(client, web_service, sample_txt, tmp_path, monkeypatch):
-    import os
-    import tempfile
-    import time
-    from pathlib import Path
-
     web_service.import_source(sample_txt)
     scratch = Path(tempfile.gettempdir())
     stale = Path(tempfile.mkstemp(prefix="ielts-backup-", suffix=".zip")[1])
-    old = time.time() - 7200
+    old = dt.datetime.now(dt.UTC).timestamp() - 7200
     os.utime(stale, (old, old))
     fresh = Path(tempfile.mkstemp(prefix="ielts-backup-", suffix=".zip")[1])
 

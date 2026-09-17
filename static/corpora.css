@@ -324,3 +324,63 @@
   .corpus-ring{justify-self:start}
   .corpus-stats{grid-template-columns:1fr 1fr}
 }
+
+/* ---------- 导出中心 ---------- */
+.button.small{padding:.45rem .7rem;font-size:.8rem}
+.pick-tools{display:flex;gap:.4rem;flex-wrap:wrap}
+.pick-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:.5rem}
+.pick-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.7rem;align-items:center;margin:0;padding:.65rem .8rem;background:#f6f8f5;border:1px solid #e3eae5;border-radius:.7rem;font-weight:600;cursor:pointer;transition:border-color .15s,background .15s}
+.pick-row:hover{background:#eff4f0;border-color:#c8dbd2}
+.pick-row input{width:auto;margin:0;accent-color:var(--green)}
+.pick-main{display:flex;flex-direction:column;gap:.15rem;min-width:0}
+.pick-main strong{font-size:.9rem;overflow-wrap:anywhere;color:#22332e}
+.pick-meta{color:#7b8681;font-size:.74rem;font-weight:500}
+.export-blocked{margin-top:.9rem;border:1px solid #efd3c4;background:#fdf5f0;border-radius:.7rem;padding:.6rem .8rem}
+.export-blocked summary{cursor:pointer;font-weight:700;color:#8a4a25;font-size:.85rem}
+.export-blocked .keep-list{margin-top:.5rem}
+.format-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:.7rem}
+.format-card{display:flex;gap:.7rem;align-items:flex-start;margin:0;padding:.9rem;background:#f6f8f5;border:1px solid #e3eae5;border-radius:.8rem;font-weight:500;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.format-card:hover{border-color:#c8dbd2}
+.format-card:has(input:checked){background:#eef6f2;border-color:#9ccbbe;box-shadow:0 0 0 2px #9ccbbe44}
+.format-card input{width:auto;margin:.2rem 0 0;accent-color:var(--green)}
+.format-body{display:flex;flex-direction:column;gap:.25rem}
+.format-body strong{font-size:.95rem;color:#1c4038}
+.format-who{font-size:.78rem;color:#4f6f66;font-weight:700}
+.format-what{font-size:.8rem;color:#5d6964}
+.format-keeps{font-size:.74rem;color:#8a958f}
+.export-actions{display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap}
+.export-size{margin:0;max-width:22rem;font-weight:600}
+.export-size .muted{display:block;margin-top:.3rem;font-weight:500;font-size:.75rem}
+.export-batch{border:1px solid #e6ebe7;border-radius:.8rem;padding:.85rem 1rem;margin-top:.8rem;background:#fbfcfb}
+.batch-head{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;margin-bottom:.5rem}
+.batch-head .muted{font-size:.75rem}
+.batch-head .button{margin-left:auto}
+.file-list{list-style:none;margin:0;padding:0}
+.file-list li{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.4rem 0;border-top:1px solid #eef1ee;font-size:.86rem}
+.file-list li:first-child{border-top:0}
+.file-list .muted{font-size:.75rem}
+
+/* ---------- 设置 ---------- */
+.probe-form{margin:0;display:flex;flex-direction:column;gap:.6rem}
+.probe-hint{margin:0;color:#5d6964;font-size:.8rem}
+.probe-result{margin:.9rem 0 .3rem;padding:.55rem .7rem;border-radius:.6rem;font-weight:700;font-size:.85rem}
+.probe-result.ok{background:#dff0e8;border:1px solid #bfdfd2;color:#24674f}
+.probe-result.bad{background:#fdeadd;border:1px solid #efc9ad;color:#a8431f}
+.probe-detail{margin:0;color:#5d6964;font-size:.78rem;overflow-wrap:anywhere}
+.secret-list{display:grid;gap:.5rem}
+.secret-row{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.65rem .8rem;background:#f6f8f5;border:1px solid #e3eae5;border-radius:.7rem;font-size:.86rem}
+.secret-row .muted{font-size:.78rem}
+.secret-dot{width:.55rem;height:.55rem;border-radius:50%;flex:0 0 auto}
+.secret-dot.ok{background:#43a179}
+.secret-dot.bad{background:#df7049}
+.settings-rows{display:grid;gap:.1rem}
+.settings-row{display:grid;grid-template-columns:minmax(9rem,13rem) minmax(0,1.1fr) minmax(0,1.4fr);gap:.9rem;align-items:baseline;padding:.6rem 0;border-top:1px solid #eef1ee}
+.settings-row:first-child{border-top:0}
+.settings-name{font-weight:700;font-size:.85rem;color:#22332e}
+.settings-value{background:#f4f7f5;border:1px solid #e3eae5;border-radius:.4rem;padding:.2rem .45rem;font-size:.79rem;color:#1d6658;overflow-wrap:anywhere}
+.settings-note{color:#6f7b76;font-size:.78rem}
+@media (max-width:700px){
+  .settings-row{grid-template-columns:1fr;gap:.3rem}
+  .batch-head .button{margin-left:0}
+  .export-actions{align-items:flex-start}
+}

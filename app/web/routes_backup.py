@@ -56,12 +56,13 @@ def _backup_facts(service: ReadingStudioService) -> dict[str, Any]:
 def _clean_stale_archives(max_age_seconds: int = 3600) -> None:
     """Drop temp archives left behind by interrupted downloads."""
     cutoff = dt.datetime.now(dt.UTC).timestamp() - max_age_seconds
-    for path in Path(tempfile.gettempdir()).glob("ielts-backup-*.zip"):
-        try:
-            if path.stat().st_mtime < cutoff:
-                path.unlink()
-        except OSError:
-            continue
+    for pattern in ("ielts-backup-*.zip", "ielts-export-*.zip"):
+        for path in Path(tempfile.gettempdir()).glob(pattern):
+            try:
+                if path.stat().st_mtime < cutoff:
+                    path.unlink()
+            except OSError:
+                continue
 
 
 def _snapshot_database(database: Path, target: Path) -> None:
