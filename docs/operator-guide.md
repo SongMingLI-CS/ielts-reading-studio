@@ -121,3 +121,55 @@ server {
 - **当前是本机单用户设计**：练习草稿、成绩、任务队列都写在同一份 `output/state.db`，Basic 认证只拦访问者、不区分用户。多人共用一台服务器时，建议每人一份目录与端口（各自 `--config`），或在反代上按路径隔离。
 - 长期运行建议用 systemd 等进程管理器托管，并定期备份 `output/`（见第 6 节）。
 
+
+## 10. 更新已有部署
+
+服务器上的项目目录就是一份 git 检出，更新只有一条命令：
+
+```bash
+~/ielts-reading-studio/scripts/deploy.sh
+```
+
+脚本会先确认没有本地改动（`output/`、`input/`、`.env`、`.env.web`、`.venv` 都在 `.gitignore` 里，git 不会碰它们），再执行 `git pull --ff-only`，随后重启 systemd 服务并打印状态。手工等价操作：
+
+```bash
+cd ~/ielts-reading-studio
+git pull --ff-only
+sudo systemctl restart ielts-reading-studio
+```
+
+### 首次在一台新服务器上做 git 检出
+
+仓库是私有的，需要一个**只读部署密钥**（比放 token 安全，可随时在 GitHub 撤销）：
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/ielts_deploy -N "" -C "ielts-reading-studio@$(hostname -I | awk '{print $1}')"
+cat ~/.ssh/ielts_deploy.pub      # 把这一行加到 GitHub 仓库 Settings → Deploy keys（勾选 read-only）
+cat >> ~/.ssh/config <<'EOF'
+
+Host github-ielts
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/ielts_deploy
+  IdentitiesOnly yes
+EOF
+git remote add origin git@github-ielts:<owner>/<repo>.git
+git fetch origin main && git checkout -f -B main origin/main
+```
+
+`git checkout -f -B main` 只会覆盖受版本控制的文件；数据库、产物、源文件与密钥都在 `.gitignore` 中，不受影响。
+
+### 服务器无法访问 git 主机时
+
+在开发机上打包历史，上传后合并即可离线更新：
+
+```bash
+# 开发机
+git bundle create /tmp/repo.bundle main
+scp /tmp/repo.bundle <server>:/tmp/
+# 服务器
+cd ~/ielts-reading-studio
+git fetch /tmp/repo.bundle main && git merge --ff-only FETCH_HEAD
+sudo systemctl restart ielts-reading-studio
+```
+
