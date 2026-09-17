@@ -145,7 +145,6 @@ def export_center(
         request,
         "exports/index.html",
         {
-            "units": units,
             "exportable": [unit for unit in units if unit["passed"] is not False],
             "blocked": [unit for unit in units if unit["passed"] is False],
             "batches": _export_batches(service),
