@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 
 class Difficulty(StrEnum):
@@ -141,7 +141,7 @@ class PassageParagraph(BaseModel):
 
 
 class VocabularyEntry(BaseModel):
-    word: str
+    word: str = Field(validation_alias=AliasChoices("word", "term"))
     pronunciation: str | None = None
     part_of_speech: str | None = None
     chinese_meaning: str | None = None

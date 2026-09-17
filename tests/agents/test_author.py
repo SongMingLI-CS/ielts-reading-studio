@@ -13,7 +13,9 @@ def author_agent(recording_provider, agent_config):
     return AuthorAgent(recording_provider, agent_config)
 
 
-def test_author_creates_brief_with_separate_model_and_prompt(recording_provider, author_agent, unit):
+def test_author_creates_brief_with_separate_model_and_prompt(
+    recording_provider, author_agent, unit
+):
     recording_provider.queue(brief_payload())
 
     brief = author_agent.create_brief(unit, source_text="原始中文材料")
@@ -40,9 +42,12 @@ def test_author_never_receives_question_answers(recording_provider, author_agent
     assert "question_groups" not in request.user
     assert "answer_key" not in request.user
     assert "examiner" not in request.user.casefold()
+    assert request.max_tokens == 4200
 
 
-def test_author_revision_only_receives_passage_feedback(recording_provider, author_agent, unit):
+def test_author_revision_only_receives_passage_feedback(
+    recording_provider, author_agent, unit
+):
     recording_provider.queue(passage_payload(revision=1))
     previous = ReadingPassage.model_validate(passage_payload())
 
@@ -77,7 +82,9 @@ def test_author_retains_usage_result(recording_provider, author_agent, unit):
     assert author_agent.last_result.input_tokens == 10
 
 
-def test_author_rejects_wrong_difficulty_and_normalizes_revision(recording_provider, author_agent, unit):
+def test_author_rejects_wrong_difficulty_and_normalizes_revision(
+    recording_provider, author_agent, unit
+):
     wrong_difficulty = passage_payload()
     wrong_difficulty["difficulty"] = "advanced"
     recording_provider.queue(wrong_difficulty)
@@ -99,3 +106,29 @@ def test_author_rejects_wrong_difficulty_and_normalizes_revision(recording_provi
     )
     assert revised.author_revision == 1
     assert revised.word_count == 48
+
+
+def test_author_bounds_overlong_passage_without_losing_paragraphs(
+    recording_provider, author_agent, unit
+):
+    payload = passage_payload()
+    original_labels = [paragraph["label"] for paragraph in payload["paragraphs"]]
+    for paragraph in payload["paragraphs"]:
+        paragraph["text"] = (
+            paragraph["text"]
+            + " Additional grounded context explains the event clearly."
+        ) * 30
+    recording_provider.queue(payload)
+
+    passage = author_agent.write_passage(
+        unit,
+        SourceBrief.model_validate(brief_payload()),
+        source_text="原文",
+    )
+
+    assert 700 <= passage.word_count <= 900
+    assert [paragraph.label for paragraph in passage.paragraphs] == original_labels
+    assert all(
+        paragraph.text.endswith((".", "!", "?", '"', "”", "’"))
+        for paragraph in passage.paragraphs
+    )

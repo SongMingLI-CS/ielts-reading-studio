@@ -5,7 +5,11 @@ from dataclasses import dataclass
 from typing import Any, TypeVar
 
 from app.agents.base import AgentSchemaError, ModelResult, ProviderError
-from app.agents.examiner import AssessmentPayload, PassageReview
+from app.agents.examiner import (
+    AssessmentPayload,
+    PassageReview,
+    normalize_completion_limits,
+)
 from app.config import AppConfig, redact_secrets
 from app.models import (
     GenerationUnit,
@@ -101,7 +105,11 @@ class UnitRunner:
 
     def _run(self, unit_id: str, *, job_id: str | None = None) -> UnitRunResult:
         unit = self._required_unit(unit_id)
-        if unit.status in {UnitStatus.COMPLETED, UnitStatus.NEEDS_REVIEW, UnitStatus.CANCELLED}:
+        if unit.status in {
+            UnitStatus.COMPLETED,
+            UnitStatus.NEEDS_REVIEW,
+            UnitStatus.CANCELLED,
+        }:
             return UnitRunResult(unit_id=unit.id, status=unit.status)
         self._move(unit.id, UnitStatus.AUTHOR_GENERATING)
         source_text = self.source_text_loader(unit)
@@ -112,6 +120,9 @@ class UnitRunner:
             "author_brief",
             model=self.config.author_model,
             owner=self.author,
+            prompt_version=getattr(
+                self.author, "brief_prompt_version", unit.prompt_version
+            ),
             parameters={},
             invoke=lambda: self.author.create_brief(unit, source_text),
             encode=lambda value: value.model_dump(mode="json"),
@@ -123,6 +134,9 @@ class UnitRunner:
             "author_passage",
             model=self.config.author_model,
             owner=self.author,
+            prompt_version=getattr(
+                self.author, "passage_prompt_version", unit.prompt_version
+            ),
             parameters={"brief": brief.model_dump(mode="json")},
             invoke=lambda: self.author.write_passage(unit, brief, source_text),
             encode=lambda value: value.model_dump(mode="json"),
@@ -146,6 +160,9 @@ class UnitRunner:
                     f"examiner_passage_review_{author_revisions}",
                     model=self.config.examiner_model,
                     owner=self.examiner,
+                    prompt_version=getattr(
+                        self.examiner, "review_prompt_version", unit.prompt_version
+                    ),
                     parameters={"passage": passage.model_dump(mode="json")},
                     invoke=lambda passage=passage: self.examiner.review_passage(
                         unit, brief, source_text, passage
@@ -174,9 +191,17 @@ class UnitRunner:
                 f"author_passage_revision_{author_revisions}",
                 model=self.config.author_model,
                 owner=self.author,
-                parameters={"passage": passage.model_dump(mode="json"), "issues": issues},
-                invoke=lambda passage=passage, issues=issues: self.author.revise_passage(
-                    unit, brief, source_text, passage, issues
+                prompt_version=getattr(
+                    self.author, "passage_prompt_version", unit.prompt_version
+                ),
+                parameters={
+                    "passage": passage.model_dump(mode="json"),
+                    "issues": issues,
+                },
+                invoke=lambda passage=passage, issues=issues: (
+                    self.author.revise_passage(
+                        unit, brief, source_text, passage, issues
+                    )
                 ),
                 encode=lambda value: value.model_dump(mode="json"),
                 decode=ReadingPassage.model_validate,
@@ -190,6 +215,9 @@ class UnitRunner:
             "examiner_assessment",
             model=self.config.examiner_model,
             owner=self.examiner,
+            prompt_version=getattr(
+                self.examiner, "assessment_prompt_version", unit.prompt_version
+            ),
             parameters={"passage": passage.model_dump(mode="json")},
             invoke=lambda: self.examiner.build_assessment(unit, passage),
             encode=_encode_groups,
@@ -228,22 +256,30 @@ class UnitRunner:
             self._move(unit.id, UnitStatus.EXAMINER_REVISION_REQUIRED)
             self._move(unit.id, UnitStatus.EXAMINER_GENERATING)
             examiner_revisions += 1
-            issue_payloads = [issue.model_dump(mode="json") for issue in question_report.issues]
+            issue_payloads = [
+                issue.model_dump(mode="json") for issue in question_report.issues
+            ]
             groups = self._stage(
                 unit,
                 job_id,
                 f"examiner_assessment_revision_{examiner_revisions}",
                 model=self.config.examiner_model,
                 owner=self.examiner,
-                parameters={"failed_group_ids": failed_group_ids, "issues": issue_payloads},
-                invoke=lambda groups=groups,
-                failed_group_ids=failed_group_ids,
-                issue_payloads=issue_payloads: self.examiner.repair_assessment(
-                    unit,
-                    passage,
-                    groups,
-                    failed_group_ids,
-                    issue_payloads,
+                prompt_version=getattr(
+                    self.examiner, "assessment_prompt_version", unit.prompt_version
+                ),
+                parameters={
+                    "failed_group_ids": failed_group_ids,
+                    "issues": issue_payloads,
+                },
+                invoke=lambda groups=groups, failed_group_ids=failed_group_ids, issue_payloads=issue_payloads: (
+                    self.examiner.repair_assessment(
+                        unit,
+                        passage,
+                        groups,
+                        failed_group_ids,
+                        issue_payloads,
+                    )
                 ),
                 encode=_encode_groups,
                 decode=_decode_groups,
@@ -285,6 +321,7 @@ class UnitRunner:
         model: str,
         owner: Any,
         parameters: dict[str, object],
+        prompt_version: str | None = None,
         invoke: Callable[[], T],
         encode: Callable[[T], dict[str, Any]],
         decode: Callable[[dict[str, Any]], T],
@@ -295,7 +332,7 @@ class UnitRunner:
             unit.difficulty.value,
             [value.value for value in unit.question_types],
             model,
-            getattr(owner, "prompt_version", unit.prompt_version),
+            prompt_version or getattr(owner, "prompt_version", unit.prompt_version),
             parameters,
         )
         cached = self.repository.get_cached_stage(cache_key)
@@ -336,7 +373,9 @@ class UnitRunner:
                     artifact_path=cached.artifact_path,
                     payload=cached.payload,
                 ):
-                    raise RuntimeError(f"Could not record cache reuse for stage {stage}")
+                    raise RuntimeError(
+                        f"Could not record cache reuse for stage {stage}"
+                    )
                 value = decode(cached.payload)
             if self.after_stage is not None:
                 self.after_stage(stage)
@@ -403,7 +442,9 @@ class UnitRunner:
         if unit.status == target:
             return
         if not can_transition(unit.status, target):
-            raise RuntimeError(f"Invalid unit transition: {unit.status.value} -> {target.value}")
+            raise RuntimeError(
+                f"Invalid unit transition: {unit.status.value} -> {target.value}"
+            )
         if not self.repository.transition(unit_id, unit.status, target):
             raise RuntimeError(f"Concurrent unit transition prevented: {unit_id}")
 
@@ -413,7 +454,9 @@ class UnitRunner:
             raise KeyError(f"Unknown generation unit: {unit_id}")
         return unit
 
-    def _write_failure(self, unit: GenerationUnit, code: str, issues: list[dict[str, Any]]) -> None:
+    def _write_failure(
+        self, unit: GenerationUnit, code: str, issues: list[dict[str, Any]]
+    ) -> None:
         self.store.write_json(
             f"failed/{unit.id}.json",
             {"unit_id": unit.id, "code": code, "issues": issues},
@@ -425,7 +468,8 @@ def _encode_groups(groups: list[QuestionGroup]) -> dict[str, Any]:
 
 
 def _decode_groups(payload: dict[str, Any]) -> list[QuestionGroup]:
-    return AssessmentPayload.model_validate(payload).question_groups
+    groups = AssessmentPayload.model_validate(payload).question_groups
+    return normalize_completion_limits(groups)
 
 
 def _passage_issues(

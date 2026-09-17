@@ -51,7 +51,28 @@ def practice_center(
                     "attempts": attempts_by_unit.get(unit.id, []),
                 }
             )
-    return TEMPLATES.TemplateResponse(request, "practice/index.html", {"items": items})
+    submitted = [attempt for attempt in attempts if attempt["status"] == "submitted"]
+    scoreable = [attempt for attempt in submitted if attempt["total"]]
+    average = (
+        round(
+            sum(attempt["score"] / attempt["total"] for attempt in scoreable)
+            / len(scoreable)
+            * 100
+        )
+        if scoreable
+        else None
+    )
+    summary = {
+        "available": len(items),
+        "in_progress": sum(attempt["status"] == "in_progress" for attempt in attempts),
+        "submitted": len(submitted),
+        "average": average,
+    }
+    return TEMPLATES.TemplateResponse(
+        request,
+        "practice/index.html",
+        {"items": items, "summary": summary},
+    )
 
 
 @router.get("/practice/{unit_id}")
@@ -184,13 +205,17 @@ def create_exports(
 ):
     units = [service.repository.get_unit(unit_id) for unit_id in unit_ids]
     if any(unit is None or unit.status != UnitStatus.COMPLETED for unit in units):
-        raise HTTPException(status_code=409, detail="Only completed units can be exported")
+        raise HTTPException(
+            status_code=409, detail="Only completed units can be exported"
+        )
     try:
         packages = [service.load_package(unit_id) for unit_id in unit_ids]
     except (FileNotFoundError, ValueError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if any(not package.quality_report.passed for package in packages):
-        raise HTTPException(status_code=409, detail="Only validated packages can be exported")
+        raise HTTPException(
+            status_code=409, detail="Only validated packages can be exported"
+        )
     destination = service.config.output_dir / "exports" / f"manual-{uuid4().hex}"
     if format_name == "docx" and len(packages) > 1:
         paths = service.exporter.export_workbooks(packages, destination, workbook_size)
@@ -198,7 +223,9 @@ def create_exports(
         paths = [
             path
             for package in packages
-            for path in service.exporter.export_package(package, destination, {format_name})
+            for path in service.exporter.export_package(
+                package, destination, {format_name}
+            )
         ]
     else:
         raise HTTPException(status_code=422, detail="Unsupported export format")
@@ -234,7 +261,11 @@ def _matches(
         submitted_set = {_normalize(value) for value in submitted}
         return any(
             submitted_set
-            == {_normalize(part) for part in answer.replace(";", ",").split(",") if part.strip()}
+            == {
+                _normalize(part)
+                for part in answer.replace(";", ",").split(",")
+                if part.strip()
+            }
             for answer in accepted
         )
     if isinstance(submitted, list):

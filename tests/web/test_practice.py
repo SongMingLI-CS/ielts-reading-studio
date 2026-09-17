@@ -12,6 +12,8 @@ def test_practice_center_lists_completed_packages(client, completed_unit):
     assert response.status_code == 200
     assert completed_unit.package.passage.title in response.text
     assert f'/practice/{completed_unit.id}' in response.text
+    assert "1 篇可练习" in response.text
+    assert "本机学习概览" in response.text
 
 
 def test_submission_scores_normalized_exact_answers(client, completed_unit):

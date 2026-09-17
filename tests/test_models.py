@@ -9,6 +9,7 @@ from app.models import (
     ReadingPackage,
     SourceBrief,
     UnitStatus,
+    VocabularyEntry,
 )
 
 
@@ -57,3 +58,8 @@ def test_source_brief_rejects_duplicate_item_ids_across_categories():
             core_facts=[{"id": "same", "text": "fact"}],
             core_claims=[{"id": "same", "text": "claim"}],
         )
+
+
+def test_vocabulary_accepts_provider_term_alias():
+    entry = VocabularyEntry.model_validate({"term": "tomb", "chinese_meaning": "墓穴"})
+    assert entry.word == "tomb"

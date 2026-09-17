@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
@@ -37,6 +38,8 @@ class ExaminerAgent:
     """Agent B: independent passage review and assessment authoring."""
 
     prompt_version = EXAMINER_PROMPT_VERSION
+    review_prompt_version = "2"
+    assessment_prompt_version = EXAMINER_PROMPT_VERSION
 
     def __init__(self, provider: Any, config: AppConfig) -> None:
         self.provider = provider
@@ -67,7 +70,7 @@ class ExaminerAgent:
                 model=self.config.examiner_model,
                 system=EXAMINER_REVIEW_SYSTEM,
                 user=user,
-                max_tokens=2200,
+                max_tokens=4000,
                 temperature=0.1,
             ),
             PassageReview,
@@ -112,7 +115,7 @@ class ExaminerAgent:
                 questions.append(question.model_copy(update={"number": number}))
                 number += 1
             normalized.append(group.model_copy(update={"questions": questions}))
-        return normalized
+        return normalize_completion_limits(normalized)
 
     def repair_assessment(
         self,
@@ -148,8 +151,12 @@ class ExaminerAgent:
             )
         existing = {group.type.value for group in groups}
         if not requested <= existing:
-            raise AgentSchemaError("examiner_assessment_revision requested unknown group")
-        return [replacements.get(group.type.value, group) for group in groups]
+            raise AgentSchemaError(
+                "examiner_assessment_revision requested unknown group"
+            )
+        return normalize_completion_limits(
+            [replacements.get(group.type.value, group) for group in groups]
+        )
 
     def _call(self, request: ModelRequest, model_type: type[BaseModel]):
         result = self.provider.complete_json(request)
@@ -158,7 +165,9 @@ class ExaminerAgent:
             return model_type.model_validate(result.payload)
         except ValidationError as exc:
             message = redact_secrets(exc)
-            raise AgentSchemaError(f"{request.stage} schema validation failed: {message}") from None
+            raise AgentSchemaError(
+                f"{request.stage} schema validation failed: {message}"
+            ) from None
 
 
 def _unit_context(unit: GenerationUnit) -> dict[str, Any]:
@@ -180,3 +189,54 @@ def _question_counts(unit: GenerationUnit) -> dict[str, int]:
 
 def _json_context(instruction: str, **values: Any) -> str:
     return f"{instruction}\nJSON input:\n{json.dumps(values, ensure_ascii=False, sort_keys=True)}"
+
+
+def normalize_completion_limits(groups: list[QuestionGroup]) -> list[QuestionGroup]:
+    """Align a completion group's stated limit with valid IELTS limits.
+
+    Providers occasionally return a verbatim three-word answer while leaving
+    the group at two words. Raising the limit to three is preferable to two
+    extra model calls and keeps the answer grounded in the frozen passage.
+    Longer answers still go through the normal repair loop.
+    """
+    completion_types = {
+        "sentence_completion",
+        "summary_completion",
+        "short_answer",
+    }
+    labels = {1: "ONE", 2: "TWO", 3: "THREE"}
+    normalized: list[QuestionGroup] = []
+    for group in groups:
+        if group.type.value not in completion_types:
+            normalized.append(group)
+            continue
+        answers = [question.answer for question in group.questions if question.answer]
+        required = max(
+            (len(re.findall(r"\b[\w'’-]+\b", answer)) for answer in answers), default=1
+        )
+        if required <= 3 and (group.word_limit or 0) < required:
+            instructions = re.sub(
+                r"NO MORE THAN (?:ONE|TWO|THREE|\d+) WORDS",
+                f"NO MORE THAN {labels[required]} WORDS",
+                group.instructions,
+                flags=re.IGNORECASE,
+            )
+            group = group.model_copy(
+                update={"word_limit": required, "instructions": instructions}
+            )
+        limit = group.word_limit or 0
+        questions = [
+            question.model_copy(
+                update={
+                    "acceptable_answers": [
+                        answer
+                        for answer in question.acceptable_answers
+                        if len(re.findall(r"\b[\w'’-]+\b", answer)) <= limit
+                    ]
+                }
+            )
+            for question in group.questions
+        ]
+        group = group.model_copy(update={"questions": questions})
+        normalized.append(group)
+    return normalized

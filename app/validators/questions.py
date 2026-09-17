@@ -29,7 +29,10 @@ def validate_questions(
     questions = [question for group in groups for question in group.questions]
 
     if expected_total in {10, 12, 13} and len(groups) != 3:
-        report.add("question_group_count_mismatch", "Exactly three question groups are required.")
+        report.add(
+            "question_group_count_mismatch",
+            "Exactly three question groups are required.",
+        )
     types = [group.type for group in groups]
     duplicates = [value.value for value, count in Counter(types).items() if count > 1]
     if duplicates:
@@ -124,7 +127,10 @@ def _validate_question(
 
     if group.type in COMPLETION_TYPES:
         accepted = [question.answer, *question.acceptable_answers]
-        if not any(answer and answer in passage_text for answer in accepted):
+        passage_folded = passage_text.casefold()
+        if not any(
+            answer and answer.casefold() in passage_folded for answer in accepted
+        ):
             report.add(
                 "answer_not_in_passage",
                 "Completion and short-answer responses must occur verbatim in the passage.",
@@ -138,7 +144,9 @@ def _validate_question(
                 affected_ids=affected,
                 question_number=question.number,
             )
-        elif any(_word_count(answer) > group.word_limit for answer in accepted if answer):
+        elif any(
+            _word_count(answer) > group.word_limit for answer in accepted if answer
+        ):
             report.add(
                 "answer_exceeds_word_limit",
                 "An answer exceeds the group word limit.",
@@ -150,7 +158,18 @@ def _validate_question(
         if question.answer.upper().replace("/", " ") in {"NOT GIVEN", "NOTGIVEN"}:
             explanation = question.chinese_explanation.strip()
             specific_reason = len(explanation) >= 12 and any(
-                marker in explanation for marker in ("缺少", "未提供", "无法判断", "没有交代")
+                marker in explanation
+                for marker in (
+                    "缺少",
+                    "未提供",
+                    "无法判断",
+                    "没有交代",
+                    "没有明确",
+                    "并未说明",
+                    "未说明",
+                    "没有提到",
+                    "未提到",
+                )
             )
             if not question.evidence_quote or not specific_reason:
                 report.add(
@@ -183,7 +202,10 @@ def _validate_question(
                 question_number=question.number,
             )
         distractors = [option for option in group.options if option != question.answer]
-        if any(not question.distractor_explanations.get(option, "").strip() for option in distractors):
+        if any(
+            not question.distractor_explanations.get(option, "").strip()
+            for option in distractors
+        ):
             report.add(
                 "distractor_explanations_missing",
                 "Every incorrect option needs a distractor explanation.",
@@ -192,10 +214,14 @@ def _validate_question(
             )
 
     answer_pattern = re.escape(question.answer.strip())
-    if answer_pattern and re.search(
-        rf"(?<!\w){answer_pattern}(?!\w)",
-        question.prompt,
-        flags=re.IGNORECASE,
+    if (
+        group.type not in JUDGEMENT_TYPES
+        and answer_pattern
+        and re.search(
+            rf"(?<!\w){answer_pattern}(?!\w)",
+            question.prompt,
+            flags=re.IGNORECASE,
+        )
     ):
         report.add(
             "question_leaks_answer",

@@ -1,23 +1,38 @@
 {% extends "base.html" %}
 {% block title %}练习中心 · IELTS Reading Studio{% endblock %}
 {% block content %}
-<div class="page-heading practice-heading">
-  <div><p class="eyebrow">Local practice library</p><h1>练习中心</h1><p class="lead">题目、作答草稿与成绩都保存在这台电脑上。</p></div>
-  <div class="local-badge"><span></span> 本机数据</div>
-</div>
+<section class="practice-hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Local practice library</p>
+    <h1>练习中心</h1>
+    <p class="lead">把小说章节转化为 IELTS Academic Reading。草稿、用时、成绩和错题记录全部留在这台电脑上。</p>
+    <div class="hero-actions"><span class="local-badge"><span></span> 本机数据</span><span>{{ summary.available }} 篇可练习</span></div>
+  </div>
+  <aside class="study-overview">
+    <p class="eyebrow">本机学习概览</p>
+    <div class="overview-grid">
+      <div><strong>{{ summary.available }}</strong><span>可练习</span></div>
+      <div><strong>{{ summary.in_progress }}</strong><span>进行中</span></div>
+      <div><strong>{{ summary.submitted }}</strong><span>已完成</span></div>
+      <div><strong>{% if summary.average is not none %}{{ summary.average }}%{% else %}—{% endif %}</strong><span>平均正确率</span></div>
+    </div>
+  </aside>
+</section>
+
 {% if items %}
+<div class="library-toolbar"><div><p class="eyebrow">Your passages</p><h2>可练习篇目</h2></div><p>按章节顺序排列 · 自动保存进度</p></div>
 <div class="practice-library">
 {% for item in items %}
   {% set latest = item.attempts[0] if item.attempts else none %}
   <article class="practice-book-card">
-    <div class="book-index">{{ '%02d'|format(item.unit.ordinal or loop.index) }}</div>
+    <div class="book-spine"><span>{{ '%02d'|format(item.unit.ordinal or loop.index) }}</span><i></i></div>
     <div class="book-copy">
-      <p class="card-kicker">{{ item.corpus.name }} · {{ item.package.passage.difficulty.value|title }}</p>
+      <div class="card-topline"><p class="card-kicker">{{ item.package.passage.difficulty.value|title }}</p>{% if latest %}<span class="attempt-state {{ latest.status }}">{% if latest.status == 'submitted' %}已完成{% else %}进行中{% endif %}</span>{% else %}<span class="attempt-state new">新篇目</span>{% endif %}</div>
       <h2>{{ item.package.passage.title }}</h2>
-      <p>{{ item.package.passage.word_count }} words · {{ item.package.question_groups|map(attribute='questions')|map('length')|sum }} questions</p>
-      {% if latest %}<p class="attempt-note">最近记录：{% if latest.status == 'submitted' %}{{ latest.score }}/{{ latest.total }}{% else %}进行中{% endif %}</p>{% endif %}
+      <p class="source-name">{{ item.corpus.name }}</p>
+      <div class="passage-facts"><span>{{ item.package.passage.word_count }} <small>words</small></span><span>{{ item.package.question_groups|map(attribute='questions')|map('length')|sum }} <small>questions</small></span>{% if latest and latest.status == 'submitted' %}<span>{{ latest.score }}/{{ latest.total }} <small>latest</small></span>{% endif %}</div>
     </div>
-    <a class="button practice-start" href="/practice/{{ item.unit.id }}">{% if latest and latest.status == 'in_progress' %}继续练习{% else %}开始练习{% endif %} →</a>
+    <a class="practice-arrow" href="/practice/{{ item.unit.id }}" aria-label="{% if latest and latest.status == 'in_progress' %}继续{% else %}开始{% endif %} {{ item.package.passage.title }}"><span>{% if latest and latest.status == 'in_progress' %}继续{% else %}开始{% endif %}</span> →</a>
   </article>
 {% endfor %}
 </div>

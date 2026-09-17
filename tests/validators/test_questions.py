@@ -50,6 +50,19 @@ def test_completion_answer_must_be_verbatim_and_within_limit(valid_passage):
     assert {"answer_not_in_passage", "answer_exceeds_word_limit"} <= set(report.codes)
 
 
+def test_completion_answer_matching_is_case_insensitive(valid_passage):
+    valid_passage.paragraphs[0].text += " Something Big appeared."
+    completion = group(
+        QuestionType.SUMMARY_COMPLETION,
+        [question(1, answer="something big", evidence_quote="Something Big")],
+        word_limit=2,
+    )
+
+    report = validate_questions(valid_passage, [completion], expected_total=1)
+
+    assert "answer_not_in_passage" not in report.codes
+
+
 def test_not_given_requires_nearest_context_and_specific_missing_reason(valid_passage):
     tfng = group(
         QuestionType.TRUE_FALSE_NOT_GIVEN,
@@ -64,6 +77,24 @@ def test_not_given_requires_nearest_context_and_specific_missing_reason(valid_pa
     )
     report = validate_questions(valid_passage, [tfng], expected_total=1)
     assert "not_given_evidence_incomplete" in report.codes
+
+
+def test_judgement_words_in_prompt_are_not_treated_as_answer_leaks(valid_passage):
+    tfng = group(
+        QuestionType.TRUE_FALSE_NOT_GIVEN,
+        [
+            question(
+                1,
+                prompt="The false entrance led to the real chamber.",
+                answer="FALSE",
+                chinese_explanation="原文明确说明方向相反。",
+            )
+        ],
+    )
+
+    report = validate_questions(valid_passage, [tfng], expected_total=1)
+
+    assert "question_leaks_answer" not in report.codes
 
 
 def test_evidence_must_be_exact_substring_of_named_paragraph(valid_passage):
@@ -89,10 +120,14 @@ def test_matching_headings_requires_surplus_unique_options_and_answers(valid_pas
         options=["i", "ii"],
     )
     report = validate_questions(valid_passage, [headings], expected_total=2)
-    assert {"heading_options_insufficient", "heading_answer_reused"} <= set(report.codes)
+    assert {"heading_options_insufficient", "heading_answer_reused"} <= set(
+        report.codes
+    )
 
 
-def test_multiple_choice_requires_unique_valid_answer_and_distractor_reasons(valid_passage):
+def test_multiple_choice_requires_unique_valid_answer_and_distractor_reasons(
+    valid_passage,
+):
     mc = group(
         QuestionType.MULTIPLE_CHOICE,
         [question(1, answer="D", distractor_explanations={"A": "wrong"})],
