@@ -87,9 +87,11 @@ def test_provider_probe_reports_success_and_redacts_key(keyed_client, monkeypatc
     response = keyed_client.post("/settings/test-provider", follow_redirects=False)
 
     assert response.status_code == 303
-    location = unquote(response.headers["location"])
+    location = unquote(response.headers["location"]).replace("+", " ")
     assert "ok=1" in location
     assert "应答正常" in location
+    assert '{"ok": true}' in location
+    assert "用量 7" in location and "3 tokens" in location
     assert "sk-super-secret-value" not in location
 
 

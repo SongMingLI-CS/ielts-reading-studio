@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import time
 from pathlib import Path
@@ -241,7 +242,11 @@ def _probe_provider(service: ReadingStudioService) -> dict[str, Any]:
 
 
 def _short(payload: dict[str, Any], limit: int = 120) -> str:
-    text = str(payload).replace("\n", " ")
+    try:
+        text = json.dumps(payload, ensure_ascii=False, default=str)
+    except (TypeError, ValueError):  # pragma: no cover - exotic payload types
+        text = str(payload)
+    text = text.replace("\n", " ")
     return text if len(text) <= limit else f"{text[:limit]}…"
 
 
