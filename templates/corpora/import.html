@@ -1,10 +1,64 @@
 {% extends "base.html" %}
-{% block title %}导入语料{% endblock %}
+{% block title %}导入材料 · IELTS Reading Studio{% endblock %}
 {% block content %}
-<p class="eyebrow">离线操作</p><h1>导入源文件</h1>
-<form class="panel" action="/corpora/import" method="post" enctype="multipart/form-data">
-  <label>选择 TXT、DOCX、EPUB、MD 文件<input type="file" name="source" accept=".txt,.docx,.epub,.md,.markdown" required></label>
-  <p class="muted">文件只读解析；此步骤不创建模型客户端，也不会产生费用。</p>
-  <button type="submit">导入并建立索引</button>
-</form>
+<div class="practice-topbar">
+  <a class="back-link" href="/corpora">← 材料库</a>
+  <div class="practice-meta"><span class="badge">离线操作</span><span class="badge">不调用模型</span></div>
+</div>
+
+<header class="preview-head">
+  <p class="eyebrow">Step 1 · Import</p>
+  <h1>导入源文件</h1>
+  <p class="lead">上传一份中文长文或小说，系统只读解析并建立章节索引。这个步骤不会创建模型客户端、不会产生任何费用。同一份文件重复导入会按内容哈希复用已有索引，不会重复占用空间。</p>
+</header>
+
+<div class="import-layout">
+  <form class="import-drop" action="/corpora/import" method="post" enctype="multipart/form-data" id="import-form">
+    <label class="drop-zone" id="drop-zone">
+      <input type="file" name="source" id="import-file" accept=".txt,.docx,.epub,.md,.markdown" required>
+      <span class="drop-icon" aria-hidden="true">⬆</span>
+      <strong>把文件拖到这里，或点击选择</strong>
+      <span class="drop-hint">TXT · DOCX · EPUB · MD / Markdown</span>
+      <span class="drop-file" id="drop-file-name"></span>
+    </label>
+    <p class="muted">单文件最大 {{ max_mb }} MB。源文件按 SHA-256 建立身份，导入后不会被修改。</p>
+    <button type="submit">导入并建立索引</button>
+  </form>
+
+  <aside class="import-notes">
+    <h2>导入后会发生什么</h2>
+    <ol class="import-steps">
+      <li><strong>解析章节</strong><p>TXT 依次尝试 UTF-8、GB18030 等编码；EPUB 按 spine，DOCX 按标题样式，Markdown 按一至三级标题。</p></li>
+      <li><strong>规划生成单元</strong><p>过长的单章会切成 2,500–4,500 字的单元，过短的相邻章节会合并（一次最多 4 章或 4,000 字）。</p></li>
+      <li><strong>写入索引</strong><p>章节边界与单元写入 <code>output/&lt;材料&gt;/manifest.json</code> 与 SQLite，随后你可以校准边界。</p></li>
+    </ol>
+    <p class="import-warn">若解析置信度低于 0.6 或可用章节不足两个，单元列表会为空并给出诊断。这时请先人工校准边界，或换一份排版更规整的源文件 —— 系统不会把整本书直接丢给模型。</p>
+    <a class="text-link" href="/corpora">看看已有材料 →</a>
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  (() => {
+    const input = document.getElementById('import-file');
+    const zone = document.getElementById('drop-zone');
+    const name = document.getElementById('drop-file-name');
+    if (!input || !zone) return;
+    const show = () => { name.textContent = input.files && input.files[0] ? `已选择：${input.files[0].name}` : ''; };
+    input.addEventListener('change', show);
+    for (const event of ['dragenter', 'dragover']) {
+      zone.addEventListener(event, (e) => { e.preventDefault(); zone.classList.add('dragging'); });
+    }
+    for (const event of ['dragleave', 'drop']) {
+      zone.addEventListener(event, () => zone.classList.remove('dragging'));
+    }
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if (!files || !files.length) return;
+      input.files = files;
+      show();
+    });
+  })();
+</script>
 {% endblock %}

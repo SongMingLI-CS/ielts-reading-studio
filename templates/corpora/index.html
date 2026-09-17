@@ -1,13 +1,101 @@
 {% extends "base.html" %}
-{% block title %}语料库 · IELTS Reading Studio{% endblock %}
+{% block title %}材料库 · IELTS Reading Studio{% endblock %}
 {% block content %}
-<div class="page-heading"><div><p class="eyebrow">本地语料库</p><h1>阅读材料</h1></div><a class="button" href="/corpora/import">导入新文件</a></div>
-{% if corpora %}
-<div class="card-grid">
-{% for corpus in corpora %}
-  <article class="card"><h2>{{ corpus.name }}</h2><p>{{ corpus.chapter_count }} 章 · {{ corpus.format|upper }}</p>
-  <a href="/corpora/{{ corpus.id }}/preview">查看解析</a> · <a href="/corpora/{{ corpus.id }}/configure">生成配置</a></article>
+<section class="library-hero">
+  <div class="library-copy">
+    <p class="eyebrow">Local corpus library</p>
+    <h1>材料库</h1>
+    <p class="lead">导入中文小说或长文，解析成章节边界，再生成英文 Passage 与题目。导入与解析只读源文件，全程不调用模型、不产生费用。</p>
+    <div class="library-actions">
+      <a class="button" href="/corpora/import">导入新文件</a>
+      <a class="button ghost" href="/practice">去练习中心</a>
+    </div>
+  </div>
+  <aside class="library-totals">
+    <p class="eyebrow">全部材料</p>
+    <div class="totals-grid">
+      <div><strong>{{ totals.corpora }}</strong><span>份材料</span></div>
+      <div><strong>{{ totals.chapters }}</strong><span>章</span></div>
+      <div><strong>{{ totals.units }}</strong><span>生成单元</span></div>
+      <div><strong>{{ totals.completed }}</strong><span>可练习</span></div>
+    </div>
+    {% if totals.needs_review %}<p class="totals-note">⚠ {{ totals.needs_review }} 个单元待复核</p>{% endif %}
+    {% if totals.missing_sources %}<p class="totals-note">⚠ {{ totals.missing_sources }} 份材料的源文件已不在原路径</p>{% endif %}
+  </aside>
+</section>
+
+<section class="workflow-strip" aria-label="工作流程">
+  <div class="flow-step"><span>1</span><div><strong>导入</strong><p>只读解析，建立章节索引</p></div></div>
+  <div class="flow-step"><span>2</span><div><strong>校准边界</strong><p>合并、拆分或重命名章节</p></div></div>
+  <div class="flow-step"><span>3</span><div><strong>生成</strong><p>样篇批准后批量生成</p></div></div>
+  <div class="flow-step"><span>4</span><div><strong>练习</strong><p>在线计时、答案与解析</p></div></div>
+</section>
+
+{% if cards %}
+<div class="library-toolbar">
+  <div><p class="eyebrow">Your materials</p><h2>已导入材料</h2></div>
+  <p>{{ totals.corpora }} 份 · 源文件缺失的排在最后</p>
+</div>
+<div class="corpus-grid">
+{% for card in cards %}
+  <article class="corpus-card" data-step="{{ card.step.key }}">
+    <header class="corpus-head">
+      <div class="corpus-title">
+        <div class="corpus-badges">
+          <span class="badge format">{{ card.corpus.format|upper }}</span>
+          {% if card.corpus.encoding %}<span class="badge">{{ card.corpus.encoding }}</span>{% endif %}
+          <span class="badge status-{{ card.step.key }}">{{ card.step.label }}</span>
+        </div>
+        <h2 title="{{ card.source_name }}">{{ card.display_name }}</h2>
+        <p class="corpus-meta">
+          {{ card.corpus.chapter_count }} 章
+          · {{ card.imported_at }} 导入
+          {% if card.total_characters %}· {{ '{:,}'.format(card.total_characters) }} 字{% endif %}
+          {% if card.approved %}· 样篇已批准{% endif %}
+        </p>
+      </div>
+      <div class="corpus-ring" style="--ring: {{ card.progress }}%" role="img" aria-label="已完成 {{ card.progress }}%">
+        <strong>{{ card.progress }}%</strong><span>已完成</span>
+      </div>
+    </header>
+
+    <dl class="corpus-stats">
+      <div><dt>生成单元</dt><dd>{{ card.unit_count }}</dd></div>
+      <div><dt>可练习</dt><dd>{{ card.practice_ready }}</dd></div>
+      <div><dt>待生成</dt><dd>{{ card.queued }}</dd></div>
+      {% if card.running %}<div class="alert"><dt>进行中</dt><dd>{{ card.running }}</dd></div>{% endif %}
+      {% if card.needs_review %}<div class="alert"><dt>待复核</dt><dd>{{ card.needs_review }}</dd></div>{% endif %}
+      {% if card.failed %}<div class="alert"><dt>失败</dt><dd>{{ card.failed }}</dd></div>{% endif %}
+      {% if card.confidence_percent is not none %}<div class="{{ 'alert' if card.low_confidence else '' }}"><dt>解析置信度</dt><dd>{{ card.confidence_percent }}%</dd></div>{% endif %}
+    </dl>
+
+    <div class="corpus-progress"><span style="width: {{ card.progress }}%"></span></div>
+
+    {% if not card.source_exists %}<p class="inline-note">源文件已不在 <code>{{ card.corpus.source_path }}</code>，只能使用已建立的索引。</p>{% endif %}
+    {% if card.low_confidence %}<p class="inline-note">解析置信度偏低，建议先在解析页校准章节边界。</p>{% endif %}
+    {% for diagnostic in card.diagnostic_notes[:2] %}<p class="inline-note">{{ diagnostic }}</p>{% endfor %}
+
+    <p class="corpus-hint">{{ card.step.hint }}</p>
+
+    <footer class="corpus-actions">
+      {% if card.step.href == 'practice' %}<a class="button" href="/practice">{{ card.step.action }}</a>
+      {% elif card.step.href == 'preview' %}<a class="button" href="/corpora/{{ card.corpus.id }}/preview">{{ card.step.action }}</a>
+      {% else %}<a class="button" href="/corpora/{{ card.corpus.id }}/configure">{{ card.step.action }}</a>{% endif %}
+      <a class="text-link" href="/corpora/{{ card.corpus.id }}/preview">章节解析</a>
+      <a class="text-link" href="/corpora/{{ card.corpus.id }}/configure">生成配置</a>
+      {% if card.practice_ready %}<a class="text-link" href="/practice">{{ card.practice_ready }} 篇可练习</a>{% endif %}
+    </footer>
+
+    <p class="corpus-foot">ID {{ card.corpus.id[:8] }}{% if card.job_count %} · {{ card.job_count }} 个任务{% endif %}{% if card.last_job %} · 最近任务 {{ card.last_job.status }}{% endif %}</p>
+  </article>
 {% endfor %}
 </div>
-{% else %}<div class="empty"><h2>还没有语料</h2><p>导入 TXT、DOCX、EPUB 或 Markdown。导入过程不会调用 API。</p></div>{% endif %}
+{% else %}
+<div class="empty library-empty">
+  <span class="empty-icon">✦</span>
+  <h2>还没有导入任何材料</h2>
+  <p>支持 TXT、DOCX、EPUB、Markdown，单文件最大 250 MB。导入只做只读解析，不调用模型、不产生费用；同一份文件重复导入会复用已有索引。</p>
+  <a class="button" href="/corpora/import">导入第一份材料</a>
+</div>
+{% endif %}
 {% endblock %}

@@ -1,15 +1,175 @@
 {% extends "base.html" %}
-{% block title %}章节解析预览{% endblock %}
+{% block title %}{{ display_name }} · 章节解析{% endblock %}
 {% block content %}
-<p class="eyebrow">{{ corpus.name }}</p><h1>章节解析预览</h1>
-<div class="stats"><span>{{ corpus.chapter_count }} 章</span><span>{{ unit_count }} 个生成单元</span><span>第 {{ page }} 页</span></div>
-<ol class="chapter-list">
-{% for chapter in chapters %}<li><strong>{{ chapter.chapter_title or ('章节 ' ~ chapter.ordinal) }}</strong><span>{{ chapter.character_count or 0 }} 字</span></li>{% endfor %}
+<div class="practice-topbar">
+  <a class="back-link" href="/corpora">← 材料库</a>
+  <div class="practice-meta">
+    <span class="badge format">{{ corpus.format|upper }}</span>
+    {% if corpus.encoding %}<span class="badge">{{ corpus.encoding }}</span>{% endif %}
+    <span class="badge status-{{ card.step.key }}">{{ card.step.label }}</span>
+  </div>
+  <div class="session-tools">
+    <a class="button ghost small" href="/corpora/{{ corpus.id }}/configure">{{ card.step.action }}</a>
+  </div>
+</div>
+
+<header class="preview-head">
+  <p class="eyebrow">章节解析</p>
+  <h1>{{ display_name }}</h1>
+  <p class="lead">这里显示只读解析得到的章节边界。边界决定后续生成单元怎么划分：过长的单章会被继续切分，几个短章会被合并。这一页只看索引，不改动原文件。</p>
+</header>
+
+<dl class="preview-facts">
+  <div><dt>源文件</dt><dd title="{{ corpus.source_path }}">{{ corpus.source_name }}</dd></div>
+  <div><dt>章节</dt><dd>{{ corpus.chapter_count }}</dd></div>
+  <div><dt>生成单元</dt><dd>{{ unit_count }}</dd></div>
+  {% if total_characters %}<div><dt>总字数</dt><dd>{{ '{:,}'.format(total_characters) }}</dd></div>{% endif %}
+  {% if confidence is not none %}<div class="{{ 'alert' if card.low_confidence else '' }}"><dt>解析置信度</dt><dd>{{ card.confidence_percent }}%</dd></div>{% endif %}
+  <div><dt>导入时间</dt><dd>{{ card.imported_at }}</dd></div>
+  <div><dt>已可练习</dt><dd>{{ card.practice_ready }}</dd></div>
+</dl>
+
+{% if not card.source_exists %}<p class="inline-note">源文件已不在 <code>{{ corpus.source_path }}</code>，索引仍然可用，但重新导入需要恢复该文件。</p>{% endif %}
+{% for diagnostic in diagnostic_notes %}<p class="inline-note">{{ diagnostic }}</p>{% endfor %}
+
+{% if frozen_reason %}
+<section class="preview-banner frozen">
+  <strong>边界已冻结</strong>
+  <p>{{ frozen_reason }}。为保护已有阶段缓存，边界不再允许修改；如需重新划分，请清理该语料后重新导入同一份源文件。</p>
+</section>
+{% else %}
+<section class="preview-banner">
+  <strong>可以校准边界</strong>
+  <p>在章节行右侧点「校准」即可重命名、与下一章合并，或按段落拆分。修改只写入独立的修正记录与索引，不动原文件。{% if overrides %}（最近一次修正记录了 {{ overrides }} 条）{% endif %}开始生成后这里会自动冻结。</p>
+</section>
+{% endif %}
+
+<div class="chapter-toolbar">
+{% if total_chapters %}
+  <p class="chapter-range">第 <strong>{{ first_ordinal }}–{{ last_ordinal }}</strong> 章 / 共 {{ total_chapters }} 章 · 第 {{ page }} / {{ page_count }} 页</p>
+{% else %}
+  <p class="chapter-range">这份材料还没有可用章节</p>
+{% endif %}
+  <div class="chapter-tools">
+{% if total_chapters %}
+    <form class="page-size" method="get" action="/corpora/{{ corpus.id }}/preview">
+      <label>每页
+        <select name="page_size" onchange="this.form.submit()">
+          {% for size in [25, 50, 100] %}<option value="{{ size }}" {% if size == page_size %}selected{% endif %}>{{ size }}</option>{% endfor %}
+        </select>
+      </label>
+      <input type="hidden" name="page" value="1">
+    </form>
+    <form class="page-jump" method="get" action="/corpora/{{ corpus.id }}/preview">
+      <label>跳到 <input type="number" name="page" min="1" max="{{ page_count }}" value="{{ page }}"></label>
+      <input type="hidden" name="page_size" value="{{ page_size }}">
+      <button type="submit" class="button ghost small">跳页</button>
+    </form>
+{% endif %}
+  </div>
+</div>
+
+{% if not chapters %}
+<section class="preview-banner frozen">
+  <strong>没有可用章节</strong>
+  <p>这份材料没有解析出可靠的章节边界，因此无法规划生成单元，也不会产生任何模型调用。请换一份排版更规整的源文件，或先在下方查看候选切分是否可用。</p>
+</section>
+{% if candidates %}
+<ol class="chapter-rows candidatelist">
+  {% for candidate in candidates %}
+  <li class="chapter-row">
+    <span class="chapter-ordinal">{{ candidate.ordinal }}</span>
+    <div class="chapter-body">
+      <strong>{{ candidate.title or ('候选章节 ' ~ candidate.ordinal) }}</strong>
+      <p class="chapter-meta">{{ candidate.character_count or 0 }} 字 · {{ candidate.paragraph_count or 0 }} 段 · 候选切分（未采纳）</p>
+    </div>
+  </li>
+  {% endfor %}
 </ol>
-<form class="panel" action="/corpora/{{ corpus.id }}/boundaries" method="post">
-  <label>结构化边界修正（JSON）<textarea name="overrides" rows="7" placeholder='[{"action":"merge_next","chapter_id":"章节 ID"}]'></textarea></label>
-  <p class="muted">支持 rename、merge_next、split_before_paragraph；修改独立清单与索引，不修改原文件。章节开始生成后边界冻结。</p>
-  <button type="submit">保存独立修正记录</button>
-</form>
-<a class="button" href="/corpora/{{ corpus.id }}/configure">下一步：生成配置</a>
+{% endif %}
+{% else %}
+
+<ol class="chapter-rows">
+{% for item in chapters %}
+  <li class="chapter-row" data-ordinal="{{ item.chapter.ordinal }}">
+    <span class="chapter-ordinal">{{ item.chapter.ordinal }}</span>
+    <div class="chapter-body">
+      <strong>{{ item.chapter.chapter_title or ('未命名章节 ' ~ item.chapter.ordinal) }}</strong>
+      <p class="chapter-meta">
+        {% if item.chapter.volume_title %}{{ item.chapter.volume_title }} · {% endif %}{{ item.chapter.character_count or 0 }} 字 · {{ item.paragraph_count }} 段
+        {% if item.unit_ordinals %} · 属于单元 {% for ordinal in item.unit_ordinals %}#{{ ordinal }}{% if not loop.last %}、{% endif %}{% endfor %}{% endif %}
+      </p>
+    </div>
+    <div class="chapter-badges">
+      {% if item.unit_status == 'completed' %}<span class="badge status-practice">已成篇</span>
+      {% elif item.unit_status %}<span class="badge status-configure">{{ item.unit_status|replace('_', ' ') }}</span>{% endif %}
+      <code class="chapter-id" title="章节 ID，可复制到高级 JSON 修正">{{ item.chapter.id[:10] }}</code>
+    </div>
+    {% if not frozen_reason %}
+    <details class="chapter-fix">
+      <summary>校准</summary>
+      <div class="chapter-fix-body">
+        <form method="post" action="/corpora/{{ corpus.id }}/boundaries/edit">
+          <input type="hidden" name="action" value="rename">
+          <input type="hidden" name="chapter_id" value="{{ item.chapter.id }}">
+          <input type="hidden" name="page" value="{{ page }}">
+          <label>重命名<input name="title" value="{{ item.chapter.chapter_title or '' }}" placeholder="新的章节标题" required></label>
+          <button type="submit" class="button small">保存标题</button>
+        </form>
+        <form method="post" action="/corpora/{{ corpus.id }}/boundaries/edit"
+              onsubmit="return confirm('把第 {{ item.chapter.ordinal }} 章与第 {{ item.chapter.ordinal + 1 }} 章合并？');">
+          <input type="hidden" name="action" value="merge_next">
+          <input type="hidden" name="chapter_id" value="{{ item.chapter.id }}">
+          <input type="hidden" name="page" value="{{ page }}">
+          <label>可选：合并后的标题<input name="title" placeholder="留空则沿用本章标题"></label>
+          <button type="submit" class="button small secondary">与下一章合并</button>
+        </form>
+        <form method="post" action="/corpora/{{ corpus.id }}/boundaries/edit"
+              onsubmit="return confirm('在第 {{ item.chapter.ordinal }} 章的指定段前拆成两章？');">
+          <input type="hidden" name="action" value="split_before_paragraph">
+          <input type="hidden" name="chapter_id" value="{{ item.chapter.id }}">
+          <input type="hidden" name="page" value="{{ page }}">
+          <label>拆分位置：第几段之前<input type="number" name="paragraph_index" min="1" max="{{ item.paragraph_count }}" required></label>
+          <label>可选：后半章标题<input name="title" placeholder="留空自动命名"></label>
+          <button type="submit" class="button small secondary">按段落拆分</button>
+        </form>
+        <p class="muted chapter-fix-hint">本章共 {{ item.paragraph_count }} 段；拆分位置需落在章内（1 到 {{ item.paragraph_count - 1 }}）。合并与拆分都会重新规划单元。</p>
+      </div>
+    </details>
+    {% endif %}
+  </li>
+{% endfor %}
+</ol>
+{% endif %}
+
+{% if page_count > 1 %}
+<nav class="pagination" aria-label="章节分页">
+  {% if page > 1 %}<a class="button ghost small" href="/corpora/{{ corpus.id }}/preview?page={{ page - 1 }}&page_size={{ page_size }}">← 上一页</a>
+  {% else %}<span class="button ghost small disabled">← 上一页</span>{% endif %}
+  <span class="pagination-info">第 {{ page }} / {{ page_count }} 页 · 每页 {{ page_size }} 章</span>
+  {% if page < page_count %}<a class="button ghost small" href="/corpora/{{ corpus.id }}/preview?page={{ page + 1 }}&page_size={{ page_size }}">下一页 →</a>
+  {% else %}<span class="button ghost small disabled">下一页 →</span>{% endif %}
+</nav>
+{% endif %}
+
+<section class="preview-next">
+  <div>
+    <h2>下一步：生成配置</h2>
+    <p>生成配置页会离线估算请求次数与 Token 区间，并要求先产出一篇样篇、人工批准之后才允许批量生成。这一步不调用模型。</p>
+  </div>
+  <a class="button" href="/corpora/{{ corpus.id }}/configure">{{ card.step.action }}</a>
+</section>
+
+{% if not frozen_reason %}
+<details class="advanced-panel">
+  <summary>高级：直接编辑修正记录（JSON）</summary>
+  <form class="panel" action="/corpora/{{ corpus.id }}/boundaries" method="post">
+    <label>结构化边界修正（JSON 数组）
+      <textarea name="overrides" rows="6" placeholder='[{"action":"merge_next","chapter_id":"上面的章节 ID"},{"action":"rename","chapter_id":"...","title":"新标题"}]'></textarea>
+    </label>
+    <p class="muted">支持 rename、merge_next、split_before_paragraph（后者需要 paragraph_index）。每次保存会覆盖上一次的修正记录，最终结果以当前索引为准。</p>
+    <button type="submit">保存修正记录</button>
+  </form>
+</details>
+{% endif %}
 {% endblock %}
