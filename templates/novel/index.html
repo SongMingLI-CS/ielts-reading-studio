@@ -37,7 +37,10 @@
     <span class="step-mark">04</span><p class="eyebrow">Library</p><h2>成品与进度</h2>
     <div class="mini-stats"><span><strong>{{ progress.completed }}</strong>完成</span><span><strong>{{ progress.running }}</strong>进行中</span><span><strong>{{ progress.failed }}</strong>失败</span></div>
     <a class="button refresh-output" href="/novel">刷新进度</a>
-    {% if html_files or volume_files or library_files %}<div class="file-list">{% for path in library_files %}<a href="/novel/files/{{ path }}">{{ path.split('/')[-1] }} <span>{{ path.split('.')[-1]|upper }}</span></a>{% endfor %}{% for path in html_files %}<a href="/novel/files/{{ path }}">{{ path.split('/')[-1] }} <span>HTML</span></a>{% endfor %}{% for path in volume_files %}<a href="/novel/files/{{ path }}">{{ path.split('/')[-1] }} <span>DOCX</span></a>{% endfor %}</div>{% else %}<p class="muted">先在第 3 步完成样章；生成后的章节、总目录和词汇表会出现在这里。</p>{% endif %}
+    {% if library_files or volume_files %}<div class="file-list library-downloads">{% for path in library_files %}<a href="/novel/files/{{ path }}"{% if path.endswith('.html') %} target="_blank"{% endif %}>{{ '阅读总目录' if path == 'index.html' else ('总词汇表' if path == 'glossary.xlsx' else path.split('/')[-1]) }} <span>{{ path.split('.')[-1]|upper }}</span></a>{% endfor %}{% for path in volume_files %}<a href="/novel/files/{{ path }}">{{ path.split('/')[-1] }} <span>DOCX</span></a>{% endfor %}</div>{% endif %}
+    {% if chapter_outputs %}<div class="chapter-preview-list">{% for chapter in chapter_outputs %}<article><div><small>{{ '%04d'|format(chapter.id) }}</small><strong>{{ chapter.title }}</strong></div><nav aria-label="{{ chapter.title }} 文件"><a href="/novel/preview/{{ chapter.id }}" target="_blank">网页预览</a>{% if chapter.has_docx %}<a href="/novel/download/{{ chapter.id }}/docx">下载 Word</a>{% endif %}<a href="/novel/download/{{ chapter.id }}/html">下载 HTML</a></nav></article>{% endfor %}</div>
+      {% if total_pages > 1 %}<nav class="chapter-pagination" aria-label="已完成章节分页">{% if page > 1 %}<a href="/novel?page={{ page - 1 }}">← 上一页</a>{% endif %}<span>第 {{ page }} / {{ total_pages }} 页</span>{% if page < total_pages %}<a href="/novel?page={{ page + 1 }}">下一页 →</a>{% endif %}</nav>{% endif %}
+    {% else %}<p class="muted">先在第 3 步完成样章；生成后的章节会在这里提供网页阅读与下载。</p>{% endif %}
   </section>
 </div>
 {% endblock %}

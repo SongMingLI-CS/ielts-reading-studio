@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 
 def _novel_bytes() -> bytes:
     return (
@@ -61,3 +63,32 @@ def test_novel_health_reports_integrated_catalog(client):
     assert response.status_code == 200
     assert response.json()["available"] is True
     assert response.json()["catalog_entries"] >= 5000
+
+
+def test_completed_chapters_use_titles_and_offer_inline_preview(client, web_service):
+    output = web_service.config.output_dir / "context-novel"
+    (output / "html").mkdir(parents=True)
+    (output / "chapters").mkdir(parents=True)
+    (output / "html" / "第0001章.html").write_text(
+        "<html><title>第一章 血尸</title><body>chapter</body></html>",
+        encoding="utf-8",
+    )
+    (output / "chapters" / "第0001章.docx").write_bytes(b"docx")
+    (output / "index_entries.json").write_text(
+        json.dumps([[1, "第一章 血尸"]], ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    page = client.get("/novel")
+    preview = client.get("/novel/preview/1")
+    download = client.get("/novel/download/1/docx")
+
+    assert "0001" in page.text
+    assert "第一章 血尸" in page.text
+    assert 'href="/novel/preview/1"' in page.text
+    assert preview.status_code == 200
+    assert preview.headers["content-type"].startswith("text/html")
+    assert "attachment" not in preview.headers.get("content-disposition", "")
+    assert download.status_code == 200
+    assert "attachment" in download.headers["content-disposition"]
+    assert "0001_" in download.headers["content-disposition"]

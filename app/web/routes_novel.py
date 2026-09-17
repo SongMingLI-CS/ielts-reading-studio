@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -18,6 +19,7 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Query,
     UploadFile,
 )
 from fastapi.responses import FileResponse, RedirectResponse
@@ -90,11 +92,47 @@ def _catalog_size() -> int:
     return len(catalog) if isinstance(catalog, list) else 0
 
 
-def _page_context(service: ReadingStudioService, **extra: Any) -> dict[str, Any]:
+def _chapter_outputs(
+    output: Path,
+    page: int,
+    page_size: int = 20,
+) -> tuple[list[dict[str, Any]], int]:
+    entries = _read_json(output / "index_entries.json", [])
+    titles = {
+        int(item[0]): str(item[1])
+        for item in entries
+        if isinstance(item, list) and len(item) == 2
+    }
+    chapters = []
+    for chapter_id, title in sorted(titles.items()):
+        html_path = output / "html" / f"第{chapter_id:04d}章.html"
+        if not html_path.is_file():
+            continue
+        chapters.append(
+            {
+                "id": chapter_id,
+                "title": title,
+                "has_docx": (
+                    output / "chapters" / f"第{chapter_id:04d}章.docx"
+                ).is_file(),
+            }
+        )
+    total_pages = max(1, (len(chapters) + page_size - 1) // page_size)
+    selected_page = min(page, total_pages)
+    start = (selected_page - 1) * page_size
+    return chapters[start : start + page_size], total_pages
+
+
+def _page_context(
+    service: ReadingStudioService,
+    *,
+    page: int = 1,
+    **extra: Any,
+) -> dict[str, Any]:
     paths = _paths(service)
     output = paths["output"]
-    html_files = sorted((output / "html").glob("*.html")) if output.exists() else []
     volume_files = sorted((output / "volumes").glob("*.docx")) if output.exists() else []
+    chapter_outputs, total_pages = _chapter_outputs(output, page)
     library_files = []
     if output.exists():
         library_files = [
@@ -109,7 +147,9 @@ def _page_context(service: ReadingStudioService, **extra: Any) -> dict[str, Any]
         "progress": _progress_counts(output / "state.sqlite3"),
         "catalog_size": _catalog_size(),
         "api_ready": service.config.deepseek_api_key is not None,
-        "html_files": [path.relative_to(output).as_posix() for path in html_files[-12:]],
+        "chapter_outputs": chapter_outputs,
+        "page": min(page, total_pages),
+        "total_pages": total_pages,
         "volume_files": [path.relative_to(output).as_posix() for path in volume_files[-12:]],
         "library_files": [path.relative_to(output).as_posix() for path in library_files],
     }
@@ -121,11 +161,12 @@ def _page_context(service: ReadingStudioService, **extra: Any) -> dict[str, Any]
 def novel_index(
     request: Request,
     service: Annotated[ReadingStudioService, Depends(get_service)],
+    page: Annotated[int, Query(ge=1)] = 1,
 ):
     return TEMPLATES.TemplateResponse(
         request,
         "novel/index.html",
-        _page_context(service),
+        _page_context(service, page=page),
     )
 
 
@@ -374,7 +415,59 @@ def novel_file(
         raise HTTPException(status_code=404, detail="文件不存在")
     if target.suffix.casefold() not in {".html", ".docx", ".txt", ".xlsx", ".json"}:
         raise HTTPException(status_code=415, detail="不支持下载此文件")
+    if target.suffix.casefold() == ".html":
+        return FileResponse(target, media_type="text/html")
     return FileResponse(target, filename=target.name)
+
+
+def _chapter_title(output: Path, chapter_id: int) -> str:
+    entries = _read_json(output / "index_entries.json", [])
+    for item in entries:
+        if isinstance(item, list) and len(item) == 2 and int(item[0]) == chapter_id:
+            return str(item[1])
+    return f"第{chapter_id:04d}章"
+
+
+@router.get("/preview/{chapter_id}")
+def preview_chapter(
+    chapter_id: int,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+):
+    target = _paths(service)["output"] / "html" / f"第{chapter_id:04d}章.html"
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="章节尚未生成")
+    return FileResponse(target, media_type="text/html")
+
+
+@router.get("/download/{chapter_id}/{format_name}")
+def download_chapter(
+    chapter_id: int,
+    format_name: str,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+):
+    formats = {
+        "html": ("html", ".html"),
+        "docx": ("chapters", ".docx"),
+        "json": ("chapter_json", ".json"),
+    }
+    if format_name not in formats:
+        raise HTTPException(status_code=404, detail="未知文件格式")
+    directory, suffix = formats[format_name]
+    output = _paths(service)["output"]
+    target = output / directory / f"第{chapter_id:04d}章{suffix}"
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="章节文件尚未生成")
+    title = re.sub(
+        r'[\\/:*?"<>|\x00-\x1f]',
+        "_",
+        _chapter_title(output, chapter_id),
+    ).strip()
+    filename = f"{chapter_id:04d}_{title}{suffix}"
+    return FileResponse(
+        target,
+        filename=filename,
+        content_disposition_type="attachment",
+    )
 
 
 @router.get("/health")
