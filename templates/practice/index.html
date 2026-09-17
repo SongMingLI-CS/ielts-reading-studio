@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}练习中心 · IELTS Reading Studio{% endblock %}
+{% block content %}
+<div class="page-heading practice-heading">
+  <div><p class="eyebrow">Local practice library</p><h1>练习中心</h1><p class="lead">题目、作答草稿与成绩都保存在这台电脑上。</p></div>
+  <div class="local-badge"><span></span> 本机数据</div>
+</div>
+{% if items %}
+<div class="practice-library">
+{% for item in items %}
+  {% set latest = item.attempts[0] if item.attempts else none %}
+  <article class="practice-book-card">
+    <div class="book-index">{{ '%02d'|format(item.unit.ordinal or loop.index) }}</div>
+    <div class="book-copy">
+      <p class="card-kicker">{{ item.corpus.name }} · {{ item.package.passage.difficulty.value|title }}</p>
+      <h2>{{ item.package.passage.title }}</h2>
+      <p>{{ item.package.passage.word_count }} words · {{ item.package.question_groups|map(attribute='questions')|map('length')|sum }} questions</p>
+      {% if latest %}<p class="attempt-note">最近记录：{% if latest.status == 'submitted' %}{{ latest.score }}/{{ latest.total }}{% else %}进行中{% endif %}</p>{% endif %}
+    </div>
+    <a class="button practice-start" href="/practice/{{ item.unit.id }}">{% if latest and latest.status == 'in_progress' %}继续练习{% else %}开始练习{% endif %} →</a>
+  </article>
+{% endfor %}
+</div>
+{% else %}
+<div class="empty practice-empty"><span class="empty-icon">✦</span><h2>还没有可练习的篇目</h2><p>完成并批准一个生成单元后，它会出现在这里。</p><a class="button" href="/corpora">返回语料库</a></div>
+{% endif %}
+{% endblock %}

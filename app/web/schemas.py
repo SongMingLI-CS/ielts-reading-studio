@@ -4,8 +4,14 @@ from pydantic import BaseModel, Field
 
 
 class PracticeSubmission(BaseModel):
+    attempt_id: str | None = Field(None, min_length=1, max_length=100)
     answers: dict[str, str | list[str]] = Field(default_factory=dict)
     elapsed_seconds: int | None = Field(None, ge=0)
+
+
+class PracticeSaveResult(BaseModel):
+    attempt_id: str
+    saved: bool = True
 
 
 class AnswerResult(BaseModel):
@@ -21,6 +27,7 @@ class AnswerResult(BaseModel):
 
 
 class PracticeResult(BaseModel):
+    attempt_id: str
     correct: int
     total: int
     elapsed_seconds: int | None = None

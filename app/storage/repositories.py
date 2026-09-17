@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel
 from sqlalchemy import delete, func, insert, select, update
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import IntegrityError
 
@@ -18,6 +19,7 @@ from .database import (
     corpus_approvals,
     generation_units,
     jobs,
+    practice_attempts,
     source_chapters,
     stage_attempts,
     usage_records,
@@ -65,6 +67,19 @@ def _stage_attempt(row: RowMapping) -> StageAttempt:
         attempt=row["attempt"], status=row["status"], cache_key=row["cache_key"],
         payload=json.loads(row["payload"]), artifact_path=row["artifact_path"], error=row["error"],
     )
+
+
+def _practice_attempt(row: RowMapping) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "unit_id": row["unit_id"],
+        "status": row["status"],
+        "score": row["score"],
+        "total": row["total"],
+        "payload": json.loads(row["payload"]),
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
 
 
 class Repository:
@@ -351,6 +366,53 @@ class Repository:
                 .order_by(usage_records.c.id)
             ).mappings()
             return [_model(row, UsageRecord) for row in rows]
+
+    def save_practice_attempt(
+        self,
+        attempt_id: str,
+        unit_id: str,
+        *,
+        status: str,
+        payload: dict[str, Any],
+        score: int | None = None,
+        total: int | None = None,
+    ) -> None:
+        values = {
+            "id": attempt_id,
+            "unit_id": unit_id,
+            "status": status,
+            "score": score,
+            "total": total,
+            "payload": _payload(payload),
+        }
+        statement = sqlite_insert(practice_attempts).values(**values)
+        statement = statement.on_conflict_do_update(
+            index_elements=[practice_attempts.c.id],
+            set_={
+                "status": status,
+                "score": score,
+                "total": total,
+                "payload": _payload(payload),
+                "updated_at": func.now(),
+            },
+        )
+        with self.database.engine.begin() as connection:
+            connection.execute(statement)
+
+    def get_practice_attempt(self, attempt_id: str) -> dict[str, Any] | None:
+        with self.database.engine.connect() as connection:
+            row = connection.execute(
+                select(practice_attempts).where(practice_attempts.c.id == attempt_id)
+            ).mappings().one_or_none()
+        return _practice_attempt(row) if row is not None else None
+
+    def list_practice_attempts(self, unit_id: str | None = None) -> list[dict[str, Any]]:
+        statement = select(practice_attempts).order_by(practice_attempts.c.updated_at.desc())
+        if unit_id is not None:
+            statement = statement.where(practice_attempts.c.unit_id == unit_id)
+        with self.database.engine.connect() as connection:
+            rows = connection.execute(statement).mappings()
+            return [_practice_attempt(row) for row in rows]
 
     def create_job(self, job_id: str, corpus_id: str, status: str, payload: dict[str, Any] | None = None) -> None:
         with self.database.engine.begin() as connection:

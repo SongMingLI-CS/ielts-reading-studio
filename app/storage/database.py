@@ -116,6 +116,19 @@ corpus_approvals = Table(
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 
+practice_attempts = Table(
+    "practice_attempts",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("unit_id", String, ForeignKey("generation_units.id"), nullable=False, index=True),
+    Column("status", String, nullable=False, index=True),
+    Column("score", Integer),
+    Column("total", Integer),
+    Column("payload", Text, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
 
 class Database:
     """SQLite database owner with a schema shared by all repository instances."""

@@ -14,10 +14,44 @@ from app.models import QuestionType, UnitStatus
 from app.pipeline.service import ReadingStudioService
 
 from .dependencies import get_service
-from .schemas import AnswerResult, PracticeResult, PracticeSubmission
+from .schemas import (
+    AnswerResult,
+    PracticeResult,
+    PracticeSaveResult,
+    PracticeSubmission,
+)
 
 router = APIRouter()
 TEMPLATES = Jinja2Templates(directory=Path(__file__).parents[2] / "templates")
+
+
+@router.get("/practice")
+def practice_center(
+    request: Request,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+):
+    items = []
+    attempts = service.repository.list_practice_attempts()
+    attempts_by_unit: dict[str, list[dict]] = {}
+    for attempt in attempts:
+        attempts_by_unit.setdefault(attempt["unit_id"], []).append(attempt)
+    for corpus in service.repository.list_corpora():
+        for unit in service.repository.list_units(corpus.id):
+            if unit.status != UnitStatus.COMPLETED:
+                continue
+            try:
+                package = service.load_package(unit.id)
+            except (FileNotFoundError, ValueError):
+                continue
+            items.append(
+                {
+                    "unit": unit,
+                    "corpus": corpus,
+                    "package": package,
+                    "attempts": attempts_by_unit.get(unit.id, []),
+                }
+            )
+    return TEMPLATES.TemplateResponse(request, "practice/index.html", {"items": items})
 
 
 @router.get("/practice/{unit_id}")
@@ -32,6 +66,26 @@ def practice_session(
         "practice/session.html",
         {"package": package},
     )
+
+
+@router.post("/practice/{unit_id}/save", response_model=PracticeSaveResult)
+def save_practice(
+    unit_id: str,
+    submission: PracticeSubmission,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+):
+    _completed_package(service, unit_id)
+    attempt_id = submission.attempt_id or uuid4().hex
+    service.repository.save_practice_attempt(
+        attempt_id,
+        unit_id,
+        status="in_progress",
+        payload={
+            "answers": submission.answers,
+            "elapsed_seconds": submission.elapsed_seconds,
+        },
+    )
+    return PracticeSaveResult(attempt_id=attempt_id)
 
 
 @router.post("/practice/{unit_id}/submit", response_model=PracticeResult)
@@ -62,7 +116,20 @@ def submit_practice(
                     distractor_explanations=question.distractor_explanations,
                 )
             )
+    attempt_id = submission.attempt_id or uuid4().hex
+    service.repository.save_practice_attempt(
+        attempt_id,
+        unit_id,
+        status="submitted",
+        score=correct_count,
+        total=len(results),
+        payload={
+            "answers": submission.answers,
+            "elapsed_seconds": submission.elapsed_seconds,
+        },
+    )
     return PracticeResult(
+        attempt_id=attempt_id,
         correct=correct_count,
         total=len(results),
         elapsed_seconds=submission.elapsed_seconds,

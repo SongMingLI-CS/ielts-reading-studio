@@ -1,14 +1,43 @@
 {% extends "base.html" %}
 {% block title %}{{ package.passage.title }} · 在线练习{% endblock %}
 {% block content %}
-<p class="eyebrow">在线练习 · <span id="timer">00:00</span></p><h1>{{ package.passage.title }}</h1>
-<article class="passage">{% for paragraph in package.passage.paragraphs %}<p id="paragraph-{{ paragraph.label }}"><strong>{{ paragraph.label }}</strong> {{ paragraph.text }}</p>{% endfor %}</article>
-<form id="practice-form" data-unit-id="{{ package.unit.id }}">
-{% for group in package.question_groups %}<section class="question-group"><h2>{{ group.type.value|replace('_',' ')|title }}</h2><p>{{ group.instructions }}</p>
-{% for question in group.questions %}<div class="question"><label><strong>{{ question.number }}.</strong> {{ question.prompt }}
-{% if group.type.value in ['true_false_not_given','yes_no_not_given'] %}<select name="q{{ question.number }}"><option></option>{% set vals = ['TRUE','FALSE','NOT GIVEN'] if group.type.value == 'true_false_not_given' else ['YES','NO','NOT GIVEN'] %}{% for value in vals %}<option>{{ value }}</option>{% endfor %}</select>
-{% elif group.options %}<select name="q{{ question.number }}"><option></option>{% for option in group.options %}<option>{{ option }}</option>{% endfor %}</select>
-{% else %}<input name="q{{ question.number }}" autocomplete="off">{% endif %}</label></div>{% endfor %}</section>{% endfor %}
-<button type="submit">交卷</button></form><section id="practice-result" hidden></section>
+<div class="practice-topbar">
+  <a class="back-link" href="/practice">← 练习中心</a>
+  <div class="practice-meta"><span class="difficulty-pill">{{ package.passage.difficulty.value|title }}</span><span>{{ package.passage.word_count }} words</span></div>
+  <div class="session-tools"><span id="autosave-status" class="save-status"><i></i> 已保存到本机</span><span class="timer-chip">◷ <strong id="timer">00:00</strong></span></div>
+</div>
+<div class="progress-track" aria-label="答题进度"><span id="progress-bar"></span></div>
+<div class="practice-shell">
+  <section class="reading-pane">
+    <div class="pane-label">Reading passage</div>
+    <h1>{{ package.passage.title }}</h1>
+    <article class="passage practice-passage">
+      {% for paragraph in package.passage.paragraphs %}<p id="paragraph-{{ paragraph.label }}"><strong>{{ paragraph.label }}</strong><span>{{ paragraph.text }}</span></p>{% endfor %}
+    </article>
+  </section>
+  <section class="answer-pane">
+    <div class="answer-intro"><p class="eyebrow">Questions</p><h2>完成全部题目</h2><p id="progress-copy">已完成 0 题</p></div>
+    <form id="practice-form" data-unit-id="{{ package.unit.id }}">
+    {% for group in package.question_groups %}
+      <section class="question-group" data-group="{{ group.type.value }}">
+        <header><span class="group-number">{{ loop.index }}</span><div><h3>{{ group.type.value|replace('_',' ')|title }}</h3><p>{{ group.instructions }}{% if group.word_limit %} <strong>NO MORE THAN {{ group.word_limit }} WORDS.</strong>{% endif %}</p></div></header>
+        {% if group.options %}<ol class="heading-options">{% for option in group.options %}<li>{{ option }}</li>{% endfor %}</ol>{% endif %}
+        {% for question in group.questions %}
+        <div class="question" id="question-{{ question.number }}" data-number="{{ question.number }}">
+          <div class="question-copy"><span class="question-number">{{ question.number }}</span><p>{{ question.prompt }}</p></div>
+          {% if group.type.value in ['true_false_not_given','yes_no_not_given'] %}
+          <div class="choice-row">{% set vals = ['TRUE','FALSE','NOT GIVEN'] if group.type.value == 'true_false_not_given' else ['YES','NO','NOT GIVEN'] %}{% for value in vals %}<label class="choice-chip"><input type="radio" name="q{{ question.number }}" value="{{ value }}"><span>{{ value }}</span></label>{% endfor %}</div>
+          {% elif group.options %}
+          <select name="q{{ question.number }}"><option value="">Choose a heading…</option>{% for option in group.options %}<option value="{{ option.split('.')[0] if '.' in option else option }}">{{ option }}</option>{% endfor %}</select>
+          {% else %}<input name="q{{ question.number }}" placeholder="Type your answer" autocomplete="off">{% endif %}
+        </div>
+        {% endfor %}
+      </section>
+    {% endfor %}
+      <div class="submit-dock"><div><strong id="answered-count">0</strong> / <span id="total-count">0</span> answered</div><button type="submit">提交答案 <span>→</span></button></div>
+    </form>
+    <section id="practice-result" class="result-panel" hidden></section>
+  </section>
+</div>
 {% endblock %}
 {% block scripts %}<script src="/static/practice.js"></script>{% endblock %}
