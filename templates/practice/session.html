@@ -7,7 +7,11 @@
   <div class="session-tools"><span id="autosave-status" class="save-status"><i></i> 已保存到本机</span><span class="timer-chip">◷ <strong id="timer">00:00</strong></span></div>
 </div>
 <div class="progress-track" aria-label="答题进度"><span id="progress-bar"></span></div>
-<div class="practice-shell">
+<div class="mobile-pane-tabs" role="tablist" aria-label="练习视图">
+  <button type="button" role="tab" aria-selected="true" data-show-pane="reading">阅读文章</button>
+  <button type="button" role="tab" aria-selected="false" data-show-pane="questions">答题 <span id="mobile-answered-count">0</span></button>
+</div>
+<div class="practice-shell" data-mobile-pane="reading">
   <section class="reading-pane">
     <div class="pane-label">Reading passage</div>
     <h1>{{ package.passage.title }}</h1>
@@ -40,4 +44,4 @@
   </section>
 </div>
 {% endblock %}
-{% block scripts %}<script src="/static/practice.js"></script>{% endblock %}
+{% block scripts %}<script src="/static/practice.js?v=2"></script>{% endblock %}

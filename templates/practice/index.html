@@ -5,11 +5,11 @@
   <div class="hero-copy">
     <p class="eyebrow">Local practice library</p>
     <h1>练习中心</h1>
-    <p class="lead">把小说章节转化为 IELTS Academic Reading。草稿、用时、成绩和错题记录全部留在这台电脑上。</p>
-    <div class="hero-actions"><span class="local-badge"><span></span> 本机数据</span><span>{{ summary.available }} 篇可练习</span></div>
+    <p class="lead">把小说章节转化为 IELTS Academic Reading。草稿、用时、成绩和错题记录只保存在你的私有服务器中。</p>
+    <div class="hero-actions"><span class="local-badge"><span></span> 私有存储</span><span>{{ summary.available }} 篇可练习</span></div>
   </div>
   <aside class="study-overview">
-    <p class="eyebrow">本机学习概览</p>
+    <p class="eyebrow">学习概览</p>
     <div class="overview-grid">
       <div><strong>{{ summary.available }}</strong><span>可练习</span></div>
       <div><strong>{{ summary.in_progress }}</strong><span>进行中</span></div>
@@ -24,7 +24,7 @@
 <div class="practice-library">
 {% for item in items %}
   {% set latest = item.attempts[0] if item.attempts else none %}
-  <article class="practice-book-card">
+  <article class="practice-book-card" data-status="{{ latest.status if latest else 'new' }}">
     <div class="book-spine"><span>{{ '%02d'|format(item.unit.ordinal or loop.index) }}</span><i></i></div>
     <div class="book-copy">
       <div class="card-topline"><p class="card-kicker">{{ item.package.passage.difficulty.value|title }}</p>{% if latest %}<span class="attempt-state {{ latest.status }}">{% if latest.status == 'submitted' %}已完成{% else %}进行中{% endif %}</span>{% else %}<span class="attempt-state new">新篇目</span>{% endif %}</div>

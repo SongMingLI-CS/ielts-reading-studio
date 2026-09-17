@@ -47,3 +47,32 @@ body:has(.practice-shell){background:#eef0eb}.practice-topbar{display:grid;grid-
   .submit-dock button{width:100%}
   .score-orb{width:5.5rem;height:5.5rem}
 }
+
+/* Refined navigation, focus states, and responsive practice switching */
+.site-brand{display:flex;align-items:center;gap:.7rem;white-space:nowrap}
+.brand-mark{display:grid;place-items:center;width:2rem;height:2rem;border:1px solid #ffffff45;border-radius:.55rem;background:#ffffff12;font:700 1.05rem Georgia,serif}
+.site-header nav a{position:relative;padding:.45rem .2rem}
+.site-header nav a[aria-current="page"]{opacity:1}
+.site-header nav a[aria-current="page"]::after{content:"";position:absolute;left:.15rem;right:.15rem;bottom:.05rem;height:2px;border-radius:2px;background:#f2a06f}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #f2a06f;outline-offset:3px}
+.mobile-pane-tabs{display:none}
+
+@media (max-width:1024px){
+  .mobile-pane-tabs{position:sticky;top:0;z-index:15;display:grid;grid-template-columns:1fr 1fr;gap:.35rem;margin:0 0 .75rem;padding:.35rem;background:#e3e7e2cc;border:1px solid #d3d9d4;border-radius:.75rem;backdrop-filter:blur(12px)}
+  .mobile-pane-tabs button{min-height:44px;background:transparent;color:#4e5b56;box-shadow:none}
+  .mobile-pane-tabs button:hover{transform:none;box-shadow:none}
+  .mobile-pane-tabs button[aria-selected="true"]{background:var(--forest);color:#fff;box-shadow:0 5px 14px #123c3528}
+  .mobile-pane-tabs button span{display:inline-grid;place-items:center;min-width:1.35rem;height:1.35rem;margin-left:.25rem;padding:0 .25rem;border-radius:1rem;background:#ffffff20;font-size:.72rem}
+  .practice-shell.mobile-tabs-enabled[data-mobile-pane="reading"] .answer-pane{display:none}
+  .practice-shell.mobile-tabs-enabled[data-mobile-pane="questions"] .reading-pane{display:none}
+  .practice-shell.mobile-tabs-enabled .reading-pane{border-bottom:0}
+}
+
+@media (max-width:700px){
+  body{padding-bottom:env(safe-area-inset-bottom)}
+  .site-header{padding-top:max(.8rem,env(safe-area-inset-top));padding-left:max(1rem,env(safe-area-inset-left));padding-right:max(1rem,env(safe-area-inset-right))}
+  .site-header>a{margin-bottom:.45rem}
+  .site-header nav a[aria-current="page"]{background:#ffffff18}
+  .site-header nav a[aria-current="page"]::after{display:none}
+  .mobile-pane-tabs{top:env(safe-area-inset-top)}
+}

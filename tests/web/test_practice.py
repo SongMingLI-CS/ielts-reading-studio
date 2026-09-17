@@ -5,6 +5,9 @@ def test_practice_page_does_not_render_answer_key(client, completed_unit):
     assert answer not in response.text
     assert 'class="practice-shell"' in response.text
     assert 'id="autosave-status"' in response.text
+    assert 'class="mobile-pane-tabs"' in response.text
+    assert 'data-show-pane="reading"' in response.text
+    assert 'data-show-pane="questions"' in response.text
 
 
 def test_practice_center_lists_completed_packages(client, completed_unit):
@@ -13,7 +16,8 @@ def test_practice_center_lists_completed_packages(client, completed_unit):
     assert completed_unit.package.passage.title in response.text
     assert f'/practice/{completed_unit.id}' in response.text
     assert "1 篇可练习" in response.text
-    assert "本机学习概览" in response.text
+    assert "学习概览" in response.text
+    assert "私有存储" in response.text
 
 
 def test_submission_scores_normalized_exact_answers(client, completed_unit):

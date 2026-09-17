@@ -4,13 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}IELTS Reading Studio{% endblock %}</title>
-  <link rel="stylesheet" href="/static/app.css?v=3">
-  <link rel="stylesheet" href="/static/practice-center.css?v=3">
+  <meta name="theme-color" content="#123c35">
+  <link rel="stylesheet" href="/static/app.css?v=4">
+  <link rel="stylesheet" href="/static/practice-center.css?v=4">
 </head>
 <body>
   <header class="site-header">
-    <a href="/corpora"><strong>IELTS Reading Studio</strong></a>
-    <nav><a href="/corpora">语料</a><a href="/practice">练习</a><a href="/corpora/import">导入</a><a href="/exports">导出</a></nav>
+    <a class="site-brand" href="/practice"><span class="brand-mark" aria-hidden="true">R</span><strong>IELTS Reading Studio</strong></a>
+    <nav aria-label="主导航">
+      <a href="/corpora"{% if request.url.path.startswith('/corpora') and request.url.path != '/corpora/import' %} aria-current="page"{% endif %}>语料</a>
+      <a href="/practice"{% if request.url.path.startswith('/practice') %} aria-current="page"{% endif %}>练习</a>
+      <a href="/corpora/import"{% if request.url.path == '/corpora/import' %} aria-current="page"{% endif %}>导入</a>
+      <a href="/exports"{% if request.url.path.startswith('/exports') %} aria-current="page"{% endif %}>导出</a>
+    </nav>
   </header>
   <main>{% block content %}{% endblock %}</main>
   {% block scripts %}{% endblock %}

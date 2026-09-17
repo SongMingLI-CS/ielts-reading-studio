@@ -21,3 +21,19 @@
   .book-spine{display:none}
   .practice-arrow{left:1rem}
 }
+
+/* Stronger hierarchy and status cues */
+.practice-hero{isolation:isolate}
+.hero-copy{box-shadow:0 22px 55px #123c3520}
+.study-overview{position:relative;overflow:hidden}
+.study-overview::after{content:"";position:absolute;right:-3rem;bottom:-4rem;width:9rem;height:9rem;border-radius:50%;background:#dcebe570;pointer-events:none}
+.overview-grid div{position:relative;z-index:1;border:1px solid transparent;transition:border-color .18s,transform .18s}
+.overview-grid div:hover{transform:translateY(-2px);border-color:#cbded6}
+.practice-book-card[data-status="in_progress"]{border-color:#dfbd7d}
+.practice-book-card[data-status="submitted"]{border-color:#b8d8cb}
+.practice-arrow::after{content:"";position:absolute;inset:-.6rem 0}
+
+@media (prefers-reduced-motion:reduce){
+  .practice-book-card,.overview-grid div{transition:none}
+  .practice-book-card:hover,.overview-grid div:hover{transform:none}
+}
