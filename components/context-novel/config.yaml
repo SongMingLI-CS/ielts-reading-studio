@@ -1,0 +1,19 @@
+input_dir: input
+output_dir: output
+deepseek_base_url: https://api.deepseek.com
+deepseek_model: deepseek-flash
+deepseek_review_model: deepseek-v4-pro
+concurrency: 6
+max_retries: 3
+max_chapters_per_run: 100
+max_estimated_tokens_per_run: 6000000
+max_consecutive_failures: 5
+volume_size: 50
+check_report_every: 20
+density:
+  min_per_500_chars: 20
+  target_per_500_chars: 28
+  max_per_500_chars: 35
+chapter_chunk_chars: 12000
+batch_confirmed: true
+
