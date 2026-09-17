@@ -79,3 +79,45 @@ SQLite WAL 模式下备份时应同时复制可能存在的 `state.db-wal` 和 `
 - `needs_review`：达到返工上限；先检查 `failed/` 与 `reports/`，不要盲目重跑。
 
 运行 `scripts/verify.ps1` 可确认本地代码、依赖和离线路径完整。真实样篇之前还应核对 DeepSeek 官方当前模型名与价格，并保持模型名由配置提供。
+
+## 9. 远程部署（服务器）
+
+服务默认只监听本机。对外提供服务时必须显式指定 host 并提供访问口令：
+
+```bash
+export IELTS_WEB_USERNAME=reader
+export IELTS_WEB_PASSWORD='一个足够长的口令'
+ielts-reading serve --host 0.0.0.0 --port 8000
+```
+
+- 未设置 `IELTS_WEB_USERNAME` / `IELTS_WEB_PASSWORD` 时，非本机 host 会直接拒绝启动。
+- 口令只从环境变量或项目旁 `.env` 读取；YAML 中出现的口令被忽略。
+- Basic 认证覆盖所有页面与静态资源，仅 `/healthz` 免认证，便于探活。
+- **务必放在 HTTPS 反向代理之后。** 明文 HTTP 有两个后果：Basic 口令可被窃听；浏览器在非安全上下文（既不是 https、也不是 localhost）不提供 `crypto.randomUUID()` 等 Web API。练习页已对这类 API 做兜底，但不要把明文 HTTP 当作可接受的长期方案。
+- 反代需转发 `Host`、`X-Forwarded-For`、`X-Forwarded-Proto`；`serve` 已开启 `proxy_headers`，且只信任来自本机的转发头（uvicorn 的 `forwarded_allow_ips` 默认 `127.0.0.1`）。
+
+nginx 片段：
+
+```nginx
+server {
+  listen 443 ssl;
+  server_name ielts.example.com;
+  ssl_certificate     /etc/letsencrypt/live/ielts.example.com/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/ielts.example.com/privkey.pem;
+  client_max_body_size 250m;            # 与上传上限一致
+  location / {
+    proxy_pass http://127.0.0.1:8000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+}
+```
+
+其它注意事项：
+
+- 应用必须挂在域名**根路径**。模板与脚本使用绝对路径（`/static/...`、`/practice/...`），子路径反代不生效，请改用子域名。
+- 更新前端资源后浏览器可能沿用旧缓存；引用里已带 `?v=` 版本号，发布时如未更新版本号需在反代禁用 HTML 缓存或提示硬刷新。
+- **当前是本机单用户设计**：练习草稿、成绩、任务队列都写在同一份 `output/state.db`，Basic 认证只拦访问者、不区分用户。多人共用一台服务器时，建议每人一份目录与端口（各自 `--config`），或在反代上按路径隔离。
+- 长期运行建议用 systemd 等进程管理器托管，并定期备份 `output/`（见第 6 节）。
+
