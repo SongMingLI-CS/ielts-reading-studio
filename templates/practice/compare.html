@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}{{ package.passage.title }} · 对照原文{% endblock %}
+{% block content %}
+<div class="practice-topbar">
+  <a class="back-link" href="/corpora">← 材料库</a>
+  <div class="practice-meta">
+    <span class="badge">{{ package.passage.difficulty.value|title }}</span>
+    <span class="badge">{{ package.passage.word_count }} words</span>
+    <span class="badge">{{ question_count }} 题</span>
+    <span class="badge">原文 {{ source_characters }} 字</span>
+    {% if unit.limited_source %}<span class="badge status-calibrate">来源偏短</span>{% endif %}
+  </div>
+  <div class="session-tools">
+    <a class="button ghost small" href="/practice/{{ unit.id }}">在线试做</a>
+    <a class="button ghost small" href="/practice/{{ unit.id }}/analysis">答案与解析</a>
+  </div>
+</div>
+
+<header class="preview-head">
+  <p class="eyebrow">Source vs passage</p>
+  <h1>{{ package.passage.title }}</h1>
+  <p class="lead">左边是这段单元用到的中文原文，右边是生成的英文 Passage。英文段落上标注了它覆盖了哪些「来源要点」，以及哪些题把它当作证据。<b>模型是改写而不是直译</b>，所以这里按「要点 → 段落」对照，不能逐句对齐。</p>
+</header>
+
+{% if uncovered %}
+<p class="inline-note">有 {{ uncovered|length }} 条来源要点没有被任何英文段落标注覆盖 —— 可能是改写时合并或省略，也可能意味着细节被跳过。审核样篇时值得先看这几条。</p>
+{% endif %}
+
+<div class="compare-grid">
+  <section class="compare-pane">
+    <div class="pane-label">中文原文（{{ source_paragraphs|length }} 段）</div>
+    <article class="compare-source">
+      {% for paragraph in source_paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+      {% if not source_paragraphs %}<p class="muted">没有找到该单元对应的源文片段（源章节可能已被清理）。</p>{% endif %}
+    </article>
+  </section>
+
+  <section class="compare-pane">
+    <div class="pane-label">English passage（{{ package.passage.paragraphs|length }} 段）</div>
+    <article class="compare-passage">
+      {% for paragraph in package.passage.paragraphs %}
+      <p class="compare-paragraph {{ 'is-evidence' if paragraph.label in evidence }}">
+        <strong>{{ paragraph.label }}</strong>
+        <span>{{ paragraph.text }}</span>
+        <span class="compare-tags">
+          {% if paragraph.label in evidence %}<em class="tag-evidence">题目证据 · 第 {% for number in evidence[paragraph.label] %}{{ number }}{% if not loop.last %}、{% endif %}{% endfor %} 题</em>{% endif %}
+          {% if labels_to_facts.get(paragraph.label) %}<em class="tag-facts">覆盖要点 {{ labels_to_facts[paragraph.label]|join('、') }}</em>{% endif %}
+        </span>
+      </p>
+      {% endfor %}
+    </article>
+  </section>
+</div>
+
+<section class="config-block">
+  <header class="config-head">
+    <div><h2>要点覆盖表</h2><p>来源摘要里的 {{ brief_count }} 条事实与主张，各自被哪些英文段落写到。</p></div>
+  </header>
+  <table class="coverage-table">
+    <thead><tr><th>要点</th><th>内容</th><th>覆盖段落</th></tr></thead>
+    <tbody>
+    {% for row in coverage_rows %}
+      <tr class="{{ '' if row.labels else 'uncovered' }}">
+        <td><code>{{ row.id }}</code></td>
+        <td>{{ row.text or '（摘要里没有这条文本）' }}</td>
+        <td>{% if row.labels %}{% for label in row.labels %}<span class="label-chip">{{ label }}</span>{% endfor %}{% else %}<span class="uncovered-chip">未覆盖</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="config-block">
+  <header class="config-head">
+    <div><h2>题目证据一览</h2><p>每道题依赖的段落与原文引用；如果证据看起来和题目无关，这篇就不该批准。</p></div>
+  </header>
+  <ul class="evidence-list">
+    {% for group in package.question_groups %}
+      {% for question in group.questions %}
+      <li>
+        <span class="question-number">{{ question.number }}</span>
+        <div>
+          <p class="evidence-prompt">{{ question.prompt }}</p>
+          <p class="evidence-quote">段落 {{ question.evidence_paragraph }}：{{ question.evidence_quote }}</p>
+          <p class="muted">答案 {{ question.answer }}{% if question.acceptable_answers %} · 也接受 {{ question.acceptable_answers|join('、') }}{% endif %}</p>
+        </div>
+      </li>
+      {% endfor %}
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

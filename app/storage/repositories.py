@@ -23,6 +23,7 @@ from .database import (
     source_chapters,
     stage_attempts,
     usage_records,
+    vocabulary_marks,
 )
 
 RUNNING_RECOVERY_STATUSES: dict[UnitStatus, UnitStatus] = {
@@ -162,6 +163,35 @@ class Repository:
         with self.database.engine.connect() as connection:
             rows = connection.execute(statement).mappings()
             return [_model(row, SourceChapter) for row in rows]
+
+    def list_vocabulary_marks(self) -> dict[str, str]:
+        """word (casefolded) -> status."""
+        with self.database.engine.connect() as connection:
+            rows = connection.execute(select(vocabulary_marks)).mappings()
+            return {row["word"]: row["status"] for row in rows}
+
+    def set_vocabulary_mark(self, word: str, status: str) -> None:
+        key = word.strip().casefold()
+        if not key:
+            return
+        statement = sqlite_insert(vocabulary_marks).values(
+            word=key, status=status, payload="{}"
+        )
+        statement = statement.on_conflict_do_update(
+            index_elements=[vocabulary_marks.c.word],
+            set_={"status": status, "updated_at": func.now()},
+        )
+        with self.database.engine.begin() as connection:
+            connection.execute(statement)
+
+    def clear_vocabulary_mark(self, word: str) -> None:
+        key = word.strip().casefold()
+        if not key:
+            return
+        with self.database.engine.begin() as connection:
+            connection.execute(
+                delete(vocabulary_marks).where(vocabulary_marks.c.word == key)
+            )
 
     def delete_corpus(self, corpus_id: str) -> dict[str, int]:
         """Remove a corpus and every row derived from it, in foreign-key order."""

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}备份与恢复 · IELTS Reading Studio{% endblock %}
+{% block content %}
+<div class="practice-topbar">
+  <a class="back-link" href="/corpora">← 材料库</a>
+  <div class="practice-meta"><span class="badge">运维</span><span class="badge">不含密钥</span></div>
+</div>
+
+<header class="preview-head">
+  <p class="eyebrow">Backup</p>
+  <h1>备份与恢复</h1>
+  <p class="lead">把数据库、生成产物和导入的源文件打成一个 zip 下载。数据库用 SQLite 的在线备份 API 取一致性快照（含 WAL 里尚未合并的内容），所以不用停服务。<b>压缩包里不包含 <code>.env</code> 与 <code>.env.web</code></b>，密钥不会被带走。</p>
+</header>
+
+<dl class="preview-facts">
+  <div><dt>数据库</dt><dd>{{ database_mb }} MB</dd></div>
+  <div><dt>产物目录 output/</dt><dd>{{ output_mb }} MB · {{ facts.output_files }} 个文件</dd></div>
+  <div><dt>源文件 input/</dt><dd>{{ input_mb }} MB · {{ facts.input_files }} 个文件</dd></div>
+  <div><dt>预计压缩包</dt><dd>≤ {{ total_mb }} MB</dd></div>
+</dl>
+
+<section class="config-block">
+  <header class="config-head">
+    <div><h2>下载备份</h2><p>生成需要一点时间（文件越多越久），完成后浏览器会直接保存 zip。</p></div>
+  </header>
+  <p class="gate-note">包含：<code>state.db</code>（一致性快照）、<code>output/</code>（清单、Package、阶段结果、报告、导出）、<code>input/</code>（导入时保存的源文件副本），以及一份说明文件。</p>
+  <p class="inline-note plain">恢复方法：停止服务 → 把压缩包解到项目目录（覆盖 <code>state.db</code> 与 <code>output/</code>）→ 重新启动服务。SSH 上的密码、API Key 不在包里，需要另行保管。</p>
+  <div class="danger-actions">
+    <a class="button" href="/backup/download">下载备份 zip</a>
+    <a class="button ghost" href="/corpora">返回材料库</a>
+  </div>
+</section>
+
+<section class="config-block">
+  <header class="config-head"><div><h2>路径</h2><p>确认备份的是你预期的位置。</p></div></header>
+  <ul class="keep-list">
+    <li>数据库：<code>{{ facts.database }}</code></li>
+    <li>产物：<code>{{ facts.output_dir }}</code></li>
+    <li>源文件：<code>{{ facts.input_dir }}</code></li>
+  </ul>
+</section>
+{% endblock %}

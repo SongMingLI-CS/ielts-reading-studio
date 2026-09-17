@@ -20,6 +20,7 @@
       <a href="/novel"{% if request.url.path.startswith('/novel') %} aria-current="page"{% endif %}>情境小说</a>
       <a href="/corpora/import"{% if request.url.path == '/corpora/import' %} aria-current="page"{% endif %}>导入</a>
       <a href="/exports"{% if request.url.path.startswith('/exports') %} aria-current="page"{% endif %}>导出</a>
+      <a href="/backup"{% if request.url.path.startswith('/backup') %} aria-current="page"{% endif %}>备份</a>
     </nav>
   </header>
   <main>{% block content %}{% endblock %}</main>

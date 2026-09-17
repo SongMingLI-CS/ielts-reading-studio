@@ -1,0 +1,147 @@
+from __future__ import annotations
+
+import datetime as dt
+import os
+import sqlite3
+import tempfile
+import zipfile
+from pathlib import Path
+from typing import Annotated, Any
+
+from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi.responses import FileResponse
+from fastapi.templating import Jinja2Templates
+from starlette.background import BackgroundTask
+from starlette.requests import Request
+
+from app.pipeline.service import ReadingStudioService
+
+from .dependencies import get_service
+
+router = APIRouter()
+TEMPLATES = Jinja2Templates(directory=Path(__file__).parents[2] / "templates")
+
+
+def _path_size(path: Path) -> int:
+    if path.is_file():
+        return path.stat().st_size
+    if not path.is_dir():
+        return 0
+    return sum(child.stat().st_size for child in path.rglob("*") if child.is_file())
+
+
+def _file_count(path: Path) -> int:
+    if not path.is_dir():
+        return 0
+    return sum(1 for child in path.rglob("*") if child.is_file())
+
+
+def _backup_facts(service: ReadingStudioService) -> dict[str, Any]:
+    database = service.config.database_path
+    output_dir = service.config.output_dir
+    input_dir = service.config.input_dir
+    return {
+        "database": database,
+        "database_bytes": _path_size(database),
+        "output_dir": output_dir,
+        "output_bytes": _path_size(output_dir),
+        "output_files": _file_count(output_dir),
+        "input_dir": input_dir,
+        "input_bytes": _path_size(input_dir),
+        "input_files": _file_count(input_dir),
+        "total_bytes": _path_size(database) + _path_size(output_dir) + _path_size(input_dir),
+    }
+
+
+def _snapshot_database(database: Path, target: Path) -> None:
+    """Copy the SQLite file through the backup API so WAL content is included."""
+    if not database.exists():
+        return
+    source = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
+    try:
+        destination = sqlite3.connect(target)
+        try:
+            source.backup(destination)
+        finally:
+            destination.close()
+    finally:
+        source.close()
+
+
+@router.get("/backup")
+def backup_page(
+    request: Request,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+):
+    facts = _backup_facts(service)
+    return TEMPLATES.TemplateResponse(
+        request,
+        "backup/index.html",
+        {
+            "facts": facts,
+            "total_mb": round(facts["total_bytes"] / 1024 / 1024, 1),
+            "database_mb": round(facts["database_bytes"] / 1024 / 1024, 1),
+            "output_mb": round(facts["output_bytes"] / 1024 / 1024, 1),
+            "input_mb": round(facts["input_bytes"] / 1024 / 1024, 1),
+        },
+    )
+
+
+@router.get("/backup/download")
+def backup_download(
+    background: BackgroundTasks,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+):
+    """Stream one zip with a consistent database snapshot plus every artifact.
+
+    Secrets are deliberately outside the archive: only state.db, output/ and
+    input/ are included, never .env or .env.web.
+    """
+    del background
+    facts = _backup_facts(service)
+    now = dt.datetime.now(dt.UTC)
+    stamp = now.strftime("%Y%m%d-%H%M%S")
+    handle, name = tempfile.mkstemp(prefix="ielts-backup-", suffix=".zip")
+    os.close(handle)
+    archive_path = Path(name)
+
+    with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as archive:
+        database_copy = archive_path.with_name(f"{archive_path.name}.db")
+        _snapshot_database(facts["database"], database_copy)
+        if database_copy.exists():
+            archive.write(database_copy, "state.db")
+            database_copy.unlink()
+        for root in (facts["output_dir"], facts["input_dir"]):
+            if not root.is_dir():
+                continue
+            base = root.name
+            for child in sorted(root.rglob("*")):
+                if not child.is_file():
+                    continue
+                if child.name.endswith(("-wal", "-shm")):
+                    continue  # covered by the snapshot
+                if ".uploads" in child.parts:
+                    continue
+                archive.write(child, f"{base}/{child.relative_to(root)}")
+        archive.writestr(
+            "BACKUP-README.txt",
+            "\n".join(
+                [
+                    "IELTS Reading Studio backup",
+                    f"created: {now.isoformat(timespec='seconds')}",
+                    "",
+                    "included : state.db (consistent snapshot), output/, input/",
+                    "excluded : .env, .env.web and any other secret file",
+                    "",
+                    "restore  : stop the service, unpack this archive over the project",
+                    "           directory, then start the service again.",
+                ]
+            ),
+        )
+
+    return FileResponse(
+        archive_path,
+        media_type="application/zip",
+        filename=f"ielts-reading-studio-{stamp}.zip",
+        background=BackgroundTask(archive_path.unlink, missing_ok=True),
+    )

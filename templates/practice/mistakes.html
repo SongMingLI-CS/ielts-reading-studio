@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}错题本 · IELTS Reading Studio{% endblock %}
+{% block content %}
+<div class="practice-topbar">
+  <a class="back-link" href="/practice">← 练习中心</a>
+  <div class="practice-meta"><span class="badge status-calibrate">错题本</span><span class="badge">{{ total_items }} 道错题</span></div>
+  <div class="session-tools">
+    <a class="button ghost small" href="/practice/history">练习历史</a>
+  </div>
+</div>
+
+<header class="preview-head">
+  <p class="eyebrow">Mistake book</p>
+  <h1>错题本</h1>
+  <p class="lead">从 {{ attempt_count }} 次已提交作答里汇总出来的错题，同一道题反复错会排在最前面。每题都带原文证据和中文解析，直接对着改。</p>
+</header>
+
+{% if type_stats %}
+<ul class="stat-bars compact">
+  {% for stat in type_stats %}
+  <li>
+    <div class="stat-bar-head"><strong>{{ stat.label }}</strong><span>{{ stat.correct }} / {{ stat.answered }} · {{ stat.accuracy }}%</span></div>
+    <div class="stat-bar"><span style="width: {{ stat.accuracy }}%" class="{{ 'good' if stat.accuracy >= 80 else ('mid' if stat.accuracy >= 50 else 'bad') }}"></span></div>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if available_types %}
+<div class="filter-row">
+  <a class="filter-chip {{ 'active' if not selected_type }}" href="/practice/mistakes">全部</a>
+  {% for option in available_types %}
+  <a class="filter-chip {{ 'active' if selected_type == option.value }}" href="/practice/mistakes?type={{ option.value }}">{{ option.label }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if items %}
+<div class="mistake-list">
+{% for item in items %}
+  <article class="mistake-card">
+    <header>
+      <span class="badge">{{ item.label }}</span>
+      <span class="badge status-new">第 {{ item.result.number }} 题</span>
+      {% if item.wrong_count > 1 %}<span class="badge status-calibrate">错过 {{ item.wrong_count }} 次</span>{% endif %}
+      <p class="mistake-source">{{ item.package.passage.title }}</p>
+    </header>
+    <p class="mistake-prompt">{{ item.result.number }}. {{ item.prompt }}</p>
+    <dl class="answer-compare">
+      <div><dt>你的答案</dt><dd>{% if item.result.submitted %}{{ item.result.submitted }}{% else %}<em>未作答</em>{% endif %}</dd></div>
+      <div><dt>正确答案</dt><dd class="correct-value">{{ item.result.answer }}</dd></div>
+      {% if item.result.acceptable_answers %}<div><dt>同样算对</dt><dd>{{ item.result.acceptable_answers|join('、') }}</dd></div>{% endif %}
+    </dl>
+    <div class="evidence-block">
+      <p class="evidence-label">原文证据 · 段落 {{ item.result.evidence_paragraph }}</p>
+      <blockquote>{{ item.result.evidence_quote }}</blockquote>
+    </div>
+    <p class="explanation">{{ item.result.chinese_explanation }}</p>
+    {% if item.result.distractor_explanations %}
+    <details class="distractor-list">
+      <summary>其余选项为什么不选 · {{ item.result.distractor_explanations|length }} 条</summary>
+      <ul>{% for option, note in item.result.distractor_explanations.items() %}<li><strong>{{ option }}</strong><span>{{ note }}</span></li>{% endfor %}</ul>
+    </details>
+    {% endif %}
+    <nav class="sample-links">
+      <a href="/practice/{{ item.unit.id }}">重做这一篇</a>
+      <a href="/practice/{{ item.unit.id }}/result/{{ item.attempt_id }}">当时的判分</a>
+      <a href="/practice/{{ item.unit.id }}/analysis?attempt={{ item.attempt_id }}#paragraph-{{ item.result.evidence_paragraph }}">回到原文该段</a>
+    </nav>
+  </article>
+{% endfor %}
+</div>
+{% else %}
+<div class="empty"><h2>还没有错题</h2><p>{% if attempt_count %}这个筛选下没有错题；换个题型看看。{% else %}做完一篇并提交后，错题会自动汇总到这里。{% endif %}</p><a class="button" href="/practice">去练习</a></div>
+{% endif %}
+{% endblock %}

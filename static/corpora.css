@@ -232,6 +232,79 @@
 .batch-warn{grid-column:1/-1;margin:.2rem 0 0;color:#a8431f;font-size:.8rem}
 .batch-form button{grid-column:1/-1;justify-self:start}
 
+/* ---------- Practice history + mistake book ---------- */
+.stat-bars{list-style:none;margin:0;padding:0;display:grid;gap:.75rem}
+.stat-bars.compact{grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));margin-bottom:1.2rem}
+.stat-bar-head{display:flex;justify-content:space-between;gap:1rem;font-size:.84rem;color:#55625c;margin-bottom:.3rem}
+.stat-bar-head strong{color:#2c3b36}
+.stat-bar{height:.6rem;border-radius:2rem;background:#edf0ed;overflow:hidden}
+.stat-bar span{display:block;height:100%;border-radius:2rem;background:#57b394}
+.stat-bar span.good{background:linear-gradient(90deg,#2f8f6f,#57b394)}
+.stat-bar span.mid{background:linear-gradient(90deg,#c9a13c,#e0c26a)}
+.stat-bar span.bad{background:linear-gradient(90deg,#b8542f,#dd8a61)}
+.filter-row{display:flex;gap:.45rem;flex-wrap:wrap;margin:0 0 1rem}
+.filter-chip{background:#fff;border:1px solid var(--line);border-radius:2rem;color:#55625c;font-size:.8rem;font-weight:700;padding:.35rem .8rem;text-decoration:none}
+.filter-chip:hover{border-color:#b9cec6}
+.filter-chip.active{background:var(--forest);border-color:var(--forest);color:#fff}
+.mistake-list{display:grid;gap:1rem}
+.mistake-card{background:#fff;border:1px solid #e1e5e1;border-left:.3rem solid var(--orange);border-radius:.85rem;padding:1.1rem;box-shadow:0 8px 24px #153d3608}
+.mistake-card header{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.6rem}
+.mistake-source{margin:0;color:#8a958f;font-size:.78rem}
+.mistake-prompt{margin:0 0 .7rem;font-weight:600}
+.history-list{list-style:none;margin:0;padding:0;display:grid;gap:.7rem}
+.history-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1rem;align-items:center;background:#f8faf8;border:1px solid #e3e7e3;border-radius:.7rem;padding:.9rem 1rem}
+.history-main strong{display:block;font-size:.96rem}
+.history-main p{margin:.2rem 0 0;color:#7b8681;font-size:.79rem}
+.history-table{width:100%;border-collapse:collapse;font-size:.84rem}
+.history-table th,.history-table td{padding:.55rem .6rem;border-bottom:1px solid #edf0ed;text-align:left}
+.history-table th{color:#7b8681;font-size:.72rem;letter-spacing:.04em;text-transform:uppercase}
+.history-table tr:hover td{background:#f8faf8}
+
+/* ---------- Source vs passage comparison ---------- */
+.compare-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1.2rem;align-items:start;margin-bottom:1.2rem}
+.compare-pane{background:#fff;border:1px solid var(--line);border-radius:1rem;padding:1.2rem}
+.compare-source,.compare-passage{max-height:none}
+.compare-source p{margin:0 0 .9rem;font-family:Georgia,"Songti SC",serif;font-size:.98rem;line-height:1.8;color:#33403b;padding-left:.8rem;border-left:.15rem solid #eef1ee}
+.compare-paragraph{position:relative;margin:0 0 .9rem;padding:.7rem .9rem;border-radius:.6rem;background:#fbfcfb;border:1px solid #eef1ee}
+.compare-paragraph.is-evidence{background:#fffdf3;border-color:#f0e2b4}
+.compare-paragraph>strong{display:inline-block;margin-right:.5rem;color:var(--green);font:italic 1rem Georgia,serif}
+.compare-paragraph>span{font-family:Georgia,serif;font-size:.98rem;line-height:1.75;color:#2f3d38}
+.compare-tags{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.45rem}
+.compare-tags em{font-style:normal;font-size:.68rem;font-weight:800;border-radius:2rem;padding:.18rem .5rem}
+.tag-evidence{background:#fdf3d8;color:#8a6118}
+.tag-facts{background:#e9eefc;color:#33518f}
+.coverage-table,.history-table{width:100%;border-collapse:collapse;font-size:.84rem}
+.coverage-table th,.coverage-table td{padding:.55rem .6rem;border-bottom:1px solid #edf0ed;text-align:left;vertical-align:top}
+.coverage-table th{color:#7b8681;font-size:.72rem;letter-spacing:.04em;text-transform:uppercase}
+.coverage-table tr.uncovered td{background:#fdf3ec}
+.coverage-table code{background:#f4f6f3;border-radius:.3rem;padding:.05rem .3rem;font-size:.74rem}
+.label-chip{display:inline-block;margin-right:.3rem;background:#eef6f2;border-radius:.35rem;color:#1d6658;font-weight:700;padding:.15rem .45rem;font-size:.75rem}
+.uncovered-chip{background:#fdeadd;border-radius:.35rem;color:#a8431f;font-weight:800;padding:.15rem .45rem;font-size:.75rem}
+.evidence-list{list-style:none;margin:0;padding:0;display:grid;gap:.7rem}
+.evidence-list li{display:grid;grid-template-columns:1.85rem minmax(0,1fr);gap:.6rem;background:#f8faf8;border:1px solid #e3e7e3;border-radius:.65rem;padding:.8rem .9rem}
+.evidence-prompt{margin:0;font-weight:600;font-size:.9rem}
+.evidence-quote{margin:.3rem 0 0;font-family:Georgia,serif;color:#46544f;font-size:.86rem}
+.evidence-list .muted{margin:.3rem 0 0;font-size:.78rem}
+
+/* ---------- Vocabulary book ---------- */
+.vocab-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(17rem,1fr));gap:.8rem}
+.vocab-card{display:flex;flex-direction:column;background:#fff;border:1px solid #e3e7e3;border-left:.3rem solid #dbe3de;border-radius:.8rem;padding:1rem 1.1rem}
+.vocab-card.saved{border-left-color:var(--green);background:#fbfdfc}
+.vocab-card.known{border-left-color:#c9d3ce;background:#f8faf8;opacity:.85}
+.vocab-card header{display:flex;align-items:baseline;justify-content:space-between;gap:.6rem;flex-wrap:wrap}
+.vocab-card header strong{font:1.15rem Georgia,serif;color:var(--forest)}
+.vocab-pron{color:#7b8681;font-size:.8rem}
+.vocab-card header em{font-style:normal;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:#4b6e66;background:#eef3f0;border-radius:.3rem;padding:.1rem .35rem}
+.vocab-meaning{margin:.5rem 0 0;font-weight:600;color:#2f4a43;font-size:.9rem}
+.vocab-collocations{margin:.3rem 0 0;color:#5d6864;font-size:.82rem}
+.vocab-example{margin:.35rem 0 0;font-family:Georgia,serif;color:#46544f;font-size:.85rem}
+.vocab-source{margin:.5rem 0 0;color:#8a958f;font-size:.74rem}
+.vocab-actions{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-top:auto;padding-top:.8rem;border-top:1px solid #eef1ee}
+.vocab-actions form{display:flex;gap:.4rem;flex-wrap:wrap;margin:0}
+.vocab-state{font-size:.74rem;font-weight:800;border-radius:2rem;padding:.2rem .55rem}
+.vocab-state.saved{background:#dff0e8;color:#24674f}
+.vocab-state.known{background:#eef2ef;color:#5d6864}
+
 @media (max-width:1024px){
   .library-hero,.import-layout{grid-template-columns:1fr}
   .workflow-strip{grid-template-columns:1fr 1fr}

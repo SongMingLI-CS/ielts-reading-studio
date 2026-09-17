@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}练习历史 · IELTS Reading Studio{% endblock %}
+{% block content %}
+<div class="practice-topbar">
+  <a class="back-link" href="/practice">← 练习中心</a>
+  <div class="practice-meta"><span class="badge status-practice">练习历史</span></div>
+  <div class="session-tools">
+    <a class="button ghost small" href="/practice/mistakes">错题本{% if summary.attempts %} · {{ summary.correct }}/{{ summary.questions }}{% endif %}</a>
+  </div>
+</div>
+
+<header class="preview-head">
+  <p class="eyebrow">Practice history</p>
+  <h1>练习历史</h1>
+  <p class="lead">所有已提交的作答都保存在这台服务器的 SQLite 里。下面是总体正确率、按题型的强弱项，以及每一篇的历次成绩；点任意一条可以回到当时的判分结果。</p>
+</header>
+
+<dl class="preview-facts">
+  <div><dt>提交次数</dt><dd>{{ summary.attempts }}</dd></div>
+  <div><dt>练过的篇目</dt><dd>{{ summary.passages }}</dd></div>
+  <div><dt>平均正确率</dt><dd>{% if summary.average is not none %}{{ summary.average }}%{% else %}—{% endif %}</dd></div>
+  <div><dt>累计用时</dt><dd>{{ summary.minutes }} 分钟</dd></div>
+  <div><dt>累计题目</dt><dd>{{ summary.correct }} / {{ summary.questions }}</dd></div>
+</dl>
+
+{% if type_stats %}
+<section class="config-block">
+  <header class="config-head"><div><h2>按题型的正确率</h2><p>哪一种题型最弱，一眼能看出来；错题本可以只筛这一种。</p></div></header>
+  <ul class="stat-bars">
+    {% for stat in type_stats %}
+    <li>
+      <div class="stat-bar-head"><strong>{{ stat.label }}</strong><span>{{ stat.correct }} / {{ stat.answered }} · {{ stat.accuracy }}%</span></div>
+      <div class="stat-bar"><span style="width: {{ stat.accuracy }}%" class="{{ 'good' if stat.accuracy >= 80 else ('mid' if stat.accuracy >= 50 else 'bad') }}"></span></div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if passages %}
+<section class="config-block">
+  <header class="config-head"><div><h2>按篇目</h2><p>每篇的最好成绩与最近一次成绩。</p></div></header>
+  <ul class="history-list">
+    {% for entry in passages %}
+    {% set latest = entry.attempts[0] %}
+    <li>
+      <div class="history-main">
+        <strong>{{ entry.package.passage.title }}</strong>
+        <p>{{ entry.attempts|length }} 次 · 最好 {{ entry.best }}% · 最近 {{ latest.correct }}/{{ latest.total }}（{{ latest.accuracy }}%）· 最近用时 {{ (latest.elapsed // 60) }} 分 {{ latest.elapsed % 60 }} 秒</p>
+      </div>
+      <nav class="sample-links">
+        <a href="/practice/{{ entry.unit.id }}">再做一次</a>
+        <a href="/practice/{{ entry.unit.id }}/result/{{ latest.attempt.id }}">最近结果</a>
+        <a href="/practice/{{ entry.unit.id }}/analysis?attempt={{ latest.attempt.id }}">解析</a>
+      </nav>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="config-block">
+  <header class="config-head"><div><h2>最近作答</h2><p>最多显示最近 50 次。</p></div></header>
+  <table class="history-table">
+    <thead><tr><th>时间</th><th>篇目</th><th>成绩</th><th>正确率</th><th>用时</th><th></th></tr></thead>
+    <tbody>
+    {% for row in rows[:50] %}
+      <tr>
+        <td>{{ row.submitted_at }}</td>
+        <td>{{ row.package.passage.title }}</td>
+        <td>{{ row.correct }} / {{ row.total }}</td>
+        <td>{{ row.accuracy }}%</td>
+        <td>{{ row.elapsed // 60 }}:{{ '%02d'|format(row.elapsed % 60) }}</td>
+        <td><a class="text-link" href="/practice/{{ row.unit.id }}/result/{{ row.attempt.id }}">看结果</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<div class="empty"><h2>还没有提交过作答</h2><p>去练习中心做一篇，提交后这里会记录成绩、用时和正确率。</p><a class="button" href="/practice">去练习</a></div>
+{% endif %}
+{% endblock %}

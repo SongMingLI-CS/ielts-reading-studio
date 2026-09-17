@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import AppConfig
 from app.pipeline.service import ReadingStudioService
 
+from .routes_backup import router as backup_router
 from .routes_corpora import router as corpora_router
 from .routes_home import router as home_router
 from .routes_jobs import router as jobs_router
@@ -65,6 +66,7 @@ def create_app(
     application.include_router(jobs_router)
     application.include_router(practice_router)
     application.include_router(novel_router)
+    application.include_router(backup_router)
     static_dir = Path(__file__).parents[2] / "static"
     application.mount("/static", StaticFiles(directory=static_dir), name="static")
     return application

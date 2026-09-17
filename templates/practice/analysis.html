@@ -6,6 +6,7 @@
   <div class="practice-meta"><span class="difficulty-pill">{{ package.passage.difficulty.value|title }}</span><span>{{ package.passage.word_count }} words</span></div>
   <div class="session-tools">
     <a class="button ghost small" href="/practice/{{ package.unit.id }}{% if graded %}?fresh=1{% endif %}">{% if graded %}重做本篇{% else %}开始练习{% endif %}</a>
+    <a class="button ghost small" href="/practice/{{ package.unit.id }}/compare">对照原文</a>
   </div>
 </div>
 <header class="analysis-head">

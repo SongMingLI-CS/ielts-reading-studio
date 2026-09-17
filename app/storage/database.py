@@ -129,6 +129,17 @@ practice_attempts = Table(
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 
+vocabulary_marks = Table(
+    "vocabulary_marks",
+    metadata,
+    Column("word", String, primary_key=True),
+    # saved = collected into the vocabulary book, known = already learned
+    Column("status", String, nullable=False, index=True),
+    Column("payload", Text, nullable=False, server_default="{}"),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
 
 class Database:
     """SQLite database owner with a schema shared by all repository instances."""

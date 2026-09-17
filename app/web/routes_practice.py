@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import csv
+import io
 import re
 import unicodedata
 from pathlib import Path
 from typing import Annotated, Any
+from urllib.parse import quote
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Form, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
@@ -120,6 +123,329 @@ def practice_center(
     )
 
 
+@router.get("/practice/history")
+def practice_history(
+    request: Request,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+):
+    rows = _scored_attempts(service)
+    by_unit: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        entry = by_unit.setdefault(
+            row["unit"].id,
+            {"unit": row["unit"], "package": row["package"], "attempts": [], "best": 0},
+        )
+        entry["attempts"].append(row)
+        entry["best"] = max(entry["best"], row["accuracy"])
+    passages = sorted(
+        by_unit.values(),
+        key=lambda entry: str(entry["attempts"][0]["submitted_at"]),
+        reverse=True,
+    )
+    summary = {
+        "attempts": len(rows),
+        "passages": len(by_unit),
+        "average": round(sum(row["accuracy"] for row in rows) / len(rows)) if rows else None,
+        "minutes": sum(row["elapsed"] for row in rows) // 60,
+        "questions": sum(row["total"] for row in rows),
+        "correct": sum(row["correct"] for row in rows),
+    }
+    return TEMPLATES.TemplateResponse(
+        request,
+        "practice/history.html",
+        {
+            "rows": rows,
+            "passages": passages,
+            "summary": summary,
+            "type_stats": _type_accuracy(rows),
+        },
+    )
+
+
+@router.get("/practice/mistakes")
+def practice_mistakes(
+    request: Request,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+    type: str | None = None,
+):
+    rows = _scored_attempts(service)
+    wrong: dict[tuple[str, int], dict[str, Any]] = {}
+    for row in rows:  # newest first, so the first sighting is the latest attempt
+        for result in row["results"]:
+            if result.correct:
+                continue
+            key = (row["unit"].id, result.number)
+            entry = wrong.get(key)
+            if entry is None:
+                wrong[key] = {
+                    "unit": row["unit"],
+                    "package": row["package"],
+                    "result": result,
+                    "attempt_id": row["attempt"]["id"],
+                    "last_seen": row["submitted_at"],
+                    "wrong_count": 1,
+                    "attempt_count": 1,
+                }
+            else:
+                entry["wrong_count"] += 1
+                entry["attempt_count"] += 1
+    for entry in wrong.values():
+        questions = [
+            question
+            for group in entry["package"].question_groups
+            for question in group.questions
+        ]
+        entry["type"] = next(
+            group.type
+            for group in entry["package"].question_groups
+            if any(question.number == entry["result"].number for question in group.questions)
+        )
+        entry["label"] = QUESTION_TYPE_LABELS.get(entry["type"], entry["type"].value)
+        entry["prompt"] = next(
+            (
+                question.prompt
+                for question in questions
+                if question.number == entry["result"].number
+            ),
+            "",
+        )
+    items = sorted(
+        wrong.values(),
+        key=lambda entry: str(entry["last_seen"]),
+        reverse=True,
+    )
+    items.sort(key=lambda entry: -entry["wrong_count"])
+    available = sorted({entry["type"].value for entry in items})
+    selected = type if type in available else None
+    visible = [entry for entry in items if selected is None or entry["type"].value == selected]
+    return TEMPLATES.TemplateResponse(
+        request,
+        "practice/mistakes.html",
+        {
+            "items": visible[:200],
+            "total_items": len(items),
+            "available_types": [
+                {"value": value, "label": QUESTION_TYPE_LABELS[QuestionType(value)]}
+                for value in available
+            ],
+            "selected_type": selected,
+            "type_stats": _type_accuracy(rows),
+            "attempt_count": len(rows),
+        },
+    )
+
+
+def _vocabulary_rows(
+    service: ReadingStudioService,
+) -> list[dict[str, Any]]:
+    """All vocabulary from completed packages, merged by word across passages."""
+    marks = service.repository.list_vocabulary_marks()
+    merged: dict[str, dict[str, Any]] = {}
+    for corpus in service.repository.list_corpora():
+        for unit in service.repository.list_units(corpus.id):
+            if unit.status != UnitStatus.COMPLETED:
+                continue
+            try:
+                package = service.load_package(unit.id)
+            except (FileNotFoundError, ValueError):
+                continue
+            for entry in package.passage.vocabulary:
+                key = entry.word.strip().casefold()
+                if not key:
+                    continue
+                row = merged.setdefault(
+                    key,
+                    {
+                        "word": entry.word.strip(),
+                        "pronunciation": entry.pronunciation,
+                        "part_of_speech": entry.part_of_speech,
+                        "chinese_meaning": entry.chinese_meaning,
+                        "collocations": list(entry.collocations),
+                        "example": entry.example,
+                        "passages": [],
+                        "status": marks.get(key, ""),
+                    },
+                )
+                if package.passage.title not in row["passages"]:
+                    row["passages"].append(package.passage.title)
+                row["pronunciation"] = row["pronunciation"] or entry.pronunciation
+                row["part_of_speech"] = row["part_of_speech"] or entry.part_of_speech
+                row["chinese_meaning"] = row["chinese_meaning"] or entry.chinese_meaning
+                row["example"] = row["example"] or entry.example
+                for collocation in entry.collocations:
+                    if collocation not in row["collocations"]:
+                        row["collocations"].append(collocation)
+    rows = sorted(merged.values(), key=lambda row: (-len(row["passages"]), row["word"]))
+    for row in rows:
+        row["passage_count"] = len(row["passages"])
+    return rows
+
+
+@router.get("/practice/vocabulary")
+def vocabulary_book(
+    request: Request,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+    scope: str | None = None,
+):
+    rows = _vocabulary_rows(service)
+    saved = [row for row in rows if row["status"] == "saved"]
+    known = [row for row in rows if row["status"] == "known"]
+    selected = scope if scope in {"saved", "known", "untagged"} else None
+    if selected == "saved":
+        visible = saved
+    elif selected == "known":
+        visible = known
+    elif selected == "untagged":
+        visible = [row for row in rows if not row["status"]]
+    else:
+        visible = rows
+    return TEMPLATES.TemplateResponse(
+        request,
+        "practice/vocabulary.html",
+        {
+            "rows": visible,
+            "total": len(rows),
+            "saved_count": len(saved),
+            "known_count": len(known),
+            "selected_scope": selected,
+            "question_total": 0,
+        },
+    )
+
+
+@router.post("/practice/vocabulary/mark")
+def mark_vocabulary(
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+    word: Annotated[str, Form()],
+    action: Annotated[str, Form()] = "save",
+    scope: Annotated[str | None, Form()] = None,
+):
+    if action == "clear":
+        service.repository.clear_vocabulary_mark(word)
+    elif action == "known":
+        service.repository.set_vocabulary_mark(word, "known")
+    else:
+        service.repository.set_vocabulary_mark(word, "saved")
+    target = f"/practice/vocabulary?scope={quote(scope)}" if scope else "/practice/vocabulary"
+    return RedirectResponse(target, status_code=303)
+
+
+def _vocabulary_export(rows: list[dict[str, Any]]) -> list[list[str]]:
+    header = ["word", "pronunciation", "part_of_speech", "meaning_zh", "collocations", "example", "passages"]
+    body = [
+        [
+            row["word"],
+            row["pronunciation"] or "",
+            row["part_of_speech"] or "",
+            row["chinese_meaning"] or "",
+            "; ".join(row["collocations"]),
+            row["example"] or "",
+            " | ".join(row["passages"]),
+        ]
+        for row in rows
+    ]
+    return [header, *body]
+
+
+@router.get("/practice/vocabulary.csv")
+def export_vocabulary_csv(
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+    scope: str = "saved",
+):
+    rows = [row for row in _vocabulary_rows(service) if scope != "saved" or row["status"] == "saved"]
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerows(_vocabulary_export(rows))
+    payload = "\ufeff" + buffer.getvalue()  # BOM so Excel reads UTF-8
+    return Response(
+        payload,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="vocabulary.csv"'},
+    )
+
+
+@router.get("/practice/vocabulary.md")
+def export_vocabulary_markdown(
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+    scope: str = "saved",
+):
+    rows = [row for row in _vocabulary_rows(service) if scope != "saved" or row["status"] == "saved"]
+    lines = ["# 雅思词汇本", ""]
+    for row in rows:
+        head = f"## {row['word']}"
+        if row["pronunciation"]:
+            head += f" /{row['pronunciation'].strip('/')}/"
+        lines.append(head)
+        if row["part_of_speech"] or row["chinese_meaning"]:
+            lines.append(f"- 释义：{row['part_of_speech'] or ''} {row['chinese_meaning'] or ''}".strip())
+        if row["collocations"]:
+            lines.append(f"- 搭配：{'、'.join(row['collocations'])}")
+        if row["example"]:
+            lines.append(f"- 例句：{row['example']}")
+        lines.append(f"- 出自：{'、'.join(row['passages'])}")
+        lines.append("")
+    return Response(
+        "\n".join(lines),
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="vocabulary.md"'},
+    )
+
+
+@router.get("/practice/{unit_id}/compare")
+def practice_compare(
+    request: Request,
+    unit_id: str,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+):
+    """Side-by-side review: Chinese source, English passage and the brief coverage."""
+    package = _completed_package(service, unit_id)
+    try:
+        source_text = service.source_text_for_unit(package.unit)
+    except KeyError:
+        source_text = ""
+    source_paragraphs = [line.strip() for line in source_text.splitlines() if line.strip()]
+
+    evidence: dict[str, list[int]] = {}
+    for group in package.question_groups:
+        for question in group.questions:
+            evidence.setdefault(question.evidence_paragraph, []).append(question.number)
+
+    brief_items = [*package.source_brief.core_facts, *package.source_brief.core_claims]
+    texts = {item.id: item.text for item in brief_items}
+    rows = [
+        {
+            "id": fact_id,
+            "text": texts.get(fact_id, ""),
+            "labels": list(labels or []),
+        }
+        for fact_id, labels in package.passage.source_coverage.items()
+    ]
+    rows.sort(key=lambda row: (bool(row["labels"]), row["id"]))
+    labels_to_facts: dict[str, list[str]] = {}
+    for row in rows:
+        for label in row["labels"]:
+            labels_to_facts.setdefault(label, []).append(row["id"])
+
+    return TEMPLATES.TemplateResponse(
+        request,
+        "practice/compare.html",
+        {
+            "package": package,
+            "unit": package.unit,
+            "source_paragraphs": source_paragraphs,
+            "source_characters": sum(len(item) for item in source_paragraphs),
+            "evidence": evidence,
+            "coverage_rows": rows,
+            "labels_to_facts": labels_to_facts,
+            "uncovered": [row for row in rows if not row["labels"]],
+            "brief_count": len(brief_items),
+            "question_count": sum(
+                len(group.questions) for group in package.question_groups
+            ),
+        },
+    )
+
+
 @router.get("/practice/{unit_id}")
 def practice_session(
     request: Request,
@@ -159,6 +485,87 @@ def practice_session(
             "question_type_labels": QUESTION_TYPE_LABELS,
         },
     )
+
+
+def _scored_attempts(
+    service: ReadingStudioService,
+    *,
+    status: str = "submitted",
+) -> list[dict[str, Any]]:
+    """Submitted attempts with their package and per-question results, newest first."""
+    units: dict[str, Any] = {}
+    packages: dict[str, Any] = {}
+    rows: list[dict[str, Any]] = []
+    for attempt in service.repository.list_practice_attempts():
+        if attempt["status"] != status:
+            continue
+        unit_id = attempt["unit_id"]
+        if unit_id not in units:
+            units[unit_id] = service.repository.get_unit(unit_id)
+        unit = units[unit_id]
+        if unit is None or unit.status != UnitStatus.COMPLETED:
+            continue
+        if unit_id not in packages:
+            try:
+                packages[unit_id] = service.load_package(unit_id)
+            except (FileNotFoundError, ValueError):
+                packages[unit_id] = None
+        package = packages[unit_id]
+        if package is None:
+            continue
+        answers = attempt["payload"].get("answers") or {}
+        results, correct = _score_submission(package, answers)
+        total = len(results)
+        rows.append(
+            {
+                "attempt": attempt,
+                "unit": unit,
+                "package": package,
+                "results": results,
+                "correct": correct,
+                "total": total,
+                "accuracy": round(correct / total * 100) if total else 0,
+                "elapsed": attempt["payload"].get("elapsed_seconds") or 0,
+                "submitted_at": attempt["updated_at"],
+            }
+        )
+    return rows
+
+
+def _type_accuracy(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Per question type: how many were answered and how many were right."""
+    buckets: dict[QuestionType, dict[str, Any]] = {}
+    for row in rows:
+        for result in row["results"]:
+            question_type = next(
+                group.type
+                for group in row["package"].question_groups
+                if any(question.number == result.number for question in group.questions)
+            )
+            bucket = buckets.setdefault(
+                question_type,
+                {
+                    "label": QUESTION_TYPE_LABELS.get(
+                        question_type, question_type.value
+                    ),
+                    "answered": 0,
+                    "correct": 0,
+                },
+            )
+            bucket["answered"] += 1
+            bucket["correct"] += int(result.correct)
+    return [
+        {
+            "type": question_type.value,
+            "label": bucket["label"],
+            "answered": bucket["answered"],
+            "correct": bucket["correct"],
+            "accuracy": round(bucket["correct"] / bucket["answered"] * 100),
+        }
+        for question_type, bucket in sorted(
+            buckets.items(), key=lambda item: -item[1]["answered"]
+        )
+    ]
 
 
 @router.post("/practice/{unit_id}/save", response_model=PracticeSaveResult)
