@@ -26,7 +26,11 @@
     <p class="muted">只生成一章。必须明确确认，才会调用模型并产生 Token 费用。</p>
     {% if not api_ready %}<div class="inline-alert">服务器尚未配置 DeepSeek API Key，上传和估算仍可正常使用。</div>{% endif %}
     <form method="post" action="/novel/generate-sample"><label>章节编号<input type="number" name="chapter" min="1" value="1" required></label><label>确认文字<input name="confirmation" placeholder="输入：确认生成样章" autocomplete="off" required></label><button type="submit" {% if not api_ready or not source or not source.confident %}disabled{% endif %}>开始生成样章</button></form>
-    {% if run %}<div class="run-state {{ run.status }}"><span></span>第 {{ run.chapter }} 章：{{ {'running':'正在生成','completed':'生成完成','failed':'生成失败'}.get(run.status,run.status) }}</div>{% endif %}
+    {% if run %}<div class="run-state {{ run.status }}"><span></span>{{ run.description }}：{{ {'running':'正在生成','completed':'生成完成','failed':'生成失败'}.get(run.status,run.status) }}</div>{% endif %}
+    <details class="batch-panel"><summary>批量生成与恢复</summary>
+      <form method="post" action="/novel/generate-batch" class="range-form"><label>起始章<input type="number" name="start" min="1" value="1" required></label><label>结束章<input type="number" name="end" min="1" value="20" required></label><label class="full-field">确认文字<input name="confirmation" placeholder="输入：确认批量生成" autocomplete="off" required></label><button type="submit" {% if not api_ready or not source or not source.confident %}disabled{% endif %}>批量生成（最多 20 章）</button></form>
+      <div class="recovery-actions"><form method="post" action="/novel/recover/resume"><input name="confirmation" value="确认继续生成" type="hidden"><button type="submit" class="secondary-button" {% if not api_ready or not source or not source.confident %}disabled{% endif %}>断点继续</button></form><form method="post" action="/novel/recover/retry-failed"><input name="confirmation" value="确认继续生成" type="hidden"><button type="submit" class="secondary-button" {% if not api_ready or not source or not source.confident %}disabled{% endif %}>重试失败章节</button></form></div>
+    </details>
   </section>
 
   <section class="workspace-card output-card">

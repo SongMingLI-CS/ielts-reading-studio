@@ -199,8 +199,13 @@ def estimate_novel(
     )
 
 
-def _run_sample(config_path: Path, chapter: int, status_path: Path) -> None:
-    _write_json(status_path, {"status": "running", "chapter": chapter})
+def _run_component(
+    config_path: Path,
+    arguments: list[str],
+    status_path: Path,
+    description: str,
+) -> None:
+    _write_json(status_path, {"status": "running", "description": description})
     log_path = status_path.parent / "reports" / "web-generation.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as log:
@@ -209,8 +214,7 @@ def _run_sample(config_path: Path, chapter: int, status_path: Path) -> None:
                 sys.executable,
                 "-m",
                 "ielts_novel.cli",
-                "--chapter",
-                str(chapter),
+                *arguments,
                 "--config",
                 str(config_path),
             ],
@@ -223,10 +227,51 @@ def _run_sample(config_path: Path, chapter: int, status_path: Path) -> None:
         status_path,
         {
             "status": "completed" if result.returncode == 0 else "failed",
-            "chapter": chapter,
+            "description": description,
             "return_code": result.returncode,
         },
     )
+
+
+def _write_runtime_config(
+    service: ReadingStudioService,
+    paths: dict[str, Path],
+    *,
+    batch_confirmed: bool,
+    max_chapters: int,
+) -> None:
+    runtime_config = {
+        "input_dir": str(paths["active"]),
+        "output_dir": str(paths["output"]),
+        "vocabulary_path": str(COMPONENT_ROOT / "data" / "vocabulary.json"),
+        "deepseek_base_url": service.config.deepseek_base_url,
+        "deepseek_model": service.config.author_model,
+        "deepseek_review_model": service.config.examiner_model,
+        "concurrency": min(3, service.config.concurrency),
+        "max_chapters_per_run": max_chapters,
+        "max_estimated_tokens_per_run": service.config.max_estimated_tokens_per_run,
+        "batch_confirmed": batch_confirmed,
+    }
+    paths["config"].parent.mkdir(parents=True, exist_ok=True)
+    paths["config"].write_text(
+        yaml.safe_dump(runtime_config, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+
+
+def _require_generation_ready(
+    service: ReadingStudioService,
+    paths: dict[str, Path],
+) -> dict[str, Any]:
+    if service.config.deepseek_api_key is None:
+        raise HTTPException(status_code=409, detail="服务器尚未配置 DEEPSEEK_API_KEY")
+    source = _read_json(paths["source"])
+    if not source or not source.get("confident"):
+        raise HTTPException(status_code=409, detail="请先导入并成功识别小说章节")
+    run = _read_json(paths["run"], {})
+    if run.get("status") == "running":
+        raise HTTPException(status_code=409, detail="已有生成任务正在运行")
+    return source
 
 
 @router.post("/generate-sample")
@@ -238,34 +283,70 @@ def generate_sample(
 ):
     if confirmation.strip() != "确认生成样章":
         raise HTTPException(status_code=422, detail="请输入：确认生成样章")
-    if service.config.deepseek_api_key is None:
-        raise HTTPException(status_code=409, detail="服务器尚未配置 DEEPSEEK_API_KEY")
     paths = _paths(service)
-    source = _read_json(paths["source"])
-    if not source or not source.get("confident"):
-        raise HTTPException(status_code=409, detail="请先导入并成功识别小说章节")
+    source = _require_generation_ready(service, paths)
     if chapter > int(source["chapters"]):
         raise HTTPException(status_code=422, detail="章节编号超出范围")
-    run = _read_json(paths["run"], {})
-    if run.get("status") == "running":
-        raise HTTPException(status_code=409, detail="已有样章正在生成")
-    runtime_config = {
-        "input_dir": str(paths["active"]),
-        "output_dir": str(paths["output"]),
-        "vocabulary_path": str(COMPONENT_ROOT / "data" / "vocabulary.json"),
-        "deepseek_base_url": service.config.deepseek_base_url,
-        "deepseek_model": service.config.author_model,
-        "deepseek_review_model": service.config.examiner_model,
-        "concurrency": 1,
-        "max_chapters_per_run": 1,
-        "batch_confirmed": False,
-    }
-    paths["config"].parent.mkdir(parents=True, exist_ok=True)
-    paths["config"].write_text(
-        yaml.safe_dump(runtime_config, allow_unicode=True, sort_keys=False),
-        encoding="utf-8",
+    _write_runtime_config(service, paths, batch_confirmed=False, max_chapters=1)
+    background.add_task(
+        _run_component,
+        paths["config"],
+        ["--chapter", str(chapter)],
+        paths["run"],
+        f"第 {chapter} 章样章",
     )
-    background.add_task(_run_sample, paths["config"], chapter, paths["run"])
+    return RedirectResponse("/novel", status_code=303)
+
+
+@router.post("/generate-batch")
+def generate_batch(
+    background: BackgroundTasks,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+    start: Annotated[int, Form(ge=1)],
+    end: Annotated[int, Form(ge=1)],
+    confirmation: Annotated[str, Form()] = "",
+):
+    if confirmation.strip() != "确认批量生成":
+        raise HTTPException(status_code=422, detail="请输入：确认批量生成")
+    paths = _paths(service)
+    source = _require_generation_ready(service, paths)
+    if end < start or end > int(source["chapters"]):
+        raise HTTPException(status_code=422, detail="章节范围无效")
+    if end - start + 1 > 20:
+        raise HTTPException(status_code=422, detail="网页单次最多生成 20 章")
+    _write_runtime_config(service, paths, batch_confirmed=True, max_chapters=20)
+    background.add_task(
+        _run_component,
+        paths["config"],
+        ["--start", str(start), "--end", str(end)],
+        paths["run"],
+        f"第 {start}–{end} 章批量任务",
+    )
+    return RedirectResponse("/novel", status_code=303)
+
+
+@router.post("/recover/{action}")
+def recover_batch(
+    action: str,
+    background: BackgroundTasks,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+    confirmation: Annotated[str, Form()] = "",
+):
+    if action not in {"resume", "retry-failed"}:
+        raise HTTPException(status_code=404, detail="未知恢复操作")
+    if confirmation.strip() != "确认继续生成":
+        raise HTTPException(status_code=422, detail="请输入：确认继续生成")
+    paths = _paths(service)
+    _require_generation_ready(service, paths)
+    _write_runtime_config(service, paths, batch_confirmed=True, max_chapters=20)
+    label = "断点继续" if action == "resume" else "失败章节重试"
+    background.add_task(
+        _run_component,
+        paths["config"],
+        [f"--{action}"],
+        paths["run"],
+        label,
+    )
     return RedirectResponse("/novel", status_code=303)
 
 

@@ -31,6 +31,8 @@ def test_novel_workspace_imports_and_estimates_without_api(client):
     assert "story.txt" in page.text
     assert "2 章" in page.text
     assert "边界可信" in page.text
+    assert "批量生成与恢复" in page.text
+    assert "批量生成（最多 20 章）" in page.text
 
     estimate = client.post("/novel/estimate", data={"start": 1, "end": 2})
     assert estimate.status_code == 200
