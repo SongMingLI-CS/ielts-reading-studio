@@ -24,11 +24,6 @@ ALLOWED_EXTENSIONS = {".txt", ".docx", ".epub", ".md", ".markdown"}
 MAX_UPLOAD_BYTES = 250 * 1024 * 1024
 
 
-@router.get("/")
-def root() -> RedirectResponse:
-    return RedirectResponse("/corpora", status_code=303)
-
-
 @router.get("/corpora")
 def corpora_index(
     request: Request,

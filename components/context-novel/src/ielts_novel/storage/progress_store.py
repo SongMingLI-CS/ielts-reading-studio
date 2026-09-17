@@ -80,17 +80,23 @@ class ProgressStore:
         return self._ids("failed")
 
     def _snapshot(self) -> None:
-        payload = {
-            "completed": self.completed_ids(),
-            "failed": self.failed_ids(),
-            "running": self._ids("running"),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }
-        atomic_write_text(self.snapshot_path, json.dumps(payload, ensure_ascii=False, indent=2))
+        # Several chapter workers share one snapshot path. Serialising both the
+        # database reads and atomic replace prevents workers from racing on the
+        # same temporary file or replacing a newer snapshot with stale state.
+        with _STORE_LOCK:
+            payload = {
+                "completed": self.completed_ids(),
+                "failed": self.failed_ids(),
+                "running": self._ids("running"),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            atomic_write_text(
+                self.snapshot_path,
+                json.dumps(payload, ensure_ascii=False, indent=2),
+            )
 
     def close(self) -> None:
         self.connection.close()
 
 
 __all__ = ["ProgressStore"]
-

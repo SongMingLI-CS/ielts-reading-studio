@@ -1,6 +1,11 @@
-# IELTS Reading Studio
+# IELTS Learning Studio
 
-IELTS Reading Studio 是一个在本机运行的 IELTS Academic Reading 内容生成、练习与导出工具。它只读解析中文 TXT、DOCX、EPUB 或 Markdown，以可恢复的双智能体流水线生成英文 Passage 和题目，并提供 CLI、本地网页、JSON、离线 HTML 与 DOCX。
+IELTS Learning Studio 把原来的两个 IELTS 项目合并为一个私有网站：
+
+- **IELTS Academic Reading**：把中文素材生成英文 Passage、题目和逐题解析，支持在线练习、成绩记录与导出。
+- **雅思词汇情境小说**：保留中文小说故事线，在语境中嵌入 B1–C1 词汇，当前内置 6,186 词全局词库，并支持断点续跑、HTML、DOCX、TXT 和 XLSX。
+
+网站共用一个登录入口和一套响应式界面，两条流水线的数据目录与状态库彼此隔离。情境小说原项目以 `components/context-novel/` 组件保留在仓库中。
 
 难度标签是生成目标，不是官方 Band 评分；项目不声称生成内容等同于官方 IELTS 真题。
 
@@ -63,7 +68,7 @@ ielts-reading retry <job-id> --failed-only
 ielts-reading serve
 ```
 
-默认地址是 `http://127.0.0.1:8000`。若要监听局域网或公网地址，必须先通过环境变量配置独立的网站账号和密码：
+默认地址是 `http://127.0.0.1:8000`。首页提供“阅读练习”和“情境小说”两个入口。若要监听局域网或公网地址，必须先通过环境变量配置独立的网站账号和密码：
 
 ```dotenv
 IELTS_WEB_USERNAME=reader
@@ -77,6 +82,7 @@ IELTS_WEB_PASSWORD=请使用独立的强密码
 - 样篇批准、任务暂停/继续/失败重试与状态轮询；
 - 在线计时答题、本地精确评分、证据与中文解析；
 - 已校验 Package 的 JSON、HTML 和 DOCX 导出。
+- 情境小说上传、章节识别、离线 Token 估算、样章生成门禁和成品下载。
 
 ## 导出
 

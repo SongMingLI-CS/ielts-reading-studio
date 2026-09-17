@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}IELTS Learning Studio{% endblock %}
+{% block content %}
+<section class="studio-hero">
+  <div>
+    <p class="eyebrow">One private learning workspace</p>
+    <h1>一个入口，两种<br>雅思阅读方式。</h1>
+    <p class="lead">做 Academic Reading 题，也可以在中文小说语境中积累雅思词汇。学习数据统一留在你的服务器。</p>
+  </div>
+  <div class="studio-total"><span>已准备内容</span><strong>{{ reading_count + novel_chapters }}</strong><small>篇阅读与章节</small></div>
+</section>
+
+<section class="product-grid" aria-label="学习工具">
+  <article class="product-card reading-product">
+    <div class="product-number">01</div>
+    <p class="eyebrow">Academic practice</p>
+    <h2>IELTS 阅读练习</h2>
+    <p>把中文素材转换成英文 Passage、题目和逐题解析，在线计时、自动保存并记录成绩。</p>
+    <div class="product-stats"><span><strong>{{ reading_count }}</strong> 可练习</span><span><strong>{{ corpora_count }}</strong> 语料库</span></div>
+    <a class="product-link" href="/practice">进入练习中心 <span>→</span></a>
+  </article>
+  <article class="product-card novel-product">
+    <div class="product-number">02</div>
+    <p class="eyebrow">Vocabulary in context</p>
+    <h2>雅思词汇情境小说</h2>
+    <p>保留中文小说故事与人物，在自然语境中嵌入 B1–C1 雅思词汇，并导出 HTML、Word 和词汇表。</p>
+    <div class="product-stats"><span><strong>{{ novel_chapters }}</strong> 已识别章节</span><span><strong>{{ catalog_size }}</strong> 词条</span></div>
+    <a class="product-link" href="/novel">进入情境小说 <span>→</span></a>
+  </article>
+</section>
+
+<section class="privacy-strip"><span aria-hidden="true">●</span><div><strong>同一套登录，同一台服务器</strong><p>两个工具彼此独立保存数据，不会覆盖现有十章练习。</p></div></section>
+{% endblock %}

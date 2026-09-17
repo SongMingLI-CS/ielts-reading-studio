@@ -7,13 +7,16 @@
   <meta name="theme-color" content="#123c35">
   <link rel="stylesheet" href="/static/app.css?v=4">
   <link rel="stylesheet" href="/static/practice-center.css?v=4">
+  <link rel="stylesheet" href="/static/studio.css?v=1">
 </head>
 <body>
   <header class="site-header">
-    <a class="site-brand" href="/practice"><span class="brand-mark" aria-hidden="true">R</span><strong>IELTS Reading Studio</strong></a>
+    <a class="site-brand" href="/"><span class="brand-mark" aria-hidden="true">R</span><strong>IELTS Learning Studio</strong></a>
     <nav aria-label="主导航">
+      <a href="/"{% if request.url.path == '/' %} aria-current="page"{% endif %}>首页</a>
       <a href="/corpora"{% if request.url.path.startswith('/corpora') and request.url.path != '/corpora/import' %} aria-current="page"{% endif %}>语料</a>
-      <a href="/practice"{% if request.url.path.startswith('/practice') %} aria-current="page"{% endif %}>练习</a>
+      <a href="/practice"{% if request.url.path.startswith('/practice') %} aria-current="page"{% endif %}>阅读练习</a>
+      <a href="/novel"{% if request.url.path.startswith('/novel') %} aria-current="page"{% endif %}>情境小说</a>
       <a href="/corpora/import"{% if request.url.path == '/corpora/import' %} aria-current="page"{% endif %}>导入</a>
       <a href="/exports"{% if request.url.path.startswith('/exports') %} aria-current="page"{% endif %}>导出</a>
     </nav>
