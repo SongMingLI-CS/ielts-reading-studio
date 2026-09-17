@@ -1,14 +1,216 @@
 {% extends "base.html" %}
-{% block title %}生成配置{% endblock %}
+{% block title %}生成配置 · IELTS Reading Studio{% endblock %}
 {% block content %}
-<p class="eyebrow">{{ details.corpus.name }}</p><h1>生成配置与估算</h1>
-<div class="stats"><span>{{ estimate.unit_count }} 单元</span><span>{{ estimate.minimum_requests }}–{{ estimate.maximum_requests }} 次请求</span><span>{{ estimate.minimum_tokens }}–{{ estimate.maximum_tokens }} Token</span></div>
-{% if details.approval %}
-<form class="panel" action="/corpora/{{ details.corpus.id }}/jobs" method="post">
-  <label>范围<input name="range_spec" value="1-20" required></label>
-  <label>难度<select name="difficulty"><option value="standard" {% if selected_difficulty == 'standard' %}selected{% endif %}>Standard</option><option value="foundation" {% if selected_difficulty == 'foundation' %}selected{% endif %}>Foundation</option><option value="advanced" {% if selected_difficulty == 'advanced' %}selected{% endif %}>Advanced</option></select></label>
-  <fieldset><legend>恰好选择三种题型</legend>{% for value in question_types %}<label class="check"><input type="checkbox" name="question_types" value="{{ value.value }}" {% if value.value in selected_question_types %}checked{% endif %}>{{ value.value|replace('_',' ')|title }}</label>{% endfor %}</fieldset>
-  <label>批次大小<input type="number" name="batch_size" min="1" max="100" value="20"></label><label>并发数<input type="number" name="concurrency" min="1" max="8" value="2"></label><button type="submit">创建任务</button>
-</form>
-{% else %}<div class="warning"><strong>批量生成已锁定</strong><p>请先生成一篇样篇，并明确批准。</p>{% if completed_units %}<form action="/corpora/{{ details.corpus.id }}/approve-sample" method="post"><label>已完成样篇<select name="unit_id">{% for unit in completed_units %}<option value="{{ unit.id }}">#{{ unit.ordinal }} · {{ unit.id }}</option>{% endfor %}</select></label><button>批准所选样篇</button></form>{% endif %}</div>{% endif %}
+<div class="practice-topbar">
+  <a class="back-link" href="/corpora">← 材料库</a>
+  <div class="practice-meta">
+    <span class="badge status-{{ 'practice' if details.approval else 'configure' }}">{% if details.approval %}样篇已批准{% else %}待生成样篇{% endif %}</span>
+    <span class="badge">{{ unit_count }} 个生成单元</span>
+  </div>
+  <div class="session-tools">
+    <a class="button ghost small" href="/corpora/{{ details.corpus.id }}/preview">校准章节边界</a>
+  </div>
+</div>
+
+<header class="preview-head">
+  <p class="eyebrow">Step 3 · Generate</p>
+  <h1>生成配置与估算</h1>
+  <p class="lead">一篇 Passage 由<b>三个不同的题型组</b>组成，题量按难度固定。为了避免批量生成出问题内容，流程强制分三步：<b>先出 1 篇样篇 → 你人工检查并批准 → 才允许批量生成</b>。这里选的每一项都会写进任务快照，之后不能悄悄改。</p>
+</header>
+
+<section class="gate-strip" aria-label="生成流程">
+  <div class="gate-step {{ 'done' if completed_count else 'current' }}"><span>1</span><div><strong>生成样篇</strong><p>{% if completed_count %}已生成 {{ completed_count }} 篇候选{% else %}先出 1 篇，检查质量{% endif %}</p></div></div>
+  <div class="gate-step {{ 'done' if details.approval else ('current' if completed_count else '') }}"><span>2</span><div><strong>人工批准</strong><p>{% if details.approval %}已批准，可批量{% else %}读过文章与解析后批准{% endif %}</p></div></div>
+  <div class="gate-step {{ 'current' if details.approval else '' }}"><span>3</span><div><strong>批量生成</strong><p>按范围与批次逐单元生成</p></div></div>
+</section>
+
+<dl class="preview-facts">
+  <div><dt>生成单元</dt><dd>{{ unit_count }}</dd></div>
+  <div><dt>请求次数估算</dt><dd>{{ estimate.minimum_requests }}–{{ estimate.maximum_requests }} 次</dd></div>
+  <div><dt>Token 估算</dt><dd>{{ estimate.minimum_tokens }}–{{ estimate.maximum_tokens }}</dd></div>
+  <div><dt>已成篇</dt><dd>{{ completed_count }}</dd></div>
+  {% if not estimate.pricing_available %}<div class="alert"><dt>费用</dt><dd>未配置单价，不显示金额</dd></div>{% endif %}
+</dl>
+<p class="inline-note plain">「请求次数」就是调用模型的次数：每个单元基础 4 次（来源摘要、Passage、Passage 复审、命题），作者返工 2 轮各 +2 次、考官返工 2 轮各 +1 次，所以给的是区间。这些数字用来设置安全上限，不是账单承诺。</p>
+
+{% if sample_flag == 'no-key' %}<p class="inline-note">服务器没有配置 <code>DEEPSEEK_API_KEY</code>，无法生成样篇。请在服务器的 <code>.env</code> 里补上并重启服务。</p>{% endif %}
+{% if sample_flag == 'no-units' %}<p class="inline-note">这份材料还没有可靠的生成单元，请先回到「校准章节边界」。</p>{% endif %}
+{% if sample_flag == 'bad-types' %}<p class="inline-note">必须恰好选择三种<b>不同</b>的题型。</p>{% endif %}
+{% if sample_flag == 'started' %}<p class="inline-note plain">样篇已开始生成（后台运行，通常 1–3 分钟）。完成后刷新本页即可在下面检查。</p>{% endif %}
+{% if sample_status %}
+<p class="inline-note plain">最近一次样篇：{{ sample_status.status }}{% if sample_status.difficulty %}（{{ sample_status.difficulty }}）{% endif %}{% if sample_status.error %} · 失败原因：{{ sample_status.error }}{% endif %}{% if sample_status.status == 'running' %} · 仍在生成，请稍后刷新{% endif %}</p>
+{% endif %}
+
+<section class="config-block">
+  <header class="config-head">
+    <div><h2>① 选择难度与题型</h2><p>难度决定题量与推荐组合；题型必须恰好三种且互不相同。</p></div>
+    <p class="config-hint">题量：{% for row in difficulty_rows %}{{ row.name_zh }} = {{ row.questions }} 题{% if not loop.last %} · {% endif %}{% endfor %}</p>
+  </header>
+
+  <div class="difficulty-row">
+    {% for row in difficulty_rows %}
+    <label class="difficulty-card">
+      <input type="radio" name="difficulty_choice" value="{{ row.value }}" data-difficulty="{{ row.value }}" {% if row.value == selected_difficulty %}checked{% endif %}>
+      <span>
+        <strong>{{ row.name_zh }}</strong>
+        <em>{{ row.questions }} 题</em>
+        <small>{{ row.note }}</small>
+        <small class="difficulty-types">默认：{% for value in recommended_types[row.value] %}{{ value.replace('_', ' ') }}{% if not loop.last %} + {% endif %}{% endfor %}</small>
+      </span>
+    </label>
+    {% endfor %}
+  </div>
+
+  <div class="type-grid">
+    {% for row in type_rows %}
+    <label class="type-card" data-value="{{ row.value }}">
+      <input type="checkbox" class="type-toggle" value="{{ row.value }}" {% if row.value in selected_question_types %}checked{% endif %}>
+      <span class="type-body">
+        <strong>{{ row.name_zh }}</strong>
+        <em>{{ row.label }}</em>
+        <p>{{ row.what }}</p>
+        <p class="type-example">例：{{ row.example }}</p>
+        <p class="type-grading">判定：{{ row.grading }}</p>
+      </span>
+      <span class="type-flag">{% if row.recommended_for %}推荐{% endif %}</span>
+    </label>
+    {% endfor %}
+  </div>
+  <p class="type-counter" id="type-counter">已选 <strong>0</strong> / 3</p>
+</section>
+
+<section class="config-block">
+  <header class="config-head">
+    <div><h2>② 先生成一篇样篇</h2><p>用上面的难度与题型组合产出第 1 篇；它只是候选，需要你读过以后手动批准。</p></div>
+  </header>
+  <form class="gate-form" action="/corpora/{{ details.corpus.id }}/sample" method="post" id="sample-form">
+    <p class="gate-note">样篇会真的调用模型（会产生费用），并且只生成一篇。</p>
+    <button type="submit" class="button" {% if not has_api_key %}disabled{% endif %}>生成一篇样篇</button>
+    {% if not has_api_key %}<span class="gate-warn">服务器未配置 DEEPSEEK_API_KEY，按钮已禁用</span>{% endif %}
+  </form>
+</section>
+
+<section class="config-block">
+  <header class="config-head">
+    <div><h2>③ 检查并批准</h2><p>批准是批量生成的唯一开关，批准记录会绑定难度与题型组合。</p></div>
+  </header>
+  {% if completed_units %}
+  <ul class="sample-list">
+    {% for unit in completed_units %}
+    <li>
+      <div class="sample-main">
+        <strong>{{ unit.title or ('单元 #' ~ unit.ordinal) }}</strong>
+        <p>{{ unit.word_count or '?' }} words · {{ unit.question_count or '?' }} 题 · {{ unit.difficulty }}{% if unit.passed is sameas false %} · ⚠ 未通过质量门禁{% endif %}</p>
+        <p class="sample-types">{{ unit.question_types|join(' · ') }}</p>
+      </div>
+      <nav class="sample-links">
+        <a href="/practice/{{ unit.id }}">在线试做</a>
+        <a href="/practice/{{ unit.id }}/analysis">答案与解析</a>
+        <a href="/exports">导出</a>
+      </nav>
+      <form action="/corpora/{{ details.corpus.id }}/approve-sample" method="post">
+        <input type="hidden" name="unit_id" value="{{ unit.id }}">
+        <button type="submit" class="button small secondary">批准这一篇</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="gate-note">建议先点「在线试做」完整做一遍，再看「答案与解析」核对证据与中文解释，确认无误后再批准。</p>
+  {% else %}
+  <div class="warning"><strong>批量生成已锁定</strong><p>还没有已完成样篇。请先执行上面的「生成一篇样篇」，或在服务器上运行 <code>ielts-reading sample</code>。</p></div>
+  {% endif %}
+</section>
+
+<section class="config-block">
+  <header class="config-head">
+    <div><h2>④ 批量生成</h2><p>范围支持 <code>{{ range_examples }}</code>；批次与并发决定一次跑多少、同时几条。</p></div>
+  </header>
+  {% if details.approval %}
+  <form class="batch-form" action="/corpora/{{ details.corpus.id }}/jobs" method="post" id="batch-form">
+    <label>生成范围
+      <input name="range_spec" value="1-{{ [unit_count, 20]|min }}" required>
+      <small>例：<code>1-20</code> 前 20 个单元 · <code>1,3,8-12</code> 挑着做 · <code>all</code> 全部 {{ unit_count }} 个</small>
+    </label>
+    <label>批次大小
+      <input type="number" name="batch_size" min="1" max="100" value="20">
+      <small>每批处理的单元数，默认 20。</small>
+    </label>
+    <label>并发数
+      <input type="number" name="concurrency" min="1" max="8" value="2">
+      <small>同时进行的请求数，默认 2；调高前先确认账号限流。</small>
+    </label>
+    <p class="batch-warn">提交后立即开始真实调用并产生费用；可在任务页暂停、取消或做失败重试。</p>
+    <button type="submit" class="button">创建并运行任务</button>
+  </form>
+  {% else %}
+  <div class="warning"><strong>批量生成已锁定</strong><p>批准一篇样篇后，这里才会出现范围、批次与并发设置。</p></div>
+  {% endif %}
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  (() => {
+    const toggles = [...document.querySelectorAll('.type-toggle')];
+    const counter = document.getElementById('type-counter');
+    const recommended = {{ recommended_types|tojson }};
+    const difficultyInputs = [...document.querySelectorAll('input[name="difficulty_choice"]')];
+    const sampleForm = document.getElementById('sample-form');
+    const batchForm = document.getElementById('batch-form');
+    const sampleButton = sampleForm ? sampleForm.querySelector('button[type="submit"]') : null;
+    const apiKeyDisabled = {{ 'false' if has_api_key else 'true' }};
+
+    const refresh = () => {
+      const chosen = toggles.filter((input) => input.checked);
+      if (counter) {
+        counter.innerHTML = `已选 <strong>${chosen.length}</strong> / 3${chosen.length === 3 ? ' ✓ 可以继续' : '（需要三种不同题型）'}`;
+      }
+      for (const toggle of toggles) {
+        const card = toggle.closest('.type-card');
+        if (card) card.classList.toggle('checked', toggle.checked);
+      }
+      const ready = chosen.length === 3 && !apiKeyDisabled;
+      if (sampleButton) sampleButton.disabled = !ready;
+      if (batchForm) {
+        const button = batchForm.querySelector('button[type="submit"]');
+        if (button) button.disabled = chosen.length !== 3;
+      }
+    };
+
+    for (const input of difficultyInputs) {
+      input.addEventListener('change', () => {
+        const values = recommended[input.value] || [];
+        for (const toggle of toggles) toggle.checked = values.includes(toggle.value);
+        refresh();
+      });
+    }
+    for (const toggle of toggles) toggle.addEventListener('change', refresh);
+    refresh();
+
+    const appendHidden = (form, name, value) => {
+      const hidden = document.createElement('input');
+      hidden.type = 'hidden';
+      hidden.name = name;
+      hidden.value = value;
+      form.append(hidden);
+    };
+    if (sampleForm) {
+      sampleForm.addEventListener('submit', () => {
+        const difficulty = difficultyInputs.find((input) => input.checked);
+        if (difficulty) appendHidden(sampleForm, 'difficulty', difficulty.value);
+        for (const toggle of toggles.filter((input) => input.checked)) {
+          appendHidden(sampleForm, 'question_types', toggle.value);
+        }
+      });
+    }
+    if (batchForm) {
+      batchForm.addEventListener('submit', () => {
+        const difficulty = difficultyInputs.find((input) => input.checked);
+        if (difficulty) appendHidden(batchForm, 'difficulty', difficulty.value);
+        for (const toggle of toggles.filter((input) => input.checked)) {
+          appendHidden(batchForm, 'question_types', toggle.value);
+        }
+      });
+    }
+  })();
+</script>
 {% endblock %}

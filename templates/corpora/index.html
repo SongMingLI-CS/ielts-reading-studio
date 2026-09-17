@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}材料库 · IELTS Reading Studio{% endblock %}
 {% block content %}
+{% if deleted %}<p class="library-flash">已删除「{{ deleted }}」及其全部产物。索引与练习记录已一并移除，源文件未改动。</p>{% endif %}
 <section class="library-hero">
   <div class="library-copy">
     <p class="eyebrow">Local corpus library</p>
@@ -84,6 +85,7 @@
       <a class="text-link" href="/corpora/{{ card.corpus.id }}/preview">章节解析</a>
       <a class="text-link" href="/corpora/{{ card.corpus.id }}/configure">生成配置</a>
       {% if card.practice_ready %}<a class="text-link" href="/practice">{{ card.practice_ready }} 篇可练习</a>{% endif %}
+      <a class="text-link danger" href="/corpora/{{ card.corpus.id }}/delete">删除</a>
     </footer>
 
     <p class="corpus-foot">ID {{ card.corpus.id[:8] }}{% if card.job_count %} · {{ card.job_count }} 个任务{% endif %}{% if card.last_job %} · 最近任务 {{ card.last_job.status }}{% endif %}</p>

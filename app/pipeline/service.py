@@ -10,6 +10,7 @@ from app.agents.examiner import ExaminerAgent
 from app.config import AppConfig
 from app.exporters.service import ExportService
 from app.models import (
+    Corpus,
     Difficulty,
     GenerationUnit,
     QuestionType,
@@ -27,7 +28,7 @@ from app.planning.units import (
 )
 from app.storage.artifacts import ArtifactStore
 from app.storage.database import Database
-from app.storage.repositories import Repository
+from app.storage.repositories import RUNNING_RECOVERY_STATUSES, Repository
 
 from .batch_runner import BatchRunner
 from .unit_runner import UnitRunner
@@ -165,6 +166,87 @@ class ReadingStudioService:
             self.config.author_revision_limit,
             self.config.examiner_revision_limit,
         )
+
+    def corpus_deletion_impact(self, corpus_id: str) -> dict[str, Any]:
+        """Everything a corpus deletion would remove, so it can be reviewed first."""
+        corpus = self.repository.get_corpus(corpus_id)
+        if corpus is None:
+            raise KeyError(f"Unknown corpus: {corpus_id}")
+        units = self.repository.list_units(corpus_id)
+        unit_ids = {unit.id for unit in units}
+        statuses = _counts(unit.status.value for unit in units)
+        jobs = self.repository.list_jobs(corpus_id)
+        attempts = [
+            attempt
+            for attempt in self.repository.list_practice_attempts()
+            if attempt["unit_id"] in unit_ids
+        ]
+        artifacts = [path for path in self._corpus_artifact_paths(corpus, unit_ids) if path.exists()]
+        return {
+            "corpus": corpus,
+            "statuses": statuses,
+            "units": len(units),
+            "chapters": self.repository.count_source_chapters(corpus_id),
+            "completed": statuses.get(UnitStatus.COMPLETED.value, 0),
+            "needs_review": statuses.get(UnitStatus.NEEDS_REVIEW.value, 0),
+            "failed": statuses.get(UnitStatus.FAILED.value, 0),
+            "running": sum(
+                statuses.get(status.value, 0) for status in RUNNING_RECOVERY_STATUSES
+            ),
+            "practice_attempts": len(attempts),
+            "graded_attempts": sum(
+                1 for attempt in attempts if attempt["status"] == "submitted"
+            ),
+            "jobs": len(jobs),
+            "active_jobs": [
+                job["id"] for job in jobs if job["status"] in {"queued", "running"}
+            ],
+            "approved": self.repository.get_latest_corpus_approval(corpus_id) is not None,
+            "artifacts": artifacts,
+            "artifact_count": len(artifacts),
+            "artifact_bytes": sum(_path_size(path) for path in artifacts),
+        }
+
+    def delete_corpus(self, corpus_id: str) -> dict[str, Any]:
+        """Delete a corpus, its rows and its artifacts. Callers confirm first."""
+        impact = self.corpus_deletion_impact(corpus_id)
+        if impact["running"] or impact["active_jobs"]:
+            raise PermissionError(
+                "Corpus has running units or an active job; pause or cancel it first"
+            )
+        units = self.repository.list_units(corpus_id)
+        removed = [
+            path
+            for path in self._corpus_artifact_paths(
+                impact["corpus"], {unit.id for unit in units}
+            )
+            if path.exists()
+        ]
+        for path in removed:
+            _remove_path(path)
+        counts = self.repository.delete_corpus(corpus_id)
+        return {"counts": counts, "removed": removed, "impact": impact}
+
+    def _corpus_artifact_paths(self, corpus: Corpus, unit_ids: set[str]) -> list[Path]:
+        manifest = self.importer.locate_manifest(corpus)
+        if manifest is None:
+            manifest_dir = self.importer.manifest_path(corpus)
+        else:
+            manifest_dir = manifest
+        paths: list[Path] = [manifest_dir.parent, self.config.input_dir / corpus.id]
+        for unit_id in sorted(unit_ids):
+            paths.extend(
+                [
+                    self.store.root / "packages" / f"{unit_id}.json",
+                    self.store.root / "stage_payloads" / unit_id,
+                    self.store.root / "raw_responses" / unit_id,
+                    self.store.root / "reports" / unit_id,
+                    self.store.root / "failed" / f"{unit_id}.json",
+                ]
+            )
+        for job in self.repository.list_jobs(corpus.id):
+            paths.append(self.store.root / "reports" / f"{job['id']}-summary.json")
+        return paths
 
     def generate_sample(
         self,
@@ -345,3 +427,23 @@ def _counts(values) -> dict[str, int]:
     for value in values:
         result[value] = result.get(value, 0) + 1
     return result
+
+
+def _path_size(path: Path) -> int:
+    if path.is_file():
+        return path.stat().st_size
+    return sum(child.stat().st_size for child in path.rglob("*") if child.is_file())
+
+
+def _remove_path(path: Path) -> None:
+    """Delete a corpus artifact, refusing anything outside the known roots."""
+    if path.is_file() or path.is_symlink():
+        path.unlink()
+        return
+    if path.is_dir():
+        for child in sorted(path.rglob("*"), reverse=True):
+            if child.is_file() or child.is_symlink():
+                child.unlink()
+            elif child.is_dir():
+                child.rmdir()
+        path.rmdir()

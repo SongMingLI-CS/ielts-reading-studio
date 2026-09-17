@@ -170,6 +170,109 @@ def test_reimporting_the_same_file_rebinds_a_stale_source_path(
     assert web_service.importer.load_manifest(corpus).corpus.source_path == corpus.source_path
 
 
+def test_delete_page_lists_the_impact_and_needs_a_confirmation(
+    client, web_service, sample_txt
+):
+    manifest = web_service.import_source(sample_txt)
+    corpus_id = manifest.corpus.id
+    unit = manifest.units[0]
+    web_service.repository.transition(unit.id, UnitStatus.INDEXED, UnitStatus.COMPLETED)
+    web_service.repository.save_practice_attempt(
+        "attempt-delete", unit.id, status="submitted", score=1, total=2, payload={}
+    )
+    page = client.get(f"/corpora/{corpus_id}/delete")
+    assert page.status_code == 200
+    assert "章节索引" in page.text and "生成单元" in page.text
+    assert "已成篇（可练习）" in page.text
+    assert "练习记录" in page.text
+    assert "源文件本身不会被删除" in page.text
+
+    wrong = client.post(f"/corpora/{corpus_id}/delete", data={"confirm": "no"})
+    assert wrong.status_code == 400
+    assert "确认文字不匹配" in wrong.text
+    assert web_service.repository.get_corpus(corpus_id) is not None
+
+    cancel = client.post(f"/corpora/{corpus_id}/delete", data={"confirm": "取消吧"})
+    assert cancel.status_code == 400
+    assert web_service.repository.get_corpus(corpus_id) is not None
+
+
+def test_delete_removes_rows_and_artifacts_but_keeps_the_source_file(
+    client, web_service, sample_txt
+):
+    manifest = web_service.import_source(sample_txt)
+    corpus_id = manifest.corpus.id
+    unit = manifest.units[0]
+    web_service.repository.transition(unit.id, UnitStatus.INDEXED, UnitStatus.COMPLETED)
+    web_service.repository.save_practice_attempt(
+        "attempt-delete", unit.id, status="submitted", score=1, total=2, payload={}
+    )
+    manifest_dir = web_service.importer.manifest_path(manifest.corpus).parent
+    package_file = web_service.store.root / "packages" / f"{unit.id}.json"
+    package_file.parent.mkdir(parents=True, exist_ok=True)
+    package_file.write_text("{}", encoding="utf-8")
+    assert manifest_dir.exists()
+
+    response = client.post(
+        f"/corpora/{corpus_id}/delete",
+        data={"confirm": corpus_id[:8]},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert response.headers["location"].startswith("/corpora?deleted=")
+
+    assert web_service.repository.get_corpus(corpus_id) is None
+    assert web_service.repository.list_units(corpus_id) == []
+    assert web_service.repository.list_source_chapters(corpus_id) == []
+    assert web_service.repository.list_practice_attempts(corpus_id) == []
+    assert web_service.repository.get_practice_attempt("attempt-delete") is None
+    assert not manifest_dir.exists()
+    assert not package_file.exists()
+    assert sample_txt.exists()
+
+    index = client.get(response.headers["location"])
+    assert "已删除" in index.text
+    assert corpus_id[:8] not in index.text
+
+
+def test_delete_leaves_other_corpora_untouched(client, web_service, sample_txt, tmp_path):
+    first = web_service.import_source(sample_txt)
+    other_txt = tmp_path / "second.txt"
+    other_txt.write_text(
+        "第三章 转折\n" + "转折。" * 300 + "\n第四章 收束\n" + "收束。" * 300,
+        encoding="utf-8",
+    )
+    second = web_service.import_source(other_txt)
+
+    response = client.post(
+        f"/corpora/{first.corpus.id}/delete",
+        data={"confirm": "删除"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert web_service.repository.get_corpus(first.corpus.id) is None
+    survivor = web_service.repository.get_corpus(second.corpus.id)
+    assert survivor is not None
+    assert survivor.chapter_count == 2
+    assert web_service.repository.list_units(second.corpus.id)
+    assert web_service.importer.load_manifest(survivor) is not None
+
+
+def test_delete_is_refused_while_units_are_running(client, web_service, sample_txt):
+    manifest = web_service.import_source(sample_txt)
+    unit = manifest.units[0]
+    web_service.repository.transition(
+        unit.id, UnitStatus.INDEXED, UnitStatus.AUTHOR_GENERATING
+    )
+    page = client.get(f"/corpora/{manifest.corpus.id}/delete")
+    assert "当前无法删除" in page.text
+    response = client.post(
+        f"/corpora/{manifest.corpus.id}/delete", data={"confirm": "删除"}
+    )
+    assert response.status_code == 409
+    assert web_service.repository.get_corpus(manifest.corpus.id) is not None
+
+
 def test_rebind_endpoint_repairs_a_missing_source(client, web_service, sample_txt, tmp_path):
     manifest = web_service.import_source(sample_txt)
     corpus_id = manifest.corpus.id

@@ -1,0 +1,63 @@
+{% block title %}删除材料 · IELTS Reading Studio{% endblock %}
+{% block content %}
+<div class="practice-topbar">
+  <a class="back-link" href="/corpora">← 材料库</a>
+  <div class="practice-meta"><span class="badge status-calibrate">危险操作</span><span class="badge">不可撤销</span></div>
+</div>
+
+<header class="preview-head">
+  <p class="eyebrow">Delete material</p>
+  <h1>删除「{{ display_name }}」？</h1>
+  <p class="lead">删除会同时移除这份材料的章节索引、生成单元、练习记录与全部产物文件。<b>源文件本身不会被删除</b>（{{ impact.corpus.format|upper }}，{{ impact.corpus.source_hash[:12] }}…），重传同一份文件即可重新导入。</p>
+</header>
+
+{% if error %}<p class="inline-note">{{ error }}</p>{% endif %}
+
+<section class="danger-zone">
+  <h2>将被删除的内容</h2>
+  <dl class="impact-list">
+    <div><dt>章节索引</dt><dd>{{ impact.chapters }} 章</dd></div>
+    <div><dt>生成单元</dt><dd>{{ impact.units }} 个</dd></div>
+    {% if impact.completed %}<div class="alert"><dt>已成篇（可练习）</dt><dd>{{ impact.completed }} 篇</dd></div>{% endif %}
+    {% if impact.needs_review %}<div class="alert"><dt>待复核单元</dt><dd>{{ impact.needs_review }} 个</dd></div>{% endif %}
+    {% if impact.failed %}<div class="alert"><dt>失败单元</dt><dd>{{ impact.failed }} 个</dd></div>{% endif %}
+    {% if impact.running %}<div class="alert"><dt>正在运行</dt><dd>{{ impact.running }} 个</dd></div>{% endif %}
+    <div><dt>练习记录</dt><dd>{{ impact.practice_attempts }} 条{% if impact.graded_attempts %}（含 {{ impact.graded_attempts }} 条已判分）{% endif %}</dd></div>
+    <div><dt>生成任务</dt><dd>{{ impact.jobs }} 个</dd></div>
+    {% if impact.approved %}<div class="alert"><dt>样篇批准记录</dt><dd>已批准</dd></div>{% endif %}
+    <div><dt>产物文件</dt><dd>{{ impact.artifact_count }} 项 · {{ (impact.artifact_bytes / 1024 / 1024)|round(1) }} MB</dd></div>
+  </dl>
+
+  <details class="artifact-paths">
+    <summary>查看将被删除的路径（{{ impact.artifact_count }}）</summary>
+    <ul>
+      {% for path in impact.artifacts %}<li><code>{{ path }}</code></li>{% endfor %}
+      {% if not impact.artifacts %}<li>没有发现产物文件（可能已经被清理过）。</li>{% endif %}
+    </ul>
+  </details>
+
+  <h2>不会被删除</h2>
+  <ul class="keep-list">
+    <li>原始源文件（系统从不修改它）</li>
+    <li>其它材料的索引、练习记录与导出文件</li>
+    <li>已导出的 JSON / HTML / DOCX（在 <code>output/exports/</code> 下）</li>
+  </ul>
+</section>
+
+{% if impact.running or impact.active_jobs %}
+<section class="preview-banner frozen">
+  <strong>当前无法删除</strong>
+  <p>这份材料还有正在运行的单元或任务（{{ impact.active_jobs|length }} 个活动任务）。请先到任务页暂停或取消，再回来删除。</p>
+</section>
+{% else %}
+<form class="panel danger-form" action="/corpora/{{ impact.corpus.id }}/delete" method="post">
+  <label>请输入「{{ confirmation_word }}」或该语料 ID 前 8 位（<code>{{ impact.corpus.id[:8] }}</code>）以确认
+    <input name="confirm" autocomplete="off" placeholder="{{ confirmation_word }}" required>
+  </label>
+  <div class="danger-actions">
+    <button type="submit" class="button danger">确认删除这份材料</button>
+    <a class="button ghost" href="/corpora/{{ impact.corpus.id }}/preview">取消，返回章节解析</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

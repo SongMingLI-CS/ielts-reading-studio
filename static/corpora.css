@@ -155,6 +155,83 @@
 .rebind-form input[type="file"]{max-width:26rem}
 .rebind-form button{align-self:flex-start}
 
+/* ---------- Danger zone: corpus deletion ---------- */
+.library-flash{margin:0 0 1rem;padding:.75rem 1rem;border-radius:.7rem;background:#eef5f1;border:1px solid #cbe0d7;color:#20564a;font-size:.88rem}
+.text-link.danger{color:#a8431f}
+.text-link.danger:hover{color:#7f2f13}
+.danger-zone{background:#fff;border:1px solid #efd3c4;border-left:.3rem solid #c0452c;border-radius:1rem;padding:1.4rem;margin-bottom:1.2rem}
+.danger-zone h2{font:1.25rem Georgia,serif;margin:0 0 .9rem}
+.danger-zone h2 + h2{margin-top:1.4rem}
+.impact-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:.6rem;margin:0}
+.impact-list>div{background:#f6f8f6;border-radius:.6rem;padding:.7rem .85rem}
+.impact-list>div.alert{background:#fdeee8}
+.impact-list dt{color:#7b8681;font-size:.72rem;letter-spacing:.04em}
+.impact-list dd{margin:.2rem 0 0;font:1.1rem Georgia,serif;color:var(--forest)}
+.impact-list>div.alert dd{color:#a8431f}
+.keep-list{margin:0;padding-left:1.2rem;color:#4f5d58;font-size:.87rem}
+.keep-list li{margin:.3rem 0}
+.artifact-paths{margin-top:1.2rem;font-size:.82rem}
+.artifact-paths summary{cursor:pointer;color:#8a4a25;font-weight:700}
+.artifact-paths ul{margin:.6rem 0 0;padding-left:1.1rem;display:grid;gap:.3rem}
+.artifact-paths code{font-size:.74rem;word-break:break-all;color:#5d6864}
+.danger-form{border-color:#efd3c4}
+.danger-actions{display:flex;gap:.7rem;align-items:center;flex-wrap:wrap}
+
+/* ---------- Generate configuration page ---------- */
+.gate-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem;margin:0 0 1.4rem}
+.gate-step{display:grid;grid-template-columns:1.9rem minmax(0,1fr);gap:.7rem;align-items:start;background:#fff;border:1px solid var(--line);border-radius:.85rem;padding:.9rem 1rem}
+.gate-step>span{display:grid;place-items:center;width:1.9rem;height:1.9rem;border-radius:50%;background:#eef1ee;color:#7b8681;font-weight:800;font-size:.82rem}
+.gate-step strong{display:block;font-size:.92rem}
+.gate-step p{margin:.15rem 0 0;color:#6f7b76;font-size:.76rem}
+.gate-step.current{border-color:#d9c48a;background:#fffaf0}
+.gate-step.current>span{background:#f4e2b8;color:#8a6118}
+.gate-step.done{border-color:#bfdfd2;background:#f4faf7}
+.gate-step.done>span{background:#d8efe5;color:#24674f}
+.inline-note.plain{background:#f4f7f5;border-color:#dbe3de;color:#4f5d58}
+.config-block{background:#fff;border:1px solid var(--line);border-radius:1rem;padding:1.4rem;margin-bottom:1.2rem}
+.config-head{display:flex;align-items:end;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.config-head h2{font:1.35rem Georgia,serif;margin:0 0 .3rem}
+.config-head p{margin:0;color:#6f7b76;font-size:.86rem}
+.config-hint{color:#7b8681;font-size:.8rem}
+.difficulty-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem;margin-bottom:1.2rem}
+.difficulty-card{position:relative;margin:0;cursor:pointer}
+.difficulty-card input{position:absolute;opacity:0;pointer-events:none}
+.difficulty-card>span{display:flex;flex-direction:column;gap:.2rem;height:100%;background:#f6f8f6;border:1px solid #dfe5e0;border-radius:.7rem;padding:.9rem 1rem}
+.difficulty-card strong{font-size:.98rem}
+.difficulty-card em{font-style:normal;font:1.05rem Georgia,serif;color:var(--forest)}
+.difficulty-card small{color:#7b8681;font-size:.74rem;line-height:1.4}
+.difficulty-card input:checked+span{border-color:var(--green);background:#eef6f2;box-shadow:0 0 0 2px #9ccbbe44}
+.type-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(19rem,1fr));gap:.7rem}
+.type-card{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.5rem;margin:0;background:#fff;border:1px solid #e3e7e3;border-radius:.75rem;padding:1rem 1.1rem;cursor:pointer;transition:border-color .16s,background .16s}
+.type-card:hover{border-color:#c3d5cd}
+.type-card input{position:absolute;opacity:0;pointer-events:none}
+.type-card.checked{border-color:var(--green);background:#f4faf7;box-shadow:0 0 0 2px #9ccbbe33}
+.type-body strong{display:block;font-size:.98rem}
+.type-body em{display:block;font-style:normal;color:#8a958f;font-size:.7rem;letter-spacing:.04em;text-transform:uppercase;margin:.1rem 0 .45rem}
+.type-body p{margin:.25rem 0;color:#5d6864;font-size:.82rem;line-height:1.5}
+.type-example{color:#33518f !important}
+.type-grading{color:#7b8681 !important;font-size:.78rem !important}
+.type-flag{align-self:start;background:#eef2ef;border-radius:2rem;color:#4b5b55;font-size:.66rem;font-weight:800;padding:.2rem .5rem}
+.type-card.checked .type-flag{background:#dff0e8;color:#24674f}
+.type-counter{margin:1rem 0 0;color:#5d6864;font-size:.86rem}
+.type-counter strong{color:var(--forest)}
+.gate-form{display:flex;align-items:center;gap:.9rem;flex-wrap:wrap}
+.gate-note{margin:0;color:#6f7b76;font-size:.82rem}
+.gate-warn{color:#a8431f;font-size:.8rem;font-weight:700}
+.sample-list{list-style:none;margin:0;padding:0;display:grid;gap:.7rem}
+.sample-list li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:1rem;align-items:center;background:#f8faf8;border:1px solid #e3e7e3;border-radius:.7rem;padding:.9rem 1rem}
+.sample-main strong{display:block;font-size:.96rem}
+.sample-main p{margin:.2rem 0 0;color:#7b8681;font-size:.78rem}
+.sample-types{color:#5d6864 !important}
+.sample-links{display:flex;gap:.7rem}
+.sample-links a{color:var(--green);font-weight:700;font-size:.82rem;text-decoration:none;white-space:nowrap}
+.sample-links a:hover{text-decoration:underline}
+.batch-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:.9rem;align-items:end}
+.batch-form label{margin:0;font-size:.84rem;font-weight:600;color:#55625c}
+.batch-form small{display:block;margin-top:.35rem;color:#8a958f;font-weight:500;font-size:.74rem;line-height:1.45}
+.batch-warn{grid-column:1/-1;margin:.2rem 0 0;color:#a8431f;font-size:.8rem}
+.batch-form button{grid-column:1/-1;justify-self:start}
+
 @media (max-width:1024px){
   .library-hero,.import-layout{grid-template-columns:1fr}
   .workflow-strip{grid-template-columns:1fr 1fr}

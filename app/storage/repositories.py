@@ -163,6 +163,43 @@ class Repository:
             rows = connection.execute(statement).mappings()
             return [_model(row, SourceChapter) for row in rows]
 
+    def delete_corpus(self, corpus_id: str) -> dict[str, int]:
+        """Remove a corpus and every row derived from it, in foreign-key order."""
+        with self.database.engine.begin() as connection:
+            unit_ids = list(
+                connection.execute(
+                    select(generation_units.c.id).where(
+                        generation_units.c.corpus_id == corpus_id
+                    )
+                ).scalars()
+            )
+            counts: dict[str, int] = {"units": len(unit_ids)}
+            for table in (practice_attempts, usage_records, stage_attempts):
+                if unit_ids:
+                    counts[table.name] = connection.execute(
+                        delete(table).where(table.c.unit_id.in_(unit_ids))
+                    ).rowcount
+                else:
+                    counts[table.name] = 0
+            counts["chapters"] = connection.execute(
+                delete(source_chapters).where(source_chapters.c.corpus_id == corpus_id)
+            ).rowcount
+            counts["units"] = connection.execute(
+                delete(generation_units).where(generation_units.c.corpus_id == corpus_id)
+            ).rowcount
+            counts["jobs"] = connection.execute(
+                delete(jobs).where(jobs.c.corpus_id == corpus_id)
+            ).rowcount
+            counts["approvals"] = connection.execute(
+                delete(corpus_approvals).where(
+                    corpus_approvals.c.corpus_id == corpus_id
+                )
+            ).rowcount
+            counts["corpora"] = connection.execute(
+                delete(corpora).where(corpora.c.id == corpus_id)
+            ).rowcount
+        return counts
+
     def list_jobs(self, corpus_id: str | None = None) -> list[dict[str, Any]]:
         statement = select(jobs).order_by(jobs.c.created_at.desc())
         if corpus_id is not None:

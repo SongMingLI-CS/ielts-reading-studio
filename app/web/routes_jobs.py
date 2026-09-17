@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import datetime as dt
+import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query
 from fastapi.responses import RedirectResponse
@@ -9,13 +11,90 @@ from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
 from app.cli import parse_range
+from app.config import redact_secrets
 from app.models import Difficulty, QuestionType, UnitStatus
 from app.pipeline.service import ReadingStudioService
+from app.planning.units import DEFAULT_QUESTION_TYPES, default_question_types
 
 from .dependencies import get_service
+from .glossary import difficulty_rows, type_rows
 
 router = APIRouter()
 TEMPLATES = Jinja2Templates(directory=Path(__file__).parents[2] / "templates")
+RANGE_EXAMPLES = "1-20 · 1,3,8-12 · all"
+
+
+def _sample_status_path(corpus_id: str) -> Path:
+    return Path("reports") / f"sample-{corpus_id[:8]}.json"
+
+
+def _sample_status(service: ReadingStudioService, corpus_id: str) -> dict[str, Any] | None:
+    path = service.store.root / _sample_status_path(corpus_id)
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def _run_sample(
+    service: ReadingStudioService,
+    corpus_id: str,
+    difficulty: Difficulty,
+    question_types: list[QuestionType],
+) -> None:
+    """Generate one sample in the background, recording the outcome for the page."""
+    record = {
+        "difficulty": difficulty.value,
+        "question_types": [value.value for value in question_types],
+    }
+
+    def write(payload: dict[str, Any]) -> None:
+        service.store.write_json(_sample_status_path(corpus_id), {**record, **payload})
+
+    write({"status": "running", "started_at": dt.datetime.now(dt.UTC).isoformat()})
+    try:
+        service.generate_sample(corpus_id, difficulty, question_types)
+    except Exception as exc:  # noqa: BLE001 - the operator needs to see what happened
+        write(
+            {
+                "status": "failed",
+                "finished_at": dt.datetime.now(dt.UTC).isoformat(),
+                "error": redact_secrets(str(exc)),
+            }
+        )
+        return
+    write({"status": "completed", "finished_at": dt.datetime.now(dt.UTC).isoformat()})
+
+
+def _completed_unit_row(service: ReadingStudioService, unit: Any) -> dict[str, Any]:
+    """Readable facts about a finished unit so a sample can be judged in the browser."""
+    row: dict[str, Any] = {
+        "id": unit.id,
+        "ordinal": unit.ordinal,
+        "difficulty": unit.difficulty.value,
+        "question_types": [
+            value.value.replace("_", " ") for value in unit.question_types
+        ],
+        "title": None,
+        "word_count": None,
+        "question_count": None,
+        "passed": None,
+    }
+    try:
+        package = service.load_package(unit.id)
+    except (FileNotFoundError, ValueError):
+        return row
+    row.update(
+        {
+            "title": package.passage.title,
+            "word_count": package.passage.word_count,
+            "question_count": sum(len(group.questions) for group in package.question_groups),
+            "passed": package.quality_report.passed,
+        }
+    )
+    return row
 
 
 @router.get("/corpora/{corpus_id}/configure")
@@ -23,6 +102,7 @@ def configure_job(
     request: Request,
     corpus_id: str,
     service: Annotated[ReadingStudioService, Depends(get_service)],
+    sample: str | None = None,
 ):
     try:
         estimate = service.estimate_corpus(corpus_id)
@@ -31,6 +111,15 @@ def configure_job(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     units = service.repository.list_units(corpus_id)
     first_unit = units[0] if units else None
+    completed_units = [
+        _completed_unit_row(service, unit)
+        for unit in units
+        if unit.status == UnitStatus.COMPLETED
+    ]
+    recommended = {
+        difficulty.value: [value.value for value in values]
+        for difficulty, values in DEFAULT_QUESTION_TYPES.items()
+    }
     return TEMPLATES.TemplateResponse(
         request,
         "jobs/configure.html",
@@ -38,16 +127,53 @@ def configure_job(
             "details": details,
             "estimate": estimate,
             "question_types": list(QuestionType),
-            "completed_units": [
-                unit
-                for unit in units
-                if unit.status == UnitStatus.COMPLETED
-            ],
+            "type_rows": type_rows(recommended),
+            "difficulty_rows": difficulty_rows(),
+            "recommended_types": recommended,
+            "completed_units": completed_units,
+            "completed_count": len(completed_units),
+            "unit_count": len(units),
+            "sample_status": _sample_status(service, corpus_id),
+            "sample_flag": sample,
+            "has_api_key": service.config.deepseek_api_key is not None,
+            "range_examples": RANGE_EXAMPLES,
             "selected_difficulty": first_unit.difficulty.value if first_unit else "standard",
-            "selected_question_types": {
-                value.value for value in first_unit.question_types
-            } if first_unit else set(),
+            "selected_question_types": (
+                {value.value for value in first_unit.question_types} if first_unit else set()
+            ),
         },
+    )
+
+
+@router.post("/corpora/{corpus_id}/sample")
+def start_sample(
+    corpus_id: str,
+    background: BackgroundTasks,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+    difficulty: Annotated[Difficulty, Form()] = Difficulty.STANDARD,
+    question_types: Annotated[list[str] | None, Form()] = None,
+):
+    """Generate exactly one sample of the chosen shape; approval stays manual."""
+    if service.repository.get_corpus(corpus_id) is None:
+        raise HTTPException(status_code=404, detail="Corpus not found")
+    if service.config.deepseek_api_key is None:
+        return RedirectResponse(
+            f"/corpora/{corpus_id}/configure?sample=no-key", status_code=303
+        )
+    if not service.repository.list_units(corpus_id):
+        return RedirectResponse(
+            f"/corpora/{corpus_id}/configure?sample=no-units", status_code=303
+        )
+    selected = [QuestionType(value) for value in (question_types or [])]
+    if not selected:
+        selected = default_question_types(difficulty)
+    if len(selected) != 3 or len(set(selected)) != 3:
+        return RedirectResponse(
+            f"/corpora/{corpus_id}/configure?sample=bad-types", status_code=303
+        )
+    background.add_task(_run_sample, service, corpus_id, difficulty, selected)
+    return RedirectResponse(
+        f"/corpora/{corpus_id}/configure?sample=started", status_code=303
     )
 
 

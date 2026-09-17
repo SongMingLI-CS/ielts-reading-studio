@@ -8,6 +8,7 @@ from collections import Counter
 from hashlib import sha256
 from pathlib import Path
 from typing import Annotated, Any
+from urllib.parse import quote
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
@@ -49,6 +50,7 @@ DIAGNOSTIC_PREFIX_LABELS: dict[str, str] = {
 def corpora_index(
     request: Request,
     service: Annotated[ReadingStudioService, Depends(get_service)],
+    deleted: str | None = None,
 ):
     cards = [_corpus_card(service, corpus) for corpus in service.repository.list_corpora()]
     cards.sort(key=lambda card: (card["source_exists"] is False, -card["unit_count"]))
@@ -65,7 +67,7 @@ def corpora_index(
     return TEMPLATES.TemplateResponse(
         request,
         "corpora/index.html",
-        {"cards": cards, "totals": totals},
+        {"cards": cards, "totals": totals, "deleted": deleted},
     )
 
 
@@ -165,6 +167,79 @@ async def rebind_source(
         await source.close()
     return RedirectResponse(
         f"/corpora/{corpus_id}/preview?rebound=1", status_code=303
+    )
+
+
+CONFIRMATION_WORD = "删除"
+
+
+def _confirmation_ok(value: str, corpus: Corpus) -> bool:
+    text = (value or "").strip()
+    return text in {CONFIRMATION_WORD, "delete", corpus.id, corpus.id[:8]}
+
+
+@router.get("/corpora/{corpus_id}/delete")
+def corpus_delete_form(
+    request: Request,
+    corpus_id: str,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+):
+    try:
+        impact = service.corpus_deletion_impact(corpus_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return TEMPLATES.TemplateResponse(
+        request,
+        "corpora/delete.html",
+        {
+            "impact": impact,
+            "display_name": display_name(impact["corpus"]),
+            "confirmation_word": CONFIRMATION_WORD,
+            "error": None,
+        },
+    )
+
+
+@router.post("/corpora/{corpus_id}/delete")
+def corpus_delete(
+    request: Request,
+    corpus_id: str,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+    confirm: Annotated[str, Form()] = "",
+):
+    try:
+        impact = service.corpus_deletion_impact(corpus_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    context = {
+        "impact": impact,
+        "display_name": display_name(impact["corpus"]),
+        "confirmation_word": CONFIRMATION_WORD,
+    }
+    if impact["running"] or impact["active_jobs"]:
+        return TEMPLATES.TemplateResponse(
+            request,
+            "corpora/delete.html",
+            {
+                **context,
+                "error": "这份材料还有正在运行的单元或任务。请先到任务页暂停或取消，再删除。",
+            },
+            status_code=409,
+        )
+    if not _confirmation_ok(confirm, impact["corpus"]):
+        return TEMPLATES.TemplateResponse(
+            request,
+            "corpora/delete.html",
+            {
+                **context,
+                "error": f"确认文字不匹配，没有删除任何内容。请输入「{CONFIRMATION_WORD}」或该语料 ID 前 8 位。",
+            },
+            status_code=400,
+        )
+    service.delete_corpus(corpus_id)
+    removed_name = impact["corpus"].name
+    return RedirectResponse(
+        f"/corpora?deleted={quote(removed_name)}", status_code=303
     )
 
 
