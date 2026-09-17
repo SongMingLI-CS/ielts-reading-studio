@@ -46,6 +46,31 @@ def test_yaml_cannot_supply_api_key(tmp_path, monkeypatch):
         AppConfig.load(path, require_api_key=True)
 
 
+def test_web_credentials_are_loaded_only_from_environment(tmp_path, monkeypatch):
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        "web_username: yaml-user\nweb_password: yaml-password\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("IELTS_WEB_USERNAME", "env-user")
+    monkeypatch.setenv("IELTS_WEB_PASSWORD", "env-password")
+
+    config = AppConfig.load(path)
+
+    assert config.web_username == "env-user"
+    assert config.web_password.get_secret_value() == "env-password"
+
+
+def test_web_credentials_must_be_configured_together(tmp_path, monkeypatch):
+    path = tmp_path / "config.yaml"
+    path.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setenv("IELTS_WEB_USERNAME", "env-user")
+    monkeypatch.delenv("IELTS_WEB_PASSWORD", raising=False)
+
+    with pytest.raises(ConfigurationError, match="must be configured together"):
+        AppConfig.load(path)
+
+
 def test_revision_limits_cannot_exceed_two(tmp_path):
     for field in ("author_revision_limit", "examiner_revision_limit"):
         path = tmp_path / f"{field}.yaml"

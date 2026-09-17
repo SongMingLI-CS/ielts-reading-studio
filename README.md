@@ -57,13 +57,20 @@ ielts-reading retry <job-id> --failed-only
 
 暂停与取消可在本地网页的任务监控页执行。阶段结果、缓存键、原始响应元数据和 Token 用量逐阶段落盘；重启后不会重复调用已完成且缓存键一致的阶段。
 
-## 本地网页
+## 网页服务
 
 ```powershell
 ielts-reading serve
 ```
 
-默认地址是 `http://127.0.0.1:8000`，首版拒绝通过 CLI 绑定公网地址。网页提供：
+默认地址是 `http://127.0.0.1:8000`。若要监听局域网或公网地址，必须先通过环境变量配置独立的网站账号和密码：
+
+```dotenv
+IELTS_WEB_USERNAME=reader
+IELTS_WEB_PASSWORD=请使用独立的强密码
+```
+
+然后运行 `ielts-reading serve --host 0.0.0.0 --port 8766`。远程监听但未配置完整凭据时，程序会拒绝启动；网站密码也不会从 YAML 读取。公网生产环境仍建议在反向代理上配置 HTTPS，因为 HTTP Basic Auth 本身不加密网络流量。网页提供：
 
 - 安全上传、章节边界预览和独立修正记录；
 - 生成范围、难度、三种题型、批次和并发配置；

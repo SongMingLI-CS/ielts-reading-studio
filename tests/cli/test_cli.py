@@ -105,3 +105,31 @@ def test_help_lists_complete_command_surface():
         "serve",
     ):
         assert command in result.output
+
+
+def test_remote_serve_requires_web_credentials(tmp_path, monkeypatch):
+    monkeypatch.delenv("IELTS_WEB_USERNAME", raising=False)
+    monkeypatch.delenv("IELTS_WEB_PASSWORD", raising=False)
+
+    result = runner.invoke(
+        app,
+        ["serve", "--host", "0.0.0.0", "--config", str(make_config(tmp_path))],
+    )
+
+    assert result.exit_code == 2
+    assert "IELTS_WEB_USERNAME" in result.output
+
+
+def test_remote_serve_runs_when_web_credentials_exist(tmp_path, monkeypatch):
+    monkeypatch.setenv("IELTS_WEB_USERNAME", "reader")
+    monkeypatch.setenv("IELTS_WEB_PASSWORD", "secret")
+    called = {}
+    monkeypatch.setattr("uvicorn.run", lambda *args, **kwargs: called.update(kwargs))
+
+    result = runner.invoke(
+        app,
+        ["serve", "--host", "0.0.0.0", "--port", "8766", "--config", str(make_config(tmp_path))],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert called == {"host": "0.0.0.0", "port": 8766}

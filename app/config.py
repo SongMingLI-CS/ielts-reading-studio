@@ -7,7 +7,7 @@ from typing import Any
 
 import yaml
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field, SecretStr, ValidationError
+from pydantic import BaseModel, Field, SecretStr, ValidationError, model_validator
 
 
 class ConfigurationError(RuntimeError):
@@ -19,6 +19,7 @@ def redact_secrets(value: Any) -> str:
     text = re.sub(r"(?i)(Bearer\s+)[^\s,;]+", r"\1[REDACTED]", text)
     text = re.sub(r"\bsk-[A-Za-z0-9_-]+", "[REDACTED]", text)
     text = re.sub(r"(?i)(DEEPSEEK_API_KEY\s*[=:]\s*)[^\s,;]+", r"\1[REDACTED]", text)
+    text = re.sub(r"(?i)(IELTS_WEB_PASSWORD\s*[=:]\s*)[^\s,;]+", r"\1[REDACTED]", text)
     return text
 
 
@@ -28,6 +29,8 @@ class AppConfig(BaseModel):
     output_dir: Path = Path("output")
     database_path: Path = Path("output/state.db")
     deepseek_api_key: SecretStr | None = None
+    web_username: str | None = None
+    web_password: SecretStr | None = None
     deepseek_base_url: str = "https://api.deepseek.com"
     author_model: str = "deepseek-flash"
     examiner_model: str = "deepseek-v4-pro"
@@ -44,6 +47,12 @@ class AppConfig(BaseModel):
     max_units_per_run: int = Field(20, ge=1)
     max_estimated_tokens_per_run: int = Field(500_000, ge=1)
     max_consecutive_failures: int = Field(5, ge=1)
+
+    @model_validator(mode="after")
+    def validate_web_credentials(self) -> AppConfig:
+        if bool(self.web_username) != bool(self.web_password):
+            raise ValueError("IELTS_WEB_USERNAME and IELTS_WEB_PASSWORD must be configured together")
+        return self
 
     @classmethod
     def load(cls, path: str | Path, require_api_key: bool = False) -> AppConfig:
@@ -73,9 +82,14 @@ class AppConfig(BaseModel):
             candidate = Path(raw.get(field, cls.model_fields[field].default))
             raw[field] = candidate if candidate.is_absolute() else config_parent / candidate
         # Secrets are accepted only from the process environment/.env.
-        raw.pop("deepseek_api_key", None)
+        for secret_field in ("deepseek_api_key", "web_username", "web_password"):
+            raw.pop(secret_field, None)
         if os.getenv("DEEPSEEK_API_KEY"):
             raw["deepseek_api_key"] = os.environ["DEEPSEEK_API_KEY"]
+        if os.getenv("IELTS_WEB_USERNAME"):
+            raw["web_username"] = os.environ["IELTS_WEB_USERNAME"]
+        if os.getenv("IELTS_WEB_PASSWORD"):
+            raw["web_password"] = os.environ["IELTS_WEB_PASSWORD"]
         if require_api_key and not raw.get("deepseek_api_key"):
             raise ConfigurationError("DEEPSEEK_API_KEY is required for API work")
         try:

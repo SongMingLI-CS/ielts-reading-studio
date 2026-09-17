@@ -1,5 +1,6 @@
 .worktrees/
 .env
+.env.web
 .venv/
 output/
 input/

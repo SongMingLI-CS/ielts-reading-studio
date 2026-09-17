@@ -187,14 +187,17 @@ def serve(
     port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8000,
     config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
 ) -> None:
-    """Start the local FastAPI interface."""
-    if host != "127.0.0.1":
-        _abort("The first release only serves on 127.0.0.1")
+    """Start the FastAPI interface."""
     import uvicorn
 
     from app.web.app import create_app
 
     service = _service(config)
+    local_hosts = {"127.0.0.1", "localhost", "::1"}
+    if host not in local_hosts and not (
+        service.config.web_username and service.config.web_password
+    ):
+        _abort("Remote serving requires IELTS_WEB_USERNAME and IELTS_WEB_PASSWORD")
     typer.echo(f"http://{host}:{port}")
     uvicorn.run(create_app(config=service.config, service=service), host=host, port=port)
 
