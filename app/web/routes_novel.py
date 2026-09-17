@@ -95,6 +95,13 @@ def _page_context(service: ReadingStudioService, **extra: Any) -> dict[str, Any]
     output = paths["output"]
     html_files = sorted((output / "html").glob("*.html")) if output.exists() else []
     volume_files = sorted((output / "volumes").glob("*.docx")) if output.exists() else []
+    library_files = []
+    if output.exists():
+        library_files = [
+            path
+            for path in [output / "index.html", output / "glossary.xlsx", *sorted(output.glob("*.txt"))]
+            if path.is_file()
+        ]
     context = {
         "source": _read_json(paths["source"]),
         "report": _read_json(paths["report"]),
@@ -104,6 +111,7 @@ def _page_context(service: ReadingStudioService, **extra: Any) -> dict[str, Any]
         "api_ready": service.config.deepseek_api_key is not None,
         "html_files": [path.relative_to(output).as_posix() for path in html_files[-12:]],
         "volume_files": [path.relative_to(output).as_posix() for path in volume_files[-12:]],
+        "library_files": [path.relative_to(output).as_posix() for path in library_files],
     }
     context.update(extra)
     return context
@@ -288,12 +296,14 @@ def generate_sample(
     if chapter > int(source["chapters"]):
         raise HTTPException(status_code=422, detail="章节编号超出范围")
     _write_runtime_config(service, paths, batch_confirmed=False, max_chapters=1)
+    description = f"第 {chapter} 章样章"
+    _write_json(paths["run"], {"status": "queued", "description": description})
     background.add_task(
         _run_component,
         paths["config"],
         ["--chapter", str(chapter)],
         paths["run"],
-        f"第 {chapter} 章样章",
+        description,
     )
     return RedirectResponse("/novel", status_code=303)
 
@@ -315,12 +325,14 @@ def generate_batch(
     if end - start + 1 > 20:
         raise HTTPException(status_code=422, detail="网页单次最多生成 20 章")
     _write_runtime_config(service, paths, batch_confirmed=True, max_chapters=20)
+    description = f"第 {start}–{end} 章批量任务"
+    _write_json(paths["run"], {"status": "queued", "description": description})
     background.add_task(
         _run_component,
         paths["config"],
         ["--start", str(start), "--end", str(end)],
         paths["run"],
-        f"第 {start}–{end} 章批量任务",
+        description,
     )
     return RedirectResponse("/novel", status_code=303)
 
@@ -340,6 +352,7 @@ def recover_batch(
     _require_generation_ready(service, paths)
     _write_runtime_config(service, paths, batch_confirmed=True, max_chapters=20)
     label = "断点继续" if action == "resume" else "失败章节重试"
+    _write_json(paths["run"], {"status": "queued", "description": label})
     background.add_task(
         _run_component,
         paths["config"],

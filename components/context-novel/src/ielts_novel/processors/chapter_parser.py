@@ -30,6 +30,7 @@ class ParseResult:
     confident: bool = False
     warnings: list[str] = field(default_factory=list)
     preamble_paragraphs: int = 0
+    discarded_empty_chapters: int = 0
 
     def report_dict(self) -> dict:
         return {
@@ -40,6 +41,7 @@ class ParseResult:
             "confident": self.confident,
             "detected_chapters": len(self.chapters),
             "preamble_paragraphs": self.preamble_paragraphs,
+            "discarded_empty_chapters": self.discarded_empty_chapters,
             "warnings": self.warnings,
             "chapter_titles": [chapter.chapter_title for chapter in self.chapters],
         }
@@ -91,21 +93,29 @@ def _split_chapters(lines: list[str], path: Path, source_hash: str, file_format:
     current_title: str | None = None
     current_lines: list[str] = []
     preamble = 0
+    discarded_empty = 0
 
     def flush() -> None:
-        nonlocal current_lines
+        nonlocal current_lines, discarded_empty
         if current_title is None:
             return
-        chapter_id = len(chapters) + 1
         paragraphs = [
-            Paragraph(id=f"{chapter_id}-{index:03d}", text=text)
-            for index, text in enumerate((line.strip() for line in current_lines if line.strip()), start=1)
+            text
+            for text in (line.strip() for line in current_lines if line.strip())
         ]
+        if not paragraphs:
+            discarded_empty += 1
+            current_lines = []
+            return
+        chapter_id = len(chapters) + 1
         chapters.append(
             Chapter(
                 chapter_id=chapter_id,
                 chapter_title=current_title,
-                paragraphs=paragraphs,
+                paragraphs=[
+                    Paragraph(id=f"{chapter_id}-{index:03d}", text=text)
+                    for index, text in enumerate(paragraphs, start=1)
+                ],
                 source_path=path,
                 source_hash=source_hash,
             )
@@ -127,10 +137,20 @@ def _split_chapters(lines: list[str], path: Path, source_hash: str, file_format:
     warnings: list[str] = []
     if len(chapters) < 2:
         warnings.append("未识别到至少两个可靠章节边界")
-    if chapters and sum(not chapter.paragraphs for chapter in chapters) / len(chapters) > 0.1:
-        warnings.append("空章节比例超过 10%")
-    confident = len(chapters) >= 2 and not warnings
-    return ParseResult(str(path), source_hash, file_format, encoding, chapters, confident, warnings, preamble)
+    if discarded_empty:
+        warnings.append(f"已忽略目录或连续标题产生的 {discarded_empty} 个空章节")
+    confident = len(chapters) >= 2
+    return ParseResult(
+        str(path),
+        source_hash,
+        file_format,
+        encoding,
+        chapters,
+        confident,
+        warnings,
+        preamble,
+        discarded_empty,
+    )
 
 
 def parse_novel(path: str | Path) -> ParseResult:
@@ -160,4 +180,3 @@ def write_detection_report(result: ParseResult, path: str | Path) -> None:
     temporary = target.with_suffix(target.suffix + ".tmp")
     temporary.write_text(json.dumps(result.report_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
     temporary.replace(target)
-

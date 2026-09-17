@@ -66,6 +66,32 @@ def test_epub_reads_spine_order(tmp_path):
     assert [item.chapter_title for item in result.chapters] == ["第一章 开始", "第二章 后续"]
 
 
+def test_epub_ignores_empty_toc_headings_before_real_chapters(tmp_path):
+    path = tmp_path / "book-with-inline-toc.epub"
+    book = epub.EpubBook()
+    book.set_identifier("toc-fixture")
+    book.set_title("toc-fixture")
+    chapter = epub.EpubHtml(title="内容", file_name="chapter.xhtml")
+    chapter.content = (
+        "<h1>第一章 开始</h1><h1>第二章 后续</h1>"
+        "<h1>第一章 开始</h1><p>正文甲。</p>"
+        "<h1>第二章 后续</h1><p>正文乙。</p>"
+    )
+    book.add_item(chapter)
+    book.add_item(epub.EpubNcx())
+    book.add_item(epub.EpubNav())
+    book.toc = (chapter,)
+    book.spine = [chapter]
+    epub.write_epub(path, book)
+
+    result = parse_novel(path)
+
+    assert result.confident
+    assert len(result.chapters) == 2
+    assert result.discarded_empty_chapters == 2
+    assert [item.chapter_id for item in result.chapters] == [1, 2]
+
+
 def test_low_confidence_does_not_return_chapters_and_writes_report(tmp_path):
     path = tmp_path / "broken.txt"
     path.write_text("这是没有章节标题的大段正文。" * 200, encoding="utf-8")
