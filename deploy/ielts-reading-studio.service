@@ -1,0 +1,18 @@
+[Unit]
+Description=IELTS Reading Studio
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/ielts-reading-studio
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/ubuntu/ielts-reading-studio/.venv/bin/python -m app.cli serve --host 127.0.0.1 --port 8766
+Restart=on-failure
+RestartSec=5
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
