@@ -71,7 +71,7 @@
 
     <div class="corpus-progress"><span style="width: {{ card.progress }}%"></span></div>
 
-    {% if not card.source_exists %}<p class="inline-note">源文件已不在 <code>{{ card.corpus.source_path }}</code>，只能使用已建立的索引。</p>{% endif %}
+    {% if not card.source_exists %}<p class="inline-note">源文件已不在原路径 <code>{{ card.corpus.source_path }}</code>。索引仍然可用：校准边界、继续生成、做题都不受影响；在「章节解析」页上传同一份文件即可重新绑定。</p>{% endif %}
     {% if card.low_confidence %}<p class="inline-note">解析置信度偏低，建议先在解析页校准章节边界。</p>{% endif %}
     {% for diagnostic in card.diagnostic_notes[:2] %}<p class="inline-note">{{ diagnostic }}</p>{% endfor %}
 

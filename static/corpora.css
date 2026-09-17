@@ -149,6 +149,12 @@
 .import-steps code{background:#f1f4f1;border-radius:.3rem;padding:.05rem .28rem;font-size:.76rem}
 .import-warn{margin:1.1rem 0;padding:.8rem .9rem;border-radius:.6rem;background:#fdf1ec;border:1px solid #efd3c4;color:#8a4a25;font-size:.8rem}
 
+.rebind-form{display:flex;flex-direction:column;gap:.6rem;margin-top:.9rem;padding:.9rem 1rem;background:#fff;border:1px dashed #d7c2b2;border-radius:.6rem}
+.rebind-form label{margin:0;font-size:.82rem;color:#5d4a3c;font-weight:600}
+.rebind-form label code{background:#f4f6f3;border-radius:.3rem;padding:.05rem .3rem;font-size:.76rem;word-break:break-all}
+.rebind-form input[type="file"]{max-width:26rem}
+.rebind-form button{align-self:flex-start}
+
 @media (max-width:1024px){
   .library-hero,.import-layout{grid-template-columns:1fr}
   .workflow-strip{grid-template-columns:1fr 1fr}

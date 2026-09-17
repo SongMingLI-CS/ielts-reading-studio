@@ -89,20 +89,34 @@ class Repository:
         self.database = database
 
     def add_corpus(self, corpus: Corpus) -> None:
+        values = {
+            "id": corpus.id,
+            "name": corpus.name,
+            "source_path": corpus.source_path,
+            "source_hash": corpus.source_hash,
+            "format": corpus.format,
+            "encoding": corpus.encoding,
+            "chapter_count": corpus.chapter_count,
+            "payload": _payload(corpus),
+            "created_at": corpus.created_at,
+        }
+        statement = sqlite_insert(corpora).values(**values)
+        # Re-importing the same bytes is a legitimate way to repair a stale
+        # source path, so the row is refreshed instead of failing on the key.
+        statement = statement.on_conflict_do_update(
+            index_elements=[corpora.c.id],
+            set_={
+                "name": corpus.name,
+                "source_path": corpus.source_path,
+                "source_hash": corpus.source_hash,
+                "format": corpus.format,
+                "encoding": corpus.encoding,
+                "chapter_count": corpus.chapter_count,
+                "payload": _payload(corpus),
+            },
+        )
         with self.database.engine.begin() as connection:
-            connection.execute(
-                insert(corpora).values(
-                    id=corpus.id,
-                    name=corpus.name,
-                    source_path=corpus.source_path,
-                    source_hash=corpus.source_hash,
-                    format=corpus.format,
-                    encoding=corpus.encoding,
-                    chapter_count=corpus.chapter_count,
-                    payload=_payload(corpus),
-                    created_at=corpus.created_at,
-                )
-            )
+            connection.execute(statement)
 
     def get_corpus(self, corpus_id: str) -> Corpus | None:
         with self.database.engine.connect() as connection:

@@ -18,7 +18,7 @@ from starlette.requests import Request
 from app.models import Corpus, GenerationUnit, UnitStatus
 from app.pipeline.service import ReadingStudioService
 from app.planning.boundaries import BoundaryEdit
-from app.planning.importer import corpus_id_for
+from app.planning.importer import MANIFEST_REBUILT_DIAGNOSTIC, corpus_id_for
 
 from .dependencies import get_service
 
@@ -37,6 +37,7 @@ DIAGNOSTIC_LABELS: dict[str, str] = {
     "low_confidence_structure": "章节结构置信度偏低，边界可能不准。",
     "empty_chapters": "存在空章节（可能只有标题没有正文）。",
     "large_preamble": "正文开始前有较长的前言/目录，占比偏高。",
+    "manifest_rebuilt_from_index": "章节清单已按数据库索引重建，原始解析置信度未记录。",
 }
 DIAGNOSTIC_PREFIX_LABELS: dict[str, str] = {
     "usable_chapters": "可用章节数",
@@ -115,6 +116,58 @@ async def import_upload(
     return RedirectResponse(f"/corpora/{manifest.corpus.id}/preview", status_code=303)
 
 
+@router.post("/corpora/{corpus_id}/rebind")
+async def rebind_source(
+    corpus_id: str,
+    source: Annotated[UploadFile, File()],
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+):
+    """Re-attach a new copy of a corpus source file.
+
+    The corpus identity is the SHA-256 of its bytes, so uploading the same file
+    again only repairs the stored path and keeps every existing artifact.
+    """
+    corpus = service.repository.get_corpus(corpus_id)
+    if corpus is None:
+        raise HTTPException(status_code=404, detail="Corpus not found")
+    extension = Path(source.filename or "").suffix.casefold()
+    if extension not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=415, detail="Unsupported source format")
+    temporary_dir = service.config.input_dir / ".uploads"
+    temporary_dir.mkdir(parents=True, exist_ok=True)
+    temporary = temporary_dir / f"{uuid4().hex}.upload"
+    written = 0
+    digest = sha256()
+    try:
+        with temporary.open("wb") as handle:
+            while chunk := await source.read(1024 * 1024):
+                written += len(chunk)
+                if written > MAX_UPLOAD_BYTES:
+                    raise HTTPException(status_code=413, detail="Upload exceeds 250 MB")
+                digest.update(chunk)
+                handle.write(chunk)
+        if digest.hexdigest() != corpus.source_hash:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "上传的内容与这份索引不一致（哈希不匹配）。请选择与原始文件完全相同的副本；"
+                    "如果是另一本书，请改用「导入新文件」。"
+                ),
+            )
+        upload_dir = service.config.input_dir / corpus_id
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        destination = upload_dir / _safe_filename(source.filename, f"source{extension}")
+        os.replace(temporary, destination)
+        service.import_source(destination)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+        await source.close()
+    return RedirectResponse(
+        f"/corpora/{corpus_id}/preview?rebound=1", status_code=303
+    )
+
+
 @router.get("/corpora/{corpus_id}/preview")
 def corpus_preview(
     request: Request,
@@ -122,6 +175,7 @@ def corpus_preview(
     service: Annotated[ReadingStudioService, Depends(get_service)],
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 50,
+    rebound: int = 0,
 ):
     corpus = service.repository.get_corpus(corpus_id)
     if corpus is None:
@@ -176,6 +230,7 @@ def corpus_preview(
                 diagnostic_note(code) for code in (manifest.diagnostics if manifest else [])
             ],
             "candidates": (manifest.candidate_chapters[:20] if manifest else []),
+            "rebound": bool(rebound),
             "total_characters": manifest.total_characters if manifest else None,
         },
     )
@@ -225,6 +280,12 @@ RUNNING_STATUSES = (
     UnitStatus.VALIDATING,
     UnitStatus.EXAMINER_REVISION_REQUIRED,
 )
+
+
+def _safe_filename(name: str | None, fallback: str) -> str:
+    """Keep the original file name for a forgiving artifact directory slug."""
+    candidate = (name or "").replace("\\", "/").split("/")[-1].strip().lstrip(".")
+    return candidate or fallback
 
 
 def display_name(corpus: Corpus) -> str:
@@ -316,6 +377,8 @@ def _corpus_card(
     failed = statuses.get(UnitStatus.FAILED.value, 0)
     running = sum(statuses.get(status.value, 0) for status in RUNNING_STATUSES)
     confidence = manifest.confidence if manifest else None
+    diagnostics = list(manifest.diagnostics) if manifest else []
+    confidence_known = MANIFEST_REBUILT_DIAGNOSTIC not in diagnostics
     return {
         "corpus": corpus,
         "display_name": display_name(corpus),
@@ -336,13 +399,15 @@ def _corpus_card(
         "job_count": len(jobs),
         "last_job": jobs[0] if jobs else None,
         "confidence": confidence,
-        "confidence_percent": round(confidence * 100) if confidence is not None else None,
-        "low_confidence": confidence is not None and confidence < 0.6,
+        "confidence_percent": (
+            round(confidence * 100) if confidence is not None and confidence_known else None
+        ),
+        "low_confidence": (
+            confidence_known and confidence is not None and confidence < 0.6
+        ),
         "total_characters": manifest.total_characters if manifest else None,
-        "diagnostics": manifest.diagnostics if manifest else [],
-        "diagnostic_notes": [
-            diagnostic_note(code) for code in (manifest.diagnostics if manifest else [])
-        ],
+        "diagnostics": diagnostics,
+        "diagnostic_notes": [diagnostic_note(code) for code in diagnostics],
         "step": _next_step(unit_count, completed, approval, needs_review),
     }
 
@@ -365,7 +430,10 @@ def _frozen_reason(
 
 def _boundary_override_count(service: ReadingStudioService, corpus: Corpus) -> int:
     """Records kept for the most recent boundary change (the file is rewritten)."""
-    path = service.importer.manifest_path(corpus).parent / "boundary-overrides.json"
+    manifest = service.importer.locate_manifest(corpus)
+    if manifest is None:
+        return 0
+    path = manifest.parent / "boundary-overrides.json"
     if not path.exists():
         return 0
     try:

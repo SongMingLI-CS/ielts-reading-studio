@@ -29,7 +29,24 @@
   <div><dt>已可练习</dt><dd>{{ card.practice_ready }}</dd></div>
 </dl>
 
-{% if not card.source_exists %}<p class="inline-note">源文件已不在 <code>{{ corpus.source_path }}</code>，索引仍然可用，但重新导入需要恢复该文件。</p>{% endif %}
+{% if rebound %}
+<section class="preview-banner">
+  <strong>已重新绑定源文件</strong>
+  <p>路径已更新，章节索引、边界修正和已生成的练习都保持不变。</p>
+</section>
+{% endif %}
+
+{% if not card.source_exists %}
+<section class="preview-banner frozen">
+  <strong>源文件不在原路径</strong>
+  <p>索引存在数据库里，所以<b>解析、校准边界、继续生成、做题都不受影响</b>；只有「重新导入」需要原文件。要修复绑定，上传一份<b>完全相同</b>的副本即可（按内容哈希校验，索引与修正记录都会保留）。</p>
+  <form class="rebind-form" action="/corpora/{{ corpus.id }}/rebind" method="post" enctype="multipart/form-data">
+    <label>原始文件：<code title="{{ card.corpus.source_path }}">{{ card.source_name }}</code> · 格式 {{ card.corpus.format|upper }} · SHA-256 {{ card.corpus.source_hash[:12] }}…</label>
+    <input type="file" name="source" accept=".txt,.docx,.epub,.md,.markdown" required>
+    <button type="submit" class="button small">重新绑定源文件</button>
+  </form>
+</section>
+{% endif %}
 {% for diagnostic in diagnostic_notes %}<p class="inline-note">{{ diagnostic }}</p>{% endfor %}
 
 {% if frozen_reason %}
