@@ -2,6 +2,29 @@ import sqlite3
 import zipfile
 
 
+def test_backup_cleans_stale_temp_archives(client, web_service, sample_txt, tmp_path, monkeypatch):
+    import os
+    import tempfile
+    import time
+    from pathlib import Path
+
+    web_service.import_source(sample_txt)
+    scratch = Path(tempfile.gettempdir())
+    stale = Path(tempfile.mkstemp(prefix="ielts-backup-", suffix=".zip")[1])
+    old = time.time() - 7200
+    os.utime(stale, (old, old))
+    fresh = Path(tempfile.mkstemp(prefix="ielts-backup-", suffix=".zip")[1])
+
+    response = client.get("/backup/download")
+    assert response.status_code == 200
+    # the interrupted-download leftover is gone, the fresh one is not touched
+    assert not stale.exists()
+    assert fresh.exists()
+    fresh.unlink(missing_ok=True)
+    for leftover in scratch.glob("ielts-backup-*.zip"):
+        leftover.unlink(missing_ok=True)
+
+
 def test_backup_page_reports_what_would_be_archived(client, web_service, sample_txt):
     web_service.import_source(sample_txt)
     page = client.get("/backup")

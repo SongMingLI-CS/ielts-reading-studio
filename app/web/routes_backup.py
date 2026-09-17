@@ -53,6 +53,17 @@ def _backup_facts(service: ReadingStudioService) -> dict[str, Any]:
     }
 
 
+def _clean_stale_archives(max_age_seconds: int = 3600) -> None:
+    """Drop temp archives left behind by interrupted downloads."""
+    cutoff = dt.datetime.now(dt.UTC).timestamp() - max_age_seconds
+    for path in Path(tempfile.gettempdir()).glob("ielts-backup-*.zip"):
+        try:
+            if path.stat().st_mtime < cutoff:
+                path.unlink()
+        except OSError:
+            continue
+
+
 def _snapshot_database(database: Path, target: Path) -> None:
     """Copy the SQLite file through the backup API so WAL content is included."""
     if not database.exists():
@@ -99,6 +110,7 @@ def backup_download(
     """
     del background
     facts = _backup_facts(service)
+    _clean_stale_archives()
     now = dt.datetime.now(dt.UTC)
     stamp = now.strftime("%Y%m%d-%H%M%S")
     handle, name = tempfile.mkstemp(prefix="ielts-backup-", suffix=".zip")
