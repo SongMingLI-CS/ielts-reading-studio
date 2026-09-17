@@ -1,0 +1,40 @@
+{% for group in review %}
+<section class="review-group" id="review-{{ group.type }}">
+  <header class="review-group-head">
+    <span class="group-number">{{ loop.index }}</span>
+    <div>
+      <h2>{{ group.label }}</h2>
+      <p>{{ group.instructions }}{% if group.word_limit %} <strong>NO MORE THAN {{ group.word_limit }} WORDS.</strong>{% endif %}</p>
+    </div>
+    {% if group.correct is not none %}<span class="group-score">{{ group.correct }} / {{ group.questions|length }}</span>{% endif %}
+  </header>
+  <ol class="review-list">
+  {% for q in group.questions %}
+    <li class="review-question {% if q.correct is true %}ok{% elif q.correct is false %}bad{% endif %}" id="review-{{ q.number }}">
+      <div class="review-copy">
+        <span class="question-number">{{ q.number }}</span>
+        <p>{{ q.prompt }}</p>
+      </div>
+      <dl class="answer-compare">
+        {% if q.correct is not none %}<div><dt>你的答案</dt><dd>{% if q.submitted %}{{ q.submitted }}{% else %}<em>未作答</em>{% endif %}</dd></div>{% endif %}
+        <div><dt>正确答案</dt><dd class="correct-value">{{ q.answer }}</dd></div>
+        {% if q.acceptable_answers %}<div><dt>同样算对</dt><dd>{{ q.acceptable_answers|join('、') }}</dd></div>{% endif %}
+      </dl>
+      {% if q.correct is true %}<p class="verdict ok">✓ 答对</p>{% elif q.correct is false %}<p class="verdict bad">✗ 答错</p>{% endif %}
+      <div class="evidence-block">
+        <p class="evidence-label">原文证据 · 段落 {{ q.evidence_paragraph }}</p>
+        <blockquote>{{ q.evidence_quote }}</blockquote>
+      </div>
+      <p class="explanation">{{ q.chinese_explanation }}</p>
+      {% if q.distractor_explanations %}
+      <details class="distractor-list">
+        <summary>其余选项为什么不选 · {{ q.distractor_explanations|length }} 条</summary>
+        <ul>{% for option, note in q.distractor_explanations.items() %}<li><strong>{{ option }}</strong><span>{{ note }}</span></li>{% endfor %}</ul>
+      </details>
+      {% endif %}
+      <p class="review-links"><a href="/practice/{{ package.unit.id }}/analysis{% if attempt_id %}?attempt={{ attempt_id }}{% endif %}#paragraph-{{ q.evidence_paragraph }}">回到原文该段 →</a></p>
+    </li>
+  {% endfor %}
+  </ol>
+</section>
+{% endfor %}

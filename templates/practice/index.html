@@ -20,19 +20,26 @@
 </section>
 
 {% if items %}
-<div class="library-toolbar"><div><p class="eyebrow">Your passages</p><h2>可练习篇目</h2></div><p>按章节顺序排列 · 自动保存进度</p></div>
+<div class="library-toolbar"><div><p class="eyebrow">Your passages</p><h2>可练习篇目</h2></div><p>按章节顺序排列 · 草稿自动保存 · 提交后给出答案与解析</p></div>
 <div class="practice-library">
 {% for item in items %}
-  {% set latest = item.attempts[0] if item.attempts else none %}
-  <article class="practice-book-card" data-status="{{ latest.status if latest else 'new' }}">
+  <article class="practice-book-card" data-status="{{ item.state }}">
     <div class="book-spine"><span>{{ '%02d'|format(item.unit.ordinal or loop.index) }}</span><i></i></div>
     <div class="book-copy">
-      <div class="card-topline"><p class="card-kicker">{{ item.package.passage.difficulty.value|title }}</p>{% if latest %}<span class="attempt-state {{ latest.status }}">{% if latest.status == 'submitted' %}已完成{% else %}进行中{% endif %}</span>{% else %}<span class="attempt-state new">新篇目</span>{% endif %}</div>
+      <div class="card-topline"><p class="card-kicker">{{ item.package.passage.difficulty.value|title }}</p>{% if item.state == 'submitted' %}<span class="attempt-state submitted">已完成 {{ item.submitted_count }} 次</span>{% elif item.state == 'in_progress' %}<span class="attempt-state in_progress">进行中</span>{% else %}<span class="attempt-state new">新篇目</span>{% endif %}</div>
       <h2>{{ item.package.passage.title }}</h2>
       <p class="source-name">{{ item.corpus.name }}</p>
-      <div class="passage-facts"><span>{{ item.package.passage.word_count }} <small>words</small></span><span>{{ item.package.question_groups|map(attribute='questions')|map('length')|sum }} <small>questions</small></span>{% if latest and latest.status == 'submitted' %}<span>{{ latest.score }}/{{ latest.total }} <small>latest</small></span>{% endif %}</div>
+      <div class="passage-facts">
+        <span>{{ item.package.passage.word_count }} <small>words</small></span>
+        <span>{{ item.package.question_groups|map(attribute='questions')|map('length')|sum }} <small>questions</small></span>
+        {% if item.latest_submitted %}<span>{{ item.latest_submitted.score }} / {{ item.latest_submitted.total }} <small>最近成绩</small></span>{% endif %}
+        {% if item.best is not none %}<span>{{ item.best }}% <small>最好正确率</small></span>{% endif %}
+      </div>
     </div>
-    <a class="practice-arrow" href="/practice/{{ item.unit.id }}" aria-label="{% if latest and latest.status == 'in_progress' %}继续{% else %}开始{% endif %} {{ item.package.passage.title }}"><span>{% if latest and latest.status == 'in_progress' %}继续{% else %}开始{% endif %}</span> →</a>
+    <div class="card-actions">
+      {% if item.latest_submitted %}<a class="practice-arrow ghost" href="/practice/{{ item.unit.id }}/result/{{ item.latest_submitted.id }}"><span>看解析</span> →</a>{% endif %}
+      <a class="practice-arrow" href="/practice/{{ item.unit.id }}{% if item.state == 'submitted' %}?fresh=1{% endif %}" aria-label="{% if item.state == 'in_progress' %}继续{% elif item.state == 'submitted' %}重做{% else %}开始{% endif %} {{ item.package.passage.title }}"><span>{% if item.state == 'in_progress' %}继续{% elif item.state == 'submitted' %}重做{% else %}开始{% endif %}</span> →</a>
+    </div>
   </article>
 {% endfor %}
 </div>

@@ -31,4 +31,5 @@ class PracticeResult(BaseModel):
     correct: int
     total: int
     elapsed_seconds: int | None = None
+    redirect_url: str | None = None
     results: list[AnswerResult]

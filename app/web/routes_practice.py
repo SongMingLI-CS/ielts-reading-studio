@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import re
 import unicodedata
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Form, HTTPException
@@ -10,7 +11,11 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
-from app.models import QuestionType, UnitStatus
+from app.models import (
+    QuestionType,
+    ReadingPackage,
+    UnitStatus,
+)
 from app.pipeline.service import ReadingStudioService
 
 from .dependencies import get_service
@@ -23,6 +28,18 @@ from .schemas import (
 
 router = APIRouter()
 TEMPLATES = Jinja2Templates(directory=Path(__file__).parents[2] / "templates")
+
+QUESTION_TYPE_LABELS: dict[QuestionType, str] = {
+    QuestionType.MATCHING_HEADINGS: "Matching headings",
+    QuestionType.TRUE_FALSE_NOT_GIVEN: "True / False / Not Given",
+    QuestionType.YES_NO_NOT_GIVEN: "Yes / No / Not Given",
+    QuestionType.MATCHING_INFORMATION: "Matching information",
+    QuestionType.MULTIPLE_CHOICE: "Multiple choice",
+    QuestionType.SENTENCE_COMPLETION: "Sentence completion",
+    QuestionType.SUMMARY_COMPLETION: "Summary completion",
+    QuestionType.SHORT_ANSWER: "Short answer",
+}
+OPTION_PREFIX = re.compile(r"^\s*([A-Za-z]{1,4}|\d{1,2})\s*[.)、]\s*")
 
 
 @router.get("/practice")
@@ -43,16 +60,44 @@ def practice_center(
                 package = service.load_package(unit.id)
             except (FileNotFoundError, ValueError):
                 continue
+            unit_attempts = attempts_by_unit.get(unit.id, [])
+            submitted = [
+                attempt for attempt in unit_attempts if attempt["status"] == "submitted"
+            ]
+            drafts = [
+                attempt for attempt in unit_attempts if attempt["status"] == "in_progress"
+            ]
+            scored = [attempt for attempt in submitted if attempt["total"]]
+            best = (
+                max(
+                    (attempt["score"] / attempt["total"] for attempt in scored),
+                    default=None,
+                )
+                if scored
+                else None
+            )
             items.append(
                 {
                     "unit": unit,
                     "corpus": corpus,
                     "package": package,
-                    "attempts": attempts_by_unit.get(unit.id, []),
+                    "attempts": unit_attempts,
+                    "latest": unit_attempts[0] if unit_attempts else None,
+                    "latest_submitted": submitted[0] if submitted else None,
+                    "latest_draft": drafts[0] if drafts else None,
+                    "submitted_count": len(submitted),
+                    "best": round(best * 100) if best is not None else None,
+                    "state": "empty"
+                    if not unit_attempts
+                    else ("submitted" if submitted else "in_progress"),
                 }
             )
-    submitted = [attempt for attempt in attempts if attempt["status"] == "submitted"]
-    scoreable = [attempt for attempt in submitted if attempt["total"]]
+    submitted_attempts = [
+        attempt for attempt in attempts if attempt["status"] == "submitted"
+    ]
+    scoreable = [
+        attempt for attempt in submitted_attempts if attempt["total"]
+    ]
     average = (
         round(
             sum(attempt["score"] / attempt["total"] for attempt in scoreable)
@@ -64,8 +109,8 @@ def practice_center(
     )
     summary = {
         "available": len(items),
-        "in_progress": sum(attempt["status"] == "in_progress" for attempt in attempts),
-        "submitted": len(submitted),
+        "in_progress": sum(item["state"] == "in_progress" for item in items),
+        "submitted": len(submitted_attempts),
         "average": average,
     }
     return TEMPLATES.TemplateResponse(
@@ -80,12 +125,39 @@ def practice_session(
     request: Request,
     unit_id: str,
     service: Annotated[ReadingStudioService, Depends(get_service)],
+    fresh: int = 0,
 ):
     package = _completed_package(service, unit_id)
+    attempts = service.repository.list_practice_attempts(unit_id)
+    draft = next(
+        (attempt for attempt in attempts if attempt["status"] == "in_progress"), None
+    )
+    submitted = next(
+        (attempt for attempt in attempts if attempt["status"] == "submitted"), None
+    )
+    saved_answers: dict[str, Any] = {}
+    attempt_id = ""
+    resume_seconds = 0
+    if draft is not None and not fresh:
+        attempt_id = draft["id"]
+        payload = draft["payload"]
+        saved_answers = payload.get("answers") or {}
+        if isinstance(payload.get("elapsed_seconds"), int):
+            resume_seconds = max(0, payload["elapsed_seconds"])
     return TEMPLATES.TemplateResponse(
         request,
         "practice/session.html",
-        {"package": package},
+        {
+            "package": package,
+            "attempt_id": attempt_id,
+            "saved_answers": saved_answers,
+            "resume_seconds": resume_seconds,
+            "paragraph_labels": [
+                paragraph.label for paragraph in package.passage.paragraphs
+            ],
+            "latest_submitted": submitted,
+            "question_type_labels": QUESTION_TYPE_LABELS,
+        },
     )
 
 
@@ -109,34 +181,22 @@ def save_practice(
     return PracticeSaveResult(attempt_id=attempt_id)
 
 
-@router.post("/practice/{unit_id}/submit", response_model=PracticeResult)
-def submit_practice(
+@router.post("/practice/{unit_id}/submit")
+async def submit_practice(
+    request: Request,
     unit_id: str,
-    submission: PracticeSubmission,
     service: Annotated[ReadingStudioService, Depends(get_service)],
 ):
+    """Score one attempt and store it.
+
+    A JSON body (used by the page script) receives the full result payload, while
+    a form body (the plain HTML form, used when JavaScript is unavailable)
+    redirects to the server-rendered result page. Both paths persist the attempt,
+    so submitting an answer can never be silently lost.
+    """
     package = _completed_package(service, unit_id)
-    results: list[AnswerResult] = []
-    correct_count = 0
-    for group in package.question_groups:
-        for question in group.questions:
-            submitted = submission.answers.get(str(question.number), "")
-            accepted = [question.answer, *question.acceptable_answers]
-            correct = _matches(submitted, accepted, group.type)
-            correct_count += int(correct)
-            results.append(
-                AnswerResult(
-                    number=question.number,
-                    correct=correct,
-                    submitted=submitted,
-                    answer=question.answer,
-                    acceptable_answers=question.acceptable_answers,
-                    evidence_paragraph=question.evidence_paragraph,
-                    evidence_quote=question.evidence_quote,
-                    chinese_explanation=question.chinese_explanation,
-                    distractor_explanations=question.distractor_explanations,
-                )
-            )
+    submission, is_form = await _read_submission(request)
+    results, correct_count = _score_submission(package, submission.answers)
     attempt_id = submission.attempt_id or uuid4().hex
     service.repository.save_practice_attempt(
         attempt_id,
@@ -149,12 +209,52 @@ def submit_practice(
             "elapsed_seconds": submission.elapsed_seconds,
         },
     )
+    if is_form:
+        return RedirectResponse(
+            f"/practice/{unit_id}/result/{attempt_id}", status_code=303
+        )
     return PracticeResult(
         attempt_id=attempt_id,
         correct=correct_count,
         total=len(results),
         elapsed_seconds=submission.elapsed_seconds,
+        redirect_url=f"/practice/{unit_id}/result/{attempt_id}",
         results=results,
+    )
+
+
+@router.get("/practice/{unit_id}/result/{attempt_id}")
+def practice_result(
+    request: Request,
+    unit_id: str,
+    attempt_id: str,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+):
+    package = _completed_package(service, unit_id)
+    attempt = service.repository.get_practice_attempt(attempt_id)
+    if attempt is None or attempt["unit_id"] != unit_id:
+        raise HTTPException(status_code=404, detail="Attempt not found")
+    payload = attempt["payload"]
+    answers = payload.get("answers") or {}
+    results, correct_count = _score_submission(package, answers)
+    total = len(results)
+    seconds = payload.get("elapsed_seconds")
+    elapsed = seconds if isinstance(seconds, int) and seconds > 0 else 0
+    return TEMPLATES.TemplateResponse(
+        request,
+        "practice/result.html",
+        {
+            "package": package,
+            "attempt": attempt,
+            "attempt_id": attempt_id,
+            "correct": correct_count,
+            "total": total,
+            "accuracy": round(correct_count / total * 100) if total else 0,
+            "minutes": elapsed // 60,
+            "seconds": elapsed % 60,
+            "review": _review_groups(package, results),
+            "question_type_labels": QUESTION_TYPE_LABELS,
+        },
     )
 
 
@@ -163,6 +263,7 @@ def practice_analysis(
     request: Request,
     unit_id: str,
     service: Annotated[ReadingStudioService, Depends(get_service)],
+    attempt: str | None = None,
 ):
     package = _completed_package(service, unit_id)
     evidence_labels = {
@@ -170,10 +271,23 @@ def practice_analysis(
         for group in package.question_groups
         for question in group.questions
     }
+    answers: dict[str, Any] | None = None
+    if attempt:
+        saved = service.repository.get_practice_attempt(attempt)
+        if saved is not None and saved["unit_id"] == unit_id:
+            answers = saved["payload"].get("answers") or {}
+    results, _ = _score_submission(package, answers or {})
     return TEMPLATES.TemplateResponse(
         request,
         "practice/analysis.html",
-        {"package": package, "evidence_labels": evidence_labels},
+        {
+            "package": package,
+            "evidence_labels": evidence_labels,
+            "review": _review_groups(package, results, graded=answers is not None),
+            "graded": answers is not None,
+            "attempt_id": attempt if answers is not None else None,
+            "question_type_labels": QUESTION_TYPE_LABELS,
+        },
     )
 
 
@@ -252,6 +366,137 @@ def _normalize(value: object) -> str:
     return " ".join(text.strip().split()).casefold()
 
 
+def _leading_token(option: str) -> str | None:
+    match = OPTION_PREFIX.match(option)
+    return match.group(1).strip() if match else None
+
+
+def _option_variants(options: list[str], answer: str) -> list[str]:
+    """Accept either the option text or its leading label ("viii", "B", ...).
+
+    Matching Headings answers are stored as the heading label while Multiple
+    Choice answers are stored as the full option text, so both spellings must
+    grade as correct whichever one the answering widget submits.
+    """
+    accepted = [answer]
+    normalized_answer = _normalize(answer)
+    for option in options:
+        token = _leading_token(option)
+        if normalized_answer == _normalize(option) or (
+            token is not None and normalized_answer == _normalize(token)
+        ):
+            accepted.append(option)
+            if token:
+                accepted.append(token)
+    return [value for value in dict.fromkeys(accepted) if value]
+
+
+async def _read_submission(request: Request) -> tuple[PracticeSubmission, bool]:
+    """Return the submitted answers and whether the body was an HTML form."""
+    content_type = request.headers.get("content-type", "")
+    if content_type.startswith("application/json"):
+        try:
+            body = await request.json()
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="Invalid JSON body") from exc
+        if not isinstance(body, dict):
+            raise HTTPException(status_code=422, detail="JSON body must be an object")
+        return PracticeSubmission.model_validate(body), False
+    form = await request.form()
+    answers: dict[str, str] = {}
+    for key, value in form.multi_items():
+        if len(key) > 1 and key.startswith("q") and key[1:].isdigit():
+            text = value if isinstance(value, str) else ""
+            if text.strip():
+                answers[key[1:]] = text
+    elapsed_raw = str(form.get("elapsed_seconds") or "").strip()
+    attempt_id = str(form.get("attempt_id") or "").strip()
+    return (
+        PracticeSubmission(
+            attempt_id=attempt_id[:100] or None,
+            answers=answers,
+            elapsed_seconds=int(elapsed_raw) if elapsed_raw.isdigit() else None,
+        ),
+        True,
+    )
+
+
+def _score_submission(
+    package: ReadingPackage,
+    answers: dict[str, str | list[str]],
+) -> tuple[list[AnswerResult], int]:
+    results: list[AnswerResult] = []
+    correct_count = 0
+    for group in package.question_groups:
+        for question in group.questions:
+            submitted = answers.get(str(question.number), "")
+            accepted = [
+                *_option_variants(group.options, question.answer),
+                *question.acceptable_answers,
+            ]
+            correct = _matches(submitted, accepted, group.type)
+            correct_count += int(correct)
+            results.append(
+                AnswerResult(
+                    number=question.number,
+                    correct=correct,
+                    submitted=submitted,
+                    answer=question.answer,
+                    acceptable_answers=question.acceptable_answers,
+                    evidence_paragraph=question.evidence_paragraph,
+                    evidence_quote=question.evidence_quote,
+                    chinese_explanation=question.chinese_explanation,
+                    distractor_explanations=question.distractor_explanations,
+                )
+            )
+    return results, correct_count
+
+
+def _review_groups(
+    package: ReadingPackage,
+    results: list[AnswerResult],
+    *,
+    graded: bool = True,
+) -> list[dict[str, Any]]:
+    """Group scored answers for the shared review partial."""
+    by_number = {result.number: result for result in results}
+    groups: list[dict[str, Any]] = []
+    for group in package.question_groups:
+        questions: list[dict[str, Any]] = []
+        for question in group.questions:
+            result = by_number.get(question.number)
+            questions.append(
+                {
+                    "number": question.number,
+                    "prompt": question.prompt,
+                    "answer": question.answer,
+                    "acceptable_answers": question.acceptable_answers,
+                    "evidence_paragraph": question.evidence_paragraph,
+                    "evidence_quote": question.evidence_quote,
+                    "chinese_explanation": question.chinese_explanation,
+                    "distractor_explanations": question.distractor_explanations,
+                    "submitted": result.submitted if result else "",
+                    "correct": (result.correct if result else False) if graded else None,
+                }
+            )
+        groups.append(
+            {
+                "type": group.type.value,
+                "label": QUESTION_TYPE_LABELS.get(group.type, group.type.value),
+                "instructions": group.instructions,
+                "word_limit": group.word_limit,
+                "options": list(group.options),
+                "questions": questions,
+                "correct": (
+                    sum(1 for question in questions if question["correct"])
+                    if graded
+                    else None
+                ),
+            }
+        )
+    return groups
+
+
 def _matches(
     submitted: str | list[str],
     accepted: list[str],
@@ -271,4 +516,4 @@ def _matches(
     if isinstance(submitted, list):
         return False
     normalized = _normalize(submitted)
-    return normalized in {_normalize(answer) for answer in accepted}
+    return bool(normalized) and normalized in {_normalize(answer) for answer in accepted}

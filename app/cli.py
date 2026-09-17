@@ -194,12 +194,22 @@ def serve(
 
     service = _service(config)
     local_hosts = {"127.0.0.1", "localhost", "::1"}
-    if host not in local_hosts and not (
-        service.config.web_username and service.config.web_password
-    ):
+    remote = host not in local_hosts
+    if remote and not (service.config.web_username and service.config.web_password):
         _abort("Remote serving requires IELTS_WEB_USERNAME and IELTS_WEB_PASSWORD")
     typer.echo(f"http://{host}:{port}")
-    uvicorn.run(create_app(config=service.config, service=service), host=host, port=port)
+    if remote:
+        typer.echo(
+            "提示：公网访问请放在 HTTPS 反向代理之后。浏览器只在安全上下文"
+            "（https 或 localhost）提供部分 Web API，且 Basic 口令不能在明文 HTTP 上传输。"
+            "反代需转发 Host、X-Forwarded-For 与 X-Forwarded-Proto。"
+        )
+    uvicorn.run(
+        create_app(config=service.config, service=service),
+        host=host,
+        port=port,
+        proxy_headers=True,
+    )
 
 
 def parse_range(value: str | None) -> list[int] | None:

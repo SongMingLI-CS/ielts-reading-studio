@@ -132,4 +132,19 @@ def test_remote_serve_runs_when_web_credentials_exist(tmp_path, monkeypatch):
     )
 
     assert result.exit_code == 0, result.output
-    assert called == {"host": "0.0.0.0", "port": 8766}
+    assert called == {"host": "0.0.0.0", "port": 8766, "proxy_headers": True}
+    assert "HTTPS" in result.output
+
+
+def test_local_serve_does_not_warn_about_https(tmp_path, monkeypatch):
+    called = {}
+    monkeypatch.setattr("uvicorn.run", lambda *args, **kwargs: called.update(kwargs))
+
+    result = runner.invoke(
+        app,
+        ["serve", "--port", "8767", "--config", str(make_config(tmp_path))],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert called == {"host": "127.0.0.1", "port": 8767, "proxy_headers": True}
+    assert "HTTPS" not in result.output

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ package.passage.title }} · 练习结果{% endblock %}
+{% block content %}
+<section class="result-hero">
+  <div class="score-orb"><strong>{{ correct }}</strong><span>/ {{ total }}</span></div>
+  <div class="result-copy">
+    <p class="eyebrow">Practice result</p>
+    <h1>{{ package.passage.title }}</h1>
+    <div class="result-facts">
+      <span><strong>{{ accuracy }}%</strong> 正确率</span>
+      <span>用时 {{ minutes }} 分 {{ seconds }} 秒</span>
+      <span>{{ package.passage.difficulty.value|title }}</span>
+      <span>{{ total }} 题</span>
+      {% if attempt.status != 'submitted' %}<span class="warn-chip">本次作答尚未提交</span>{% endif %}
+    </div>
+    <div class="result-actions">
+      <a class="button" href="/practice/{{ package.unit.id }}?fresh=1">重做本篇</a>
+      <a class="button ghost" href="/practice/{{ package.unit.id }}/analysis?attempt={{ attempt_id }}">全篇解析（含词汇）</a>
+      <a class="button ghost" href="/practice">返回练习中心</a>
+    </div>
+    <p class="result-note">成绩已保存在这台电脑的 SQLite 中，编号 {{ attempt_id }}。</p>
+  </div>
+</section>
+{% include "partials/answer_review.html" %}
+{% endblock %}

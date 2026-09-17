@@ -1,11 +1,28 @@
 {% extends "base.html" %}
 {% block title %}{{ package.passage.title }} · 在线练习{% endblock %}
+{% macro option_letter(option, index) -%}
+{%- set parts = option.split('.', 1) -%}
+{%- if parts|length == 2 and parts[0]|trim|length <= 4 -%}{{ parts[0]|trim }}{%- else -%}{{ 'ABCDEFGHIJKLMNOP'[index] }}{%- endif -%}
+{%- endmacro %}
 {% block content %}
 <div class="practice-topbar">
   <a class="back-link" href="/practice">← 练习中心</a>
-  <div class="practice-meta"><span class="difficulty-pill">{{ package.passage.difficulty.value|title }}</span><span>{{ package.passage.word_count }} words</span></div>
-  <div class="session-tools"><span id="autosave-status" class="save-status"><i></i> 已保存到本机</span><span class="timer-chip">◷ <strong id="timer">00:00</strong></span></div>
+  <div class="practice-meta"><span class="difficulty-pill">{{ package.passage.difficulty.value|title }}</span><span>{{ package.passage.word_count }} words</span><span>{{ package.question_groups|map(attribute='questions')|map('length')|sum }} questions</span></div>
+  <div class="session-tools">
+    <span id="autosave-status" class="save-status"><i></i> 本机草稿就绪</span>
+    <button type="button" class="button ghost small" id="save-now">立即保存</button>
+    <span class="timer-chip">◷ <strong id="timer">00:00</strong></span>
+  </div>
 </div>
+{% if latest_submitted %}
+<div class="session-banner">
+  <span>你已完成过本篇：<strong>{{ latest_submitted.score }} / {{ latest_submitted.total }}</strong></span>
+  <a href="/practice/{{ package.unit.id }}/result/{{ latest_submitted.id }}">查看上次解析 →</a>
+</div>
+{% elif attempt_id %}
+<div class="session-banner draft">检测到未完成的草稿，已从本机恢复作答与用时。</div>
+{% endif %}
+<noscript><p class="session-banner warning">浏览器未启用 JavaScript：自动保存不可用，但「提交答案」仍会由服务器判分并保存。</p></noscript>
 <div class="progress-track" aria-label="答题进度"><span id="progress-bar"></span></div>
 <div class="mobile-pane-tabs" role="tablist" aria-label="练习视图">
   <button type="button" role="tab" aria-selected="true" data-show-pane="reading">阅读文章</button>
@@ -21,27 +38,42 @@
   </section>
   <section class="answer-pane">
     <div class="answer-intro"><p class="eyebrow">Questions</p><h2>完成全部题目</h2><p id="progress-copy">已完成 0 题</p></div>
-    <form id="practice-form" data-unit-id="{{ package.unit.id }}">
+    <form id="practice-form" method="post" action="/practice/{{ package.unit.id }}/submit" data-unit-id="{{ package.unit.id }}" data-attempt-id="{{ attempt_id }}" data-saved-answers='{{ saved_answers|tojson }}' data-resume-seconds="{{ resume_seconds }}">
+      <input type="hidden" name="attempt_id" value="{{ attempt_id }}">
+      <input type="hidden" name="elapsed_seconds" id="elapsed-seconds" value="{{ resume_seconds }}">
     {% for group in package.question_groups %}
-      <section class="question-group" data-group="{{ group.type.value }}">
-        <header><span class="group-number">{{ loop.index }}</span><div><h3>{{ group.type.value|replace('_',' ')|title }}</h3><p>{{ group.instructions }}{% if group.word_limit %} <strong>NO MORE THAN {{ group.word_limit }} WORDS.</strong>{% endif %}</p></div></header>
-        {% if group.options %}<ol class="heading-options">{% for option in group.options %}<li>{{ option }}</li>{% endfor %}</ol>{% endif %}
+      {% set type_value = group.type.value %}
+      <section class="question-group" data-group="{{ type_value }}">
+        <header><span class="group-number">{{ loop.index }}</span><div><h3>{{ question_type_labels[group.type] }}</h3><p>{{ group.instructions }}{% if group.word_limit %} <strong>NO MORE THAN {{ group.word_limit }} WORDS.</strong>{% endif %}</p></div></header>
+        {% if group.options and type_value == 'matching_headings' %}<ol class="heading-options">{% for option in group.options %}<li>{{ option }}</li>{% endfor %}</ol>{% endif %}
         {% for question in group.questions %}
         <div class="question" id="question-{{ question.number }}" data-number="{{ question.number }}">
           <div class="question-copy"><span class="question-number">{{ question.number }}</span><p>{{ question.prompt }}</p></div>
-          {% if group.type.value in ['true_false_not_given','yes_no_not_given'] %}
-          <div class="choice-row">{% set vals = ['TRUE','FALSE','NOT GIVEN'] if group.type.value == 'true_false_not_given' else ['YES','NO','NOT GIVEN'] %}{% for value in vals %}<label class="choice-chip"><input type="radio" name="q{{ question.number }}" value="{{ value }}"><span>{{ value }}</span></label>{% endfor %}</div>
-          {% elif group.options %}
-          <select name="q{{ question.number }}"><option value="">Choose a heading…</option>{% for option in group.options %}<option value="{{ option.split('.')[0] if '.' in option else option }}">{{ option }}</option>{% endfor %}</select>
-          {% else %}<input name="q{{ question.number }}" placeholder="Type your answer" autocomplete="off">{% endif %}
+          {% if type_value in ['true_false_not_given','yes_no_not_given'] %}
+          <div class="option-row">{% set values = ['TRUE','FALSE','NOT GIVEN'] if type_value == 'true_false_not_given' else ['YES','NO','NOT GIVEN'] %}{% for value in values %}<label class="option-chip"><input type="radio" name="q{{ question.number }}" value="{{ value }}"><span>{{ value }}</span></label>{% endfor %}</div>
+          {% elif type_value == 'matching_information' %}
+          <div class="option-row">{% for label in paragraph_labels %}<label class="option-chip compact"><input type="radio" name="q{{ question.number }}" value="{{ label }}"><span>{{ label }}</span></label>{% endfor %}</div>
+          {% elif type_value == 'multiple_choice' and group.options %}
+          <div class="option-row column">{% for option in group.options %}<label class="option-chip wide"><input type="radio" name="q{{ question.number }}" value="{{ option }}"><span><b>{{ option_letter(option, loop.index0) }}</b>{{ option }}</span></label>{% endfor %}</div>
+          {% elif type_value == 'matching_headings' and group.options %}
+          <select name="q{{ question.number }}"><option value="">Choose a heading…</option>{% for option in group.options %}<option value="{{ option_letter(option, loop.index0) }}">{{ option }}</option>{% endfor %}</select>
+          {% else %}
+          <input class="gap-input" name="q{{ question.number }}" placeholder="Type your answer" autocomplete="off" autocapitalize="off" spellcheck="false"{% if group.word_limit %} data-word-limit="{{ group.word_limit }}"{% endif %}>
+          {% endif %}
         </div>
         {% endfor %}
       </section>
     {% endfor %}
-      <div class="submit-dock"><div><strong id="answered-count">0</strong> / <span id="total-count">0</span> answered</div><button type="submit">提交答案 <span>→</span></button></div>
+      <div class="submit-dock">
+        <div class="dock-copy"><strong id="answered-count">0</strong> / <span id="total-count">0</span> answered</div>
+        <div class="dock-actions">
+          <button type="button" class="button ghost small" id="jump-unanswered">跳到未作答</button>
+          <button type="submit">提交答案 <span>→</span></button>
+        </div>
+      </div>
     </form>
-    <section id="practice-result" class="result-panel" hidden></section>
+    <p class="submit-hint" id="submit-hint">提交后会在本机保存成绩，并给出正确答案、原文证据与逐题中文解析。</p>
   </section>
 </div>
 {% endblock %}
-{% block scripts %}<script src="/static/practice.js?v=2"></script>{% endblock %}
+{% block scripts %}<script src="/static/practice.js?v=3"></script>{% endblock %}

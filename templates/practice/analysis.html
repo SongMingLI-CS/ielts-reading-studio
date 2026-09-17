@@ -1,6 +1,49 @@
 {% extends "base.html" %}
 {% block title %}{{ package.passage.title }} · 学习解析{% endblock %}
-{% block content %}<p class="eyebrow">学习解析</p><h1>{{ package.passage.title }}</h1>
-<article class="passage">{% for paragraph in package.passage.paragraphs %}<p class="{% if paragraph.label in evidence_labels %}evidence-highlight{% endif %}"><strong>{{ paragraph.label }}</strong> {{ paragraph.text }}</p>{% endfor %}</article>
-{% for group in package.question_groups %}{% for question in group.questions %}<article class="analysis-card"><h2>{{ question.number }}. {{ question.answer }}</h2><p><strong>证据 {{ question.evidence_paragraph }}：</strong>{{ question.evidence_quote }}</p><p>{{ question.chinese_explanation }}</p>{% for option, explanation in question.distractor_explanations.items() %}<p>{{ option }}：{{ explanation }}</p>{% endfor %}</article>{% endfor %}{% endfor %}
-<h2>重点词汇</h2>{% for word in package.passage.vocabulary %}<details><summary>{{ word.word }} {{ word.pronunciation or '' }}</summary><p>{{ word.chinese_meaning or '' }} · {{ word.collocations|join(', ') }}</p><p>{{ word.example or '' }}</p></details>{% endfor %}{% endblock %}
+{% block content %}
+<div class="practice-topbar">
+  <a class="back-link" href="/practice">← 练习中心</a>
+  <div class="practice-meta"><span class="difficulty-pill">{{ package.passage.difficulty.value|title }}</span><span>{{ package.passage.word_count }} words</span></div>
+  <div class="session-tools">
+    <a class="button ghost small" href="/practice/{{ package.unit.id }}{% if graded %}?fresh=1{% endif %}">{% if graded %}重做本篇{% else %}开始练习{% endif %}</a>
+  </div>
+</div>
+<header class="analysis-head">
+  <p class="eyebrow">学习解析</p>
+  <h1>{{ package.passage.title }}</h1>
+  <p class="lead">{% if graded %}下面把你这篇的作答与正确答案、原文证据和中文解析放在一起对照。{% else %}下面给出全部题目的正确答案、原文证据与中文解析；完成练习后可以对照自己的作答。{% endif %}</p>
+  {% if graded %}<p class="analysis-badge">已关联本次作答 · {{ attempt_id }}</p>{% endif %}
+</header>
+<div class="analysis-shell">
+  <section class="analysis-passage">
+    <div class="pane-label">Reading passage · 证据已高亮</div>
+    <article class="passage">
+      {% for paragraph in package.passage.paragraphs %}<p id="paragraph-{{ paragraph.label }}" class="{% if paragraph.label in evidence_labels %}evidence-highlight{% endif %}"><strong>{{ paragraph.label }}</strong><span>{{ paragraph.text }}</span></p>{% endfor %}
+    </article>
+  </section>
+  <section class="analysis-answers">
+    {% include "partials/answer_review.html" %}
+  </section>
+</div>
+<section class="vocabulary-block">
+  <h2>重点词汇</h2>
+  {% if package.passage.vocabulary %}
+  <div class="vocabulary-grid">
+  {% for word in package.passage.vocabulary %}
+    <article class="vocabulary-item" data-vocabulary>
+      <header><strong>{{ word.word }}</strong>{% if word.pronunciation %}<span>{{ word.pronunciation }}</span>{% endif %}{% if word.part_of_speech %}<em>{{ word.part_of_speech }}</em>{% endif %}</header>
+      <div class="vocabulary-body">
+        <p class="meaning">{{ word.chinese_meaning or '—' }}</p>
+        {% if word.collocations %}<p class="collocations">{{ word.collocations|join(' · ') }}</p>{% endif %}
+        {% if word.example %}<p class="example">{{ word.example }}</p>{% endif %}
+      </div>
+    </article>
+  {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">本篇没有生成词汇表。</p>
+  {% endif %}
+</section>
+{% endblock %}
+{% block scripts %}<script src="/static/vocabulary.js"></script>{% endblock %}
+
