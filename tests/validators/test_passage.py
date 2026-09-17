@@ -28,6 +28,16 @@ def test_allows_specific_fact_that_is_present_in_source(valid_passage, brief):
     assert "unsupported_specific_fact" not in report.codes
 
 
+def test_allows_translated_names_but_still_checks_cross_language_numbers(valid_passage, brief):
+    valid_passage.paragraphs[0].text += " Wu Xie met Zhang Qiling during the expedition."
+    report = validate_passage("吴邪在探险中遇到了张起灵。", brief, valid_passage)
+    assert "unsupported_specific_fact" not in report.codes
+
+    valid_passage.paragraphs[0].text += " The event happened in 2025."
+    report = validate_passage("吴邪在探险中遇到了张起灵。", brief, valid_passage)
+    assert "unsupported_specific_fact" in report.codes
+
+
 def test_rejects_bad_shape_and_noncontinuous_labels(valid_passage, brief):
     valid_passage.paragraphs = valid_passage.paragraphs[:3]
     valid_passage.paragraphs[-1].label = "D"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
@@ -12,6 +13,7 @@ from .base import AgentSchemaError, ModelRequest, ModelResult
 from .prompts import AUTHOR_BRIEF_SYSTEM, AUTHOR_PASSAGE_SYSTEM, AUTHOR_PROMPT_VERSION
 
 T = TypeVar("T", bound=BaseModel)
+WORD_RE = re.compile(r"[A-Za-z]+(?:['’-][A-Za-z]+)?")
 
 
 class AuthorAgent:
@@ -40,7 +42,7 @@ class AuthorAgent:
                 model=self.config.author_model,
                 system=AUTHOR_BRIEF_SYSTEM,
                 user=user,
-                max_tokens=2500,
+                max_tokens=4000,
                 temperature=0.1,
             ),
             SourceBrief,
@@ -139,8 +141,9 @@ def _validate_passage_contract(
         raise AgentSchemaError(
             f"author_passage difficulty must be {unit.difficulty.value}, got {passage.difficulty.value}"
         )
-    if passage.author_revision != expected_revision:
-        raise AgentSchemaError(
-            f"author_passage revision must be {expected_revision}, got {passage.author_revision}"
-        )
-    return passage
+    # These are workflow-derived fields owned by the application. Normalizing
+    # them prevents valid content from being discarded over model arithmetic.
+    word_count = sum(len(WORD_RE.findall(paragraph.text)) for paragraph in passage.paragraphs)
+    return passage.model_copy(
+        update={"author_revision": expected_revision, "word_count": word_count}
+    )

@@ -50,6 +50,29 @@ def test_examiner_builds_questions_from_frozen_passage(recording_provider, exami
     assert len(groups) == 3
 
 
+def test_examiner_normalizes_group_order_and_question_numbers(recording_provider, examiner_agent, unit):
+    payload = assessment_payload()
+    payload["question_groups"] = [
+        payload["question_groups"][0],
+        payload["question_groups"][2],
+        payload["question_groups"][1],
+    ]
+    recording_provider.queue(payload)
+
+    groups = examiner_agent.build_assessment(
+        unit, ReadingPassage.model_validate(passage_payload())
+    )
+
+    assert [group.type.value for group in groups] == [
+        "matching_headings",
+        "true_false_not_given",
+        "summary_completion",
+    ]
+    assert [question.number for group in groups for question in group.questions] == list(
+        range(1, 13)
+    )
+
+
 def test_examiner_rejects_missing_evidence(recording_provider, examiner_agent, unit):
     recording_provider.queue(assessment_payload(evidence_quote=None))
     with pytest.raises(AgentSchemaError, match="examiner_assessment"):

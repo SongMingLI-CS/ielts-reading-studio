@@ -68,6 +68,10 @@ class DeepSeekProvider:
                     response_format={"type": "json_object"},
                     max_tokens=request.max_tokens,
                     temperature=request.temperature,
+                    # DeepSeek V4 enables high-effort thinking by default. These
+                    # schema-bound stages need the token budget for the JSON
+                    # payload, not hidden reasoning content.
+                    extra_body={"thinking": {"type": "disabled"}},
                 )
                 return self._normalize(response, retries, started)
             except ProviderError:

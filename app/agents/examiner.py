@@ -98,11 +98,21 @@ class ExaminerAgent:
         groups = payload.question_groups
         expected = [value.value for value in unit.question_types]
         actual = [group.type.value for group in groups]
-        if len(groups) != 3 or actual != expected:
+        if len(groups) != 3 or len(set(actual)) != 3 or set(actual) != set(expected):
             raise AgentSchemaError(
-                f"examiner_assessment must return requested groups in order: {expected}; got {actual}"
+                f"examiner_assessment must return exactly the requested groups: {expected}; got {actual}"
             )
-        return groups
+        by_type = {group.type.value: group for group in groups}
+        ordered = [by_type[value] for value in expected]
+        number = 1
+        normalized: list[QuestionGroup] = []
+        for group in ordered:
+            questions = []
+            for question in group.questions:
+                questions.append(question.model_copy(update={"number": number}))
+                number += 1
+            normalized.append(group.model_copy(update={"questions": questions}))
+        return normalized
 
     def repair_assessment(
         self,

@@ -24,6 +24,8 @@ def test_author_creates_brief_with_separate_model_and_prompt(recording_provider,
     assert request.model == "author-model"
     assert "原始中文材料" in request.user
     assert "JSON" in request.system
+    assert "no more than 12" in request.system.replace("\n", " ")
+    assert request.max_tokens == 4000
 
 
 def test_author_never_receives_question_answers(recording_provider, author_agent, unit):
@@ -34,6 +36,7 @@ def test_author_never_receives_question_answers(recording_provider, author_agent
 
     assert isinstance(passage, ReadingPassage)
     request = recording_provider.requests[-1]
+    assert "English" in request.system
     assert "question_groups" not in request.user
     assert "answer_key" not in request.user
     assert "examiner" not in request.user.casefold()
@@ -74,7 +77,7 @@ def test_author_retains_usage_result(recording_provider, author_agent, unit):
     assert author_agent.last_result.input_tokens == 10
 
 
-def test_author_rejects_wrong_difficulty_or_revision(recording_provider, author_agent, unit):
+def test_author_rejects_wrong_difficulty_and_normalizes_revision(recording_provider, author_agent, unit):
     wrong_difficulty = passage_payload()
     wrong_difficulty["difficulty"] = "advanced"
     recording_provider.queue(wrong_difficulty)
@@ -85,13 +88,14 @@ def test_author_rejects_wrong_difficulty_or_revision(recording_provider, author_
             source_text="原文",
         )
 
-    wrong_revision = passage_payload(revision=0)
+    wrong_revision = passage_payload(revision=2)
     recording_provider.queue(wrong_revision)
-    with pytest.raises(AgentSchemaError, match="revision"):
-        author_agent.revise_passage(
-            unit,
-            SourceBrief.model_validate(brief_payload()),
-            source_text="原文",
-            passage=ReadingPassage.model_validate(passage_payload()),
-            issues=[],
-        )
+    revised = author_agent.revise_passage(
+        unit,
+        SourceBrief.model_validate(brief_payload()),
+        source_text="原文",
+        passage=ReadingPassage.model_validate(passage_payload()),
+        issues=[],
+    )
+    assert revised.author_revision == 1
+    assert revised.word_count == 48

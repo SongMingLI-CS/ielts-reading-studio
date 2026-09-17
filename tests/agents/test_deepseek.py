@@ -109,6 +109,7 @@ def test_requests_json_mode_and_records_usage(fake_client, config):
     assert fake_client.last_request["response_format"] == {"type": "json_object"}
     assert fake_client.last_request["max_tokens"] == 100
     assert fake_client.last_request["temperature"] == 0.2
+    assert fake_client.last_request["extra_body"] == {"thinking": {"type": "disabled"}}
     assert "frequency_penalty" not in fake_client.last_request
     assert "presence_penalty" not in fake_client.last_request
 

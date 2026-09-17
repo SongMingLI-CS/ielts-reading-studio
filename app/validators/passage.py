@@ -21,6 +21,7 @@ ORG_RE = re.compile(
 STUDY_RE = re.compile(r"\b[A-Z][A-Za-z-]+\s+(?:study|survey|report)\b")
 PERSON_RE = re.compile(r"\b[A-Z][a-z]+\s+[A-Z][a-z]+\b")
 PLACEHOLDER_RE = re.compile(r"\b(?:TODO|TBD|PLACEHOLDER|INSERT\s+.+?\s+HERE)\b", re.IGNORECASE)
+CJK_RE = re.compile(r"[\u3400-\u9fff]")
 
 COMMON_WORDS = frozenset({
     "a", "an", "and", "are", "as", "at", "available", "be", "because", "been",
@@ -102,10 +103,16 @@ def validate_passage(source_text: str, brief: SourceBrief, passage: ReadingPassa
         report.add("unfinished_placeholder", "Passage contains an unfinished placeholder.")
 
     normalized_source = source_text.casefold()
+    cross_language = bool(CJK_RE.search(source_text)) and bool(WORD_RE.search(full_text))
     for paragraph in passage.paragraphs:
+        markers = (
+            _language_invariant_markers(paragraph.text)
+            if cross_language
+            else _specific_markers(paragraph.text)
+        )
         unsupported = [
             marker
-            for marker in _specific_markers(paragraph.text)
+            for marker in markers
             if marker.casefold() not in normalized_source
         ]
         if unsupported:
@@ -128,6 +135,14 @@ def _specific_markers(text: str) -> list[str]:
     patterns = (YEAR_RE, PERCENT_RE, LARGE_NUMBER_RE, QUOTED_RE, ORG_RE, STUDY_RE, PERSON_RE)
     markers: list[str] = []
     for pattern in patterns:
+        markers.extend(match.group(0) for match in pattern.finditer(text))
+    return markers
+
+
+def _language_invariant_markers(text: str) -> list[str]:
+    """Return facts that can be compared literally across Chinese/English text."""
+    markers: list[str] = []
+    for pattern in (YEAR_RE, PERCENT_RE, LARGE_NUMBER_RE):
         markers.extend(match.group(0) for match in pattern.finditer(text))
     return markers
 

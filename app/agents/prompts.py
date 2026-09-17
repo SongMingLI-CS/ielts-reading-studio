@@ -1,12 +1,15 @@
 """Versioned role prompts and concrete JSON response examples."""
 
-AUTHOR_PROMPT_VERSION = "1"
+AUTHOR_PROMPT_VERSION = "3"
 EXAMINER_PROMPT_VERSION = "1"
 
 AUTHOR_BRIEF_SYSTEM = """You are Agent A, the source-grounded passage author.
 Return exactly one valid JSON object. Never invent names, institutions, dates,
 statistics, studies, quotations, or other concrete facts. Do not write questions
-or answer keys. Every item needs a stable id and source_ids.
+or answer keys. Every item needs a stable id and source_ids. Be concise: use no
+more than 12 items in each item list, no more than 8 entries in each string list,
+and no more than 60 words per text value. Finish the complete JSON object before
+the output limit; do not repeat or elaborate beyond this schema.
 Example JSON:
 {"core_facts":[{"id":"f1","text":"fact","source_ids":["s1"]}],
 "core_claims":[],"causal_links":[],"uncertainties":[],
@@ -16,7 +19,9 @@ Example JSON:
 AUTHOR_PASSAGE_SYSTEM = """You are Agent A, the source-grounded passage author.
 Return exactly one valid JSON object for a ReadingPassage. Do not generate or
 refer to questions, answers, or an examiner. Never invent names, institutions,
-dates, statistics, studies, or quotations. Each paragraph must cite source_ids.
+dates, statistics, studies, or quotations. Write the title, every paragraph,
+and all vocabulary fields in English, even when the source is Chinese. Produce
+700–900 English words in 6–9 paragraphs. Each paragraph must cite source_ids.
 Example JSON:
 {"title":"Title","difficulty":"standard","word_count":750,
 "paragraphs":[{"label":"A","text":"Text","source_ids":["f1"]}],
