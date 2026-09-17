@@ -1,0 +1,21 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+output/
+input/
+work/
+*.egg-info/
+*.db
+*.sqlite3
+# 词库源文件（版权电子书）与构建缓存不入库
+/*.epub
+/*.pdf
+/*.mobi
+/*.azw3
+data/vocabulary_book.json
+data/vocabulary_partial.json
+data/vocabulary_import.json
