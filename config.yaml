@@ -4,6 +4,8 @@ database_path: output/state.db
 deepseek_base_url: https://api.deepseek.com
 author_model: deepseek-flash
 examiner_model: deepseek-v4-pro
+writing_model: deepseek-v4-pro
+writing_max_output_tokens: 4000
 concurrency: 2
 batch_size: 20
 author_revision_limit: 2

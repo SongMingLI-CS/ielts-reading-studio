@@ -34,6 +34,8 @@ class AppConfig(BaseModel):
     deepseek_base_url: str = "https://api.deepseek.com"
     author_model: str = "deepseek-flash"
     examiner_model: str = "deepseek-v4-pro"
+    writing_model: str = "deepseek-v4-pro"
+    writing_max_output_tokens: int = Field(4000, ge=500, le=16_000)
     concurrency: int = Field(2, ge=1, le=8)
     batch_size: int = Field(20, ge=1, le=100)
     author_revision_limit: int = Field(2, ge=0, le=2)

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}写作评估 · IELTS Learning Studio{% endblock %}
+{% block content %}
+<section class="page-heading writing-heading">
+  <div>
+    <p class="eyebrow">AI writing feedback</p>
+    <h1>IELTS 写作评估</h1>
+    <p class="lead">提交 Task 1 或 Task 2 作文，按四项评分标准获得结构化反馈。评估结果会保存在你的服务器。</p>
+  </div>
+  <div class="local-badge"><span></span>私有保存</div>
+</section>
+
+<div class="writing-layout">
+  <form id="writing-form" class="panel writing-form">
+    <fieldset class="task-picker">
+      <legend>题目类型</legend>
+      <label><input type="radio" name="task_type" value="task_1"> <span><strong>Task 1</strong><small>图表、流程或书信</small></span></label>
+      <label><input type="radio" name="task_type" value="task_2" checked> <span><strong>Task 2</strong><small>议论文</small></span></label>
+    </fieldset>
+
+    <label for="writing-title">标题 <small>（可选）</small></label>
+    <input id="writing-title" name="title" maxlength="300" placeholder="方便以后识别这次评估">
+
+    <label for="writing-question">作文题目</label>
+    <textarea id="writing-question" name="question" rows="5" minlength="10" maxlength="10000" required placeholder="粘贴完整题目，包括 Task 1 的图表说明或 Task 2 的写作要求。"></textarea>
+
+    <div class="writing-label-row">
+      <label for="writing-essay">你的作文</label>
+      <span id="essay-count">0 词</span>
+    </div>
+    <textarea id="writing-essay" name="essay" rows="18" minlength="20" maxlength="30000" required placeholder="在这里粘贴或输入完整英文作文。"></textarea>
+
+    <label class="sample-option"><input id="include-sample" type="checkbox"> <span><strong>同时生成参考范文</strong><small>会增加模型输出量和等待时间</small></span></label>
+    <div class="writing-submit-row">
+      <button id="evaluate-button" type="submit">开始评估</button>
+      <p id="writing-status" role="status" aria-live="polite">通常需要几十秒，请勿重复提交。</p>
+    </div>
+  </form>
+
+  <section id="writing-result" class="writing-result" aria-live="polite" hidden>
+    <div class="panel writing-score-card">
+      <div><p class="eyebrow">Overall band</p><h2>评估结果</h2></div>
+      <strong id="overall-band" class="writing-band">—</strong>
+    </div>
+    <div id="criteria-grid" class="writing-criteria"></div>
+    <article class="panel"><h2>综合反馈</h2><p id="general-feedback" class="feedback-copy"></p></article>
+    <div class="writing-feedback-grid">
+      <article class="panel"><h2>做得好的地方</h2><ul id="strengths"></ul></article>
+      <article class="panel"><h2>下一步改进</h2><ul id="improvements"></ul></article>
+    </div>
+    <article id="sample-card" class="panel" hidden><h2>参考范文</h2><div id="sample-answer" class="sample-answer"></div></article>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/writing.js?v=1" defer></script>{% endblock %}

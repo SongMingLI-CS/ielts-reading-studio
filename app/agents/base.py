@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
 
@@ -28,6 +28,12 @@ class ModelResult(BaseModel):
     model: str | None = None
     response_id: str | None = None
     finish_reason: str | None = None
+
+
+class JsonProvider(Protocol):
+    """Structural interface shared by real and test JSON providers."""
+
+    def complete_json(self, request: ModelRequest) -> ModelResult: ...
 
 
 class ProviderError(RuntimeError):

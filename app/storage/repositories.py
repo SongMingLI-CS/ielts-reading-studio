@@ -4,7 +4,7 @@ import datetime as dt
 import json
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 from sqlalchemy import delete, func, insert, select, update
@@ -13,6 +13,9 @@ from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import IntegrityError
 
 from app.models import Corpus, GenerationUnit, SourceChapter, UnitStatus, UsageRecord
+
+if TYPE_CHECKING:
+    from app.writing.models import WritingEvaluationRecord
 
 from .database import (
     Database,
@@ -27,6 +30,7 @@ from .database import (
     usage_records,
     vocabulary_marks,
     vocabulary_reviews,
+    writing_evaluations,
 )
 
 RUNNING_RECOVERY_STATUSES: dict[UnitStatus, UnitStatus] = {
@@ -91,6 +95,28 @@ class Repository:
 
     def __init__(self, database: Database):
         self.database = database
+
+    def add_writing_evaluation(self, record: WritingEvaluationRecord) -> None:
+        """Persist one complete writing request/result audit record atomically."""
+        response = record.response
+        with self.database.engine.begin() as connection:
+            connection.execute(
+                insert(writing_evaluations).values(
+                    id=response.id,
+                    task_type=response.task_type.value,
+                    model=record.model,
+                    prompt_version=record.prompt_version,
+                    payload=_payload(record),
+                    created_at=response.created_at,
+                )
+            )
+
+    def get_writing_evaluation(self, evaluation_id: str) -> dict[str, Any] | None:
+        with self.database.engine.connect() as connection:
+            row = connection.execute(
+                select(writing_evaluations).where(writing_evaluations.c.id == evaluation_id)
+            ).mappings().one_or_none()
+        return json.loads(row["payload"]) if row is not None else None
 
     def add_corpus(self, corpus: Corpus) -> None:
         values = {

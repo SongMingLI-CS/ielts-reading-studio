@@ -32,6 +32,8 @@ from app.storage.artifacts import ArtifactStore
 from app.storage.database import Database
 from app.storage.repositories import RUNNING_RECOVERY_STATUSES, Repository
 from app.validators.similarity import QuestionIndex
+from app.writing.models import WritingEvaluationRequest, WritingEvaluationResponse
+from app.writing.service import WritingEvaluationService
 
 from .batch_runner import BatchRunner
 from .unit_runner import UnitRunner
@@ -56,6 +58,17 @@ class ReadingStudioService:
         self._provider = provider
         self._question_index: QuestionIndex | None = None
         self._question_index_fingerprint: tuple[str, ...] | None = None
+
+    def evaluate_writing(
+        self, submission: WritingEvaluationRequest
+    ) -> WritingEvaluationResponse:
+        provider = self._provider
+        if provider is None:
+            provider = DeepSeekProvider(self.config)
+            self._provider = provider
+        return WritingEvaluationService(provider, self.config, self.repository).evaluate(
+            submission
+        )
 
     def import_source(
         self,

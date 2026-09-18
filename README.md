@@ -4,6 +4,7 @@ IELTS Learning Studio 把原来的两个 IELTS 项目合并为一个私有网站
 
 - **IELTS Academic Reading**：把中文素材生成英文 Passage、题目和逐题解析，支持在线练习、成绩记录与导出。
 - **雅思词汇情境小说**：保留中文小说故事线，在语境中嵌入 B1–C1 词汇，当前内置 6,186 词全局词库，并支持断点续跑、HTML、DOCX、TXT 和 XLSX。
+- **IELTS 写作评估**：网页提交 Task 1 / Task 2，按四项标准返回结构化 Band 与反馈，并保存评估记录和模型用量；也可直接调用 API。
 
 网站共用一个登录入口和一套响应式界面，两条流水线的数据目录与状态库彼此隔离。情境小说原项目以 `components/context-novel/` 组件保留在仓库中。
 
@@ -81,12 +82,36 @@ IELTS_WEB_PASSWORD=请使用独立的强密码
 - 生成范围、难度、三种题型、批次和并发配置；
 - 样篇批准、任务暂停/继续/失败重试与状态轮询；
 - 在线计时答题、本地精确评分、证据与中文解析；
+- 写作评估：提交 Task 1 / Task 2 作文，查看四项 Band、具体反馈、改进建议与可选范文；
 - 错题本、练习历史、原文对照，以及错题/生词本的打印版（可直接存 PDF）；
 - 导出中心：单篇或成批导出 JSON、HTML、DOCX，并支持在页面内下载单文件或整包 zip；
 - 抽样审阅：批任务自动抽篇进人工队列（通过/返工 + 批注），并提供全库相似题目扫描；
 - 词汇记忆：按词性、复现频率、来源、难度、同根词族分类，Leitner 盒子间隔重复复习；
 - 设置页：显示当前生效配置、密钥来源（不回显密钥）与数据位置，并可一键测试模型连通性。
 - 情境小说上传、章节识别、离线 Token 估算、样章生成门禁和成品下载。
+
+## 写作评估网页与 API
+
+导航栏的「写作评估」（`/writing`）提供完整提交与结果页面，也可以直接调用以下接口。
+
+`POST /api/writing/evaluate` 接收 JSON：
+
+```json
+{
+  "task_type": "task_2",
+  "question": "Discuss both views and give your opinion.",
+  "essay": "Your complete essay...",
+  "title": "Optional title",
+  "include_sample_answer": false
+}
+```
+
+响应包含总分、四项评分与反馈、优点和改进建议。Task 1 返回
+`task_achievement`，Task 2 返回 `task_response`；其余三项均为
+`coherence_and_cohesion`、`lexical_resource` 和
+`grammatical_range_and_accuracy`。每次成功评估都会写入 SQLite 的
+`writing_evaluations` 表。该接口会调用配置的 `writing_model`，因此需要
+`DEEPSEEK_API_KEY`；`writing_max_output_tokens` 控制单次最大输出。
 
 ## 导出中心
 

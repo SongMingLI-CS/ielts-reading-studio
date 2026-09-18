@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}IELTS Reading Studio{% endblock %}</title>
   <meta name="theme-color" content="#123c35">
-  <link rel="stylesheet" href="/static/app.css?v=4">
+  <link rel="stylesheet" href="/static/app.css?v=5">
   <link rel="stylesheet" href="/static/practice-center.css?v=6">
   <link rel="stylesheet" href="/static/studio.css?v=1">
   <link rel="stylesheet" href="/static/corpora.css?v=3">
@@ -18,6 +18,7 @@
       <a href="/"{% if request.url.path == '/' %} aria-current="page"{% endif %}>首页</a>
       <a href="/corpora"{% if request.url.path.startswith('/corpora') and request.url.path != '/corpora/import' %} aria-current="page"{% endif %}>语料</a>
       <a href="/practice"{% if request.url.path.startswith('/practice') %} aria-current="page"{% endif %}>阅读练习</a>
+      <a href="/writing"{% if request.url.path.startswith('/writing') %} aria-current="page"{% endif %}>写作评估</a>
       <a href="/knowledge"{% if request.url.path.startswith('/knowledge') %} aria-current="page"{% endif %}>知识点</a>
       <a href="/vocabulary"{% if request.url.path.startswith('/vocabulary') %} aria-current="page"{% endif %}>词汇</a>
       <a href="/review"{% if request.url.path.startswith('/review') %} aria-current="page"{% endif %}>审阅</a>

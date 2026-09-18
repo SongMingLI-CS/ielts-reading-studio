@@ -22,6 +22,7 @@ from .routes_practice import router as practice_router
 from .routes_review import router as review_router
 from .routes_settings import router as settings_router
 from .routes_vocabulary import router as vocabulary_router
+from .routes_writing import router as writing_router
 
 
 def create_app(
@@ -81,6 +82,7 @@ def create_app(
     application.include_router(review_router)
     application.include_router(vocabulary_router)
     application.include_router(settings_router)
+    application.include_router(writing_router)
     static_dir = Path(__file__).parents[2] / "static"
     application.mount("/static", StaticFiles(directory=static_dir), name="static")
     return application

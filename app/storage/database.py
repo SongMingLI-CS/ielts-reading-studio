@@ -165,6 +165,17 @@ vocabulary_reviews = Table(
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 
+writing_evaluations = Table(
+    "writing_evaluations",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("task_type", String, nullable=False, index=True),
+    Column("model", String, nullable=False),
+    Column("prompt_version", String, nullable=False),
+    Column("payload", Text, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
 
 class Database:
     """SQLite database owner with a schema shared by all repository instances."""
