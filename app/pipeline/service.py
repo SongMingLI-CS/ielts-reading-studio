@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import random
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -29,6 +31,7 @@ from app.planning.units import (
 from app.storage.artifacts import ArtifactStore
 from app.storage.database import Database
 from app.storage.repositories import RUNNING_RECOVERY_STATUSES, Repository
+from app.validators.similarity import QuestionIndex
 
 from .batch_runner import BatchRunner
 from .unit_runner import UnitRunner
@@ -51,6 +54,8 @@ class ReadingStudioService:
         self.importer = CorpusImporter(config, repository=self.repository, store=self.store)
         self.exporter = ExportService()
         self._provider = provider
+        self._question_index: QuestionIndex | None = None
+        self._question_index_fingerprint: tuple[str, ...] | None = None
 
     def import_source(
         self,
@@ -74,7 +79,55 @@ class ReadingStudioService:
             raise KeyError(f"Source chapters missing for unit {unit.id}")
         return unit_source_text(unit, chapters)  # type: ignore[arg-type]
 
-    def unit_runner(self) -> UnitRunner:
+    def build_question_index(self, *, refresh: bool = False) -> QuestionIndex:
+        """把已完成篇目的题干收进索引，供跨篇去重使用。
+
+        读一次全部 Package 的成本随篇数线性增长，所以索引按"已完成篇目 ID 集合"
+        缓存：集合没变就直接复用，变了（新篇目完成）才重建。
+        """
+        units = [
+            unit
+            for corpus in self.repository.list_corpora()
+            for unit in self.repository.list_units(corpus.id)
+            if unit.status == UnitStatus.COMPLETED
+        ]
+        fingerprint = tuple(sorted(unit.id for unit in units))
+        if (
+            not refresh
+            and self._question_index is not None
+            and self._question_index_fingerprint == fingerprint
+        ):
+            return self._question_index
+        index = QuestionIndex(threshold=self.config.question_duplicate_threshold)
+        for unit in units:
+            try:
+                index.add_package(self.load_package(unit.id))
+            except (FileNotFoundError, ValueError):
+                continue
+        self._question_index = index
+        self._question_index_fingerprint = fingerprint
+        return index
+
+    def duplicate_report(
+        self, *, threshold: float | None = None
+    ) -> list[dict[str, Any]]:
+        """已完成篇目之间的近似重复题，供审阅页展示。"""
+        index = self.build_question_index(refresh=True)
+        pairs = index.duplicate_pairs(
+            threshold=self.config.question_report_threshold
+            if threshold is None
+            else threshold
+        )
+        return [
+            {
+                "score": round(pair.score * 100),
+                "left": pair.left.as_dict(),
+                "right": pair.right.as_dict(),
+            }
+            for pair in pairs
+        ]
+
+    def unit_runner(self, question_index: QuestionIndex | None = None) -> UnitRunner:
         provider = self._provider
         if provider is None:
             provider = DeepSeekProvider(self.config)
@@ -86,6 +139,7 @@ class ReadingStudioService:
             author=AuthorAgent(provider, self.config),
             examiner=ExaminerAgent(provider, self.config),
             source_text_loader=self.source_text_for_unit,
+            question_index=question_index,
         )
 
     def inspect_corpus(self, corpus_id: str) -> dict[str, Any]:
@@ -259,7 +313,7 @@ class ReadingStudioService:
             raise ValueError("Corpus has no reliable generation units")
         selected_types = question_types or default_question_types(difficulty)
         unit = self.configure_units(corpus_id, [units[0].ordinal], difficulty, selected_types)[0]
-        return self.unit_runner().run(unit.id)
+        return self.unit_runner(self.build_question_index()).run(unit.id)
 
     def configure_units(
         self,
@@ -363,13 +417,148 @@ class ReadingStudioService:
         self.repository.assign_units_to_job(payload["unit_ids"], job_id)
         return self.repository.get_job(job_id)
 
-    def run_job(self, job_id: str):
-        return BatchRunner(
+    def run_job(self, job_id: str, *, question_index: QuestionIndex | None = None):
+        summary = BatchRunner(
             self.config,
             self.repository,
             self.store,
-            self.unit_runner(),
+            self.unit_runner(
+                question_index
+                if question_index is not None
+                else self.build_question_index()
+            ),
         ).run(job_id)
+        # 一批跑完后自动抽样，把"人工看一眼"变成批任务的最后一道工序。
+        self.sample_job_units(job_id)
+        return summary
+
+    def sample_job_units(
+        self, job_id: str, *, size: int | None = None, force: bool = False
+    ) -> list[dict[str, Any]]:
+        """从一批的已完成单元里抽几篇进审阅队列。
+
+        抽样用 job_id 做随机种子：同一次抽样结果稳定，重复调用不会换样本；
+        ``force=True`` 才重抽（网页上的「重新抽样」按钮）。已经人工审过的单元
+        不会被重新抽出来，避免把做过的工作覆盖掉。
+        """
+        units = [
+            unit
+            for unit in self.repository.list_job_units(job_id)
+            if unit.status == UnitStatus.COMPLETED
+        ]
+        if not units:
+            return []
+        if size is None:
+            ratio = max(0.0, min(1.0, self.config.review_sample_rate))
+            size = max(self.config.review_sample_min, round(len(units) * ratio))
+        size = max(0, min(size, len(units)))
+        if size == 0:
+            return []
+        decided = {
+            row["unit_id"]
+            for row in self.repository.list_review_samples()
+            if row["status"] != "pending"
+        }
+        pending = {
+            row["unit_id"]
+            for row in self.repository.list_review_samples()
+            if row["status"] == "pending"
+        }
+        unit_ids = {unit.id for unit in units}
+        if force:
+            candidates = list(units)
+            missing = size
+        else:
+            # 已经在队列里等人工看的不重复写；抽够了就直接返回。
+            queued = len(pending & unit_ids)
+            if queued >= size:
+                return []
+            candidates = [
+                unit for unit in units if unit.id not in decided and unit.id not in pending
+            ]
+            missing = size - queued
+        if not candidates or missing <= 0:
+            return []
+        chooser = random.Random(job_id)
+        picked = sorted(
+            chooser.sample(candidates, min(missing, len(candidates))),
+            key=lambda unit: unit.ordinal if unit.ordinal is not None else 0,
+        )
+        rows = [
+            {
+                "unit_id": unit.id,
+                "job_id": job_id,
+                "status": "pending",
+                "payload": {"ordinal": unit.ordinal, "reason": "batch sample"},
+            }
+            for unit in picked
+        ]
+        self.repository.upsert_review_samples(rows, job_id=job_id)
+        return rows
+
+    def review_queue(self) -> dict[str, Any]:
+        """审阅页数据：待审样本 + 已决样本 + 统计。"""
+        samples = self.repository.list_review_samples()
+        unit_ids = [row["unit_id"] for row in samples]
+        units = {unit_id: self.repository.get_unit(unit_id) for unit_id in unit_ids}
+        rows: list[dict[str, Any]] = []
+        for sample in samples:
+            unit = units.get(sample["unit_id"])
+            try:
+                payload = json.loads(sample.get("payload") or "{}")
+            except ValueError:
+                payload = {}
+            row = {
+                "sample": sample,
+                "unit": unit,
+                "package": None,
+                "ordinal": (unit.ordinal if unit else payload.get("ordinal")),
+                "title": None,
+                "difficulty": unit.difficulty.value if unit else None,
+                "questions": 0,
+                "note": payload.get("note", ""),
+                "reason": payload.get("reason", ""),
+            }
+            if unit is not None:
+                try:
+                    package = self.load_package(unit.id)
+                except (FileNotFoundError, ValueError):
+                    pass
+                else:
+                    row["package"] = package
+                    row["title"] = package.passage.title
+                    row["questions"] = sum(
+                        len(group.questions) for group in package.question_groups
+                    )
+                    row["passed"] = package.quality_report.passed
+            rows.append(row)
+        pending = [row for row in rows if row["sample"]["status"] == "pending"]
+        return {
+            "rows": rows,
+            "pending": pending,
+            "decided": [row for row in rows if row["sample"]["status"] != "pending"],
+            "totals": {
+                "all": len(rows),
+                "pending": len(pending),
+                "passed": sum(row["sample"]["status"] == "passed" for row in rows),
+                "failed": sum(row["sample"]["status"] == "failed" for row in rows),
+            },
+        }
+
+    def decide_sample(
+        self, unit_id: str, *, approved: bool, note: str = ""
+    ) -> dict[str, Any]:
+        sample = self.repository.get_review_sample(unit_id)
+        if sample is None:
+            raise KeyError(f"Unit {unit_id} is not in the review queue")
+        status = "passed" if approved else "failed"
+        self.repository.decide_review_sample(
+            unit_id,
+            status=status,
+            decision="approve" if approved else "rework",
+            note=note,
+        )
+        return {"unit_id": unit_id, "status": status, "note": note}
 
     def resume_job(self, job_id: str):
         job = self.repository.get_job(job_id)

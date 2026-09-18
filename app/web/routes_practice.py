@@ -4,6 +4,7 @@ import csv
 import io
 import re
 import unicodedata
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import quote
@@ -168,6 +169,30 @@ def practice_mistakes(
     service: Annotated[ReadingStudioService, Depends(get_service)],
     type: str | None = None,
 ):
+    items = _mistake_items(service)
+    available = sorted({entry["type"].value for entry in items})
+    selected = type if type in available else None
+    visible = [entry for entry in items if selected is None or entry["type"].value == selected]
+    rows = _scored_attempts(service)
+    return TEMPLATES.TemplateResponse(
+        request,
+        "practice/mistakes.html",
+        {
+            "items": visible[:200],
+            "total_items": len(items),
+            "available_types": [
+                {"value": value, "label": QUESTION_TYPE_LABELS[QuestionType(value)]}
+                for value in available
+            ],
+            "selected_type": selected,
+            "type_stats": _type_accuracy(rows),
+            "attempt_count": len(rows),
+        },
+    )
+
+
+def _mistake_items(service: ReadingStudioService) -> list[dict[str, Any]]:
+    """每一道做错过的题，按"错得最多"排序；错误次数与最后出现时间都带上。"""
     rows = _scored_attempts(service)
     wrong: dict[tuple[str, int], dict[str, Any]] = {}
     for row in rows:  # newest first, so the first sighting is the latest attempt
@@ -209,30 +234,21 @@ def practice_mistakes(
             ),
             "",
         )
+        entry["question"] = next(
+            (
+                question
+                for question in questions
+                if question.number == entry["result"].number
+            ),
+            None,
+        )
     items = sorted(
         wrong.values(),
         key=lambda entry: str(entry["last_seen"]),
         reverse=True,
     )
     items.sort(key=lambda entry: -entry["wrong_count"])
-    available = sorted({entry["type"].value for entry in items})
-    selected = type if type in available else None
-    visible = [entry for entry in items if selected is None or entry["type"].value == selected]
-    return TEMPLATES.TemplateResponse(
-        request,
-        "practice/mistakes.html",
-        {
-            "items": visible[:200],
-            "total_items": len(items),
-            "available_types": [
-                {"value": value, "label": QUESTION_TYPE_LABELS[QuestionType(value)]}
-                for value in available
-            ],
-            "selected_type": selected,
-            "type_stats": _type_accuracy(rows),
-            "attempt_count": len(rows),
-        },
-    )
+    return items
 
 
 def _vocabulary_rows(
@@ -345,6 +361,68 @@ def _vocabulary_export(rows: list[dict[str, Any]]) -> list[list[str]]:
         for row in rows
     ]
     return [header, *body]
+
+
+@router.get("/practice/mistakes/print")
+def print_mistakes(
+    request: Request,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+    type: str | None = None,
+    explanations: int = 1,
+    limit: int = 60,
+):
+    """错题本的打印版：一页一篇，可直接打印或存成 PDF。"""
+    items = _mistake_items(service)
+    available = sorted({entry["type"].value for entry in items})
+    selected = type if type in available else None
+    visible = [entry for entry in items if selected is None or entry["type"].value == selected]
+    capped = max(1, min(limit, 200))
+    return TEMPLATES.TemplateResponse(
+        request,
+        "practice/mistakes_print.html",
+        {
+            "items": visible[:capped],
+            "total_items": len(items),
+            "shown": min(len(visible), capped),
+            "selected_type": selected,
+            "available_types": [
+                {"value": value, "label": QUESTION_TYPE_LABELS[QuestionType(value)]}
+                for value in available
+            ],
+            "with_explanations": explanations == 1,
+            "generated_at": datetime.now(UTC).strftime("%Y-%m-%d %H:%M"),
+        },
+    )
+
+
+@router.get("/practice/vocabulary/print")
+def print_vocabulary(
+    request: Request,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+    scope: str = "saved",
+    mode: str = "list",
+):
+    """生词本的打印版：清单模式带释义，自测模式只留横线并把答案放在最后。"""
+    scope = scope if scope in {"saved", "known", "all"} else "saved"
+    mode = mode if mode in {"list", "quiz"} else "list"
+    rows = _vocabulary_rows(service)
+    if scope == "saved":
+        visible = [row for row in rows if row["status"] == "saved"]
+    elif scope == "known":
+        visible = [row for row in rows if row["status"] == "known"]
+    else:
+        visible = rows
+    return TEMPLATES.TemplateResponse(
+        request,
+        "practice/vocabulary_print.html",
+        {
+            "rows": visible,
+            "scope": scope,
+            "mode": mode,
+            "total": len(visible),
+            "generated_at": datetime.now(UTC).strftime("%Y-%m-%d %H:%M"),
+        },
+    )
 
 
 @router.get("/practice/vocabulary.csv")

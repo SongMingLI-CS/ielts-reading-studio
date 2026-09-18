@@ -6,6 +6,7 @@
   <div class="practice-meta"><span class="badge status-calibrate">错题本</span><span class="badge">{{ total_items }} 道错题</span></div>
   <div class="session-tools">
     <a class="button ghost small" href="/practice/history">练习历史</a>
+    <a class="button ghost small" href="/practice/mistakes/print{% if selected_type %}?type={{ selected_type }}{% endif %}" target="_blank" rel="noopener">打印版</a>
   </div>
 </div>
 

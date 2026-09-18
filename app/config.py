@@ -47,6 +47,12 @@ class AppConfig(BaseModel):
     max_units_per_run: int = Field(20, ge=1)
     max_estimated_tokens_per_run: int = Field(500_000, ge=1)
     max_consecutive_failures: int = Field(5, ge=1)
+    # 题目相似度去重：达到阈值即判为重复题，进入返工；审阅页用更宽松的阈值列出疑似。
+    question_duplicate_threshold: float = Field(0.72, ge=0.3, le=1.0)
+    question_report_threshold: float = Field(0.5, ge=0.2, le=1.0)
+    # 抽样审阅：一批完成后自动抽取的比例与下限。
+    review_sample_rate: float = Field(0.1, ge=0.0, le=1.0)
+    review_sample_min: int = Field(1, ge=0, le=50)
 
     @model_validator(mode="after")
     def validate_web_credentials(self) -> AppConfig:

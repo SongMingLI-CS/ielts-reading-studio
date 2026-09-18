@@ -80,7 +80,11 @@
     - 评分执行 Unicode、大小写和空白规范化，不使用模糊匹配；多选 API 使用无序集合比较；匹配题接受选项标号或完整选项文本。
     - 导出中心拒绝未完成或未校验单元，列出标题与题量，并提供单文件与整批 zip 下载；下载路径限制在 `output/exports/` 内，路径穿越返回 404。
     - 设置页只读展示生效配置、密钥来源与存储占用，并用一次极小真实请求测试模型连通性；密钥值与前缀都不出现在页面或重定向参数里。
-    - 证据：`tests/web/test_practice.py`、`tests/web/test_exports.py`、`tests/web/test_settings.py`。
+    - 题目相似度去重分两层：生成时按实词 Jaccard（≥0.72，同篇 ≥0.8）拦重复并触发返工，审阅页按 ≥0.5 列出疑似对；短题干以"共有实词 ≥3 且各自 ≥5"为下限避免误判。
+    - 抽样审阅在批任务收尾自动抽篇（默认 10%，至少 1 篇，`job_id` 作随机种子），人工通过/返工带批注，已决定的样本不会被重抽覆盖。
+    - 词汇板块按词性/复现频率/来源/难度/同根词族分类并给出同根与同篇联想；Leitner 五盒间隔重复（1/2/4/8/32 天），四选一复习卡在词库不足时降级为自评。
+    - 错题本与生词本提供独立打印版（含解析开关、清单/自测模式），不套站点外壳，可直接存 PDF。
+    - 证据：`tests/web/test_practice.py`、`tests/web/test_exports.py`、`tests/web/test_settings.py`、`tests/web/test_review.py`、`tests/web/test_vocabulary_memory.py`、`tests/web/test_print.py`、`tests/validators/test_similarity.py`。
 
 13. **端到端加固与运维**
     - 假 Provider 覆盖 Foundation、Standard、Advanced，及 import → sample → approve → batch → JSON/HTML/DOCX 全流程。

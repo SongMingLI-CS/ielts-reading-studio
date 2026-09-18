@@ -27,6 +27,7 @@ from app.storage.cache import stage_cache_key
 from app.storage.repositories import Repository
 from app.validators.passage import validate_passage
 from app.validators.questions import validate_questions
+from app.validators.similarity import QuestionIndex, QuestionStem
 
 from .state import can_transition
 
@@ -58,6 +59,7 @@ class UnitRunner:
         passage_validator: Callable[..., QualityReport] = validate_passage,
         question_validator: Callable[..., QualityReport] = validate_questions,
         after_stage: Callable[[str], None] | None = None,
+        question_index: QuestionIndex | None = None,
     ) -> None:
         self.config = config
         self.repository = repository
@@ -68,6 +70,7 @@ class UnitRunner:
         self.passage_validator = passage_validator
         self.question_validator = question_validator
         self.after_stage = after_stage
+        self.question_index = question_index
 
     def run(self, unit_id: str, *, job_id: str | None = None) -> UnitRunResult:
         try:
@@ -231,6 +234,8 @@ class UnitRunner:
                 passage,
                 groups,
                 expected_total=question_total(unit.difficulty),
+                existing_questions=self._existing_stems(unit.id),
+                unit_id=unit.id,
             )
             self.store.write_json(
                 f"reports/{unit.id}/question-validation-{examiner_revisions}.json",
@@ -303,6 +308,9 @@ class UnitRunner:
             usage_records=self.repository.list_usage_records(unit.id),
         )
         self.store.write_package(unit.id, package)
+        if self.question_index is not None:
+            # 完成的篇目立刻进入索引，同批后续单元就能查到它，避免批内自我重复。
+            self.question_index.add_package(package)
         self._move(unit.id, UnitStatus.COMPLETED)
         return UnitRunResult(
             unit_id=unit.id,
@@ -311,6 +319,12 @@ class UnitRunner:
             author_revisions=author_revisions,
             examiner_revisions=examiner_revisions,
         )
+
+    def _existing_stems(self, unit_id: str) -> list[QuestionStem]:
+        """索引里其他已完成篇目的题干（跨篇去重的比对库）。"""
+        if self.question_index is None:
+            return []
+        return self.question_index.stems_excluding(unit_id)
 
     def _stage(
         self,

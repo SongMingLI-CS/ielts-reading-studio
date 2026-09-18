@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from threading import Lock
 
 from app.agents.base import ModelRequest, ModelResult
@@ -47,12 +48,40 @@ def valid_review_payload() -> dict:
     return {"passed": True, "issues": [], "requested_changes": []}
 
 
-def valid_assessment_payload(difficulty: Difficulty = Difficulty.STANDARD) -> dict:
+def _topic_token(request: ModelRequest) -> str:
+    """给假 Provider 一个"这篇讲什么"的词，让不同篇目的题干不再一模一样。
+
+    真实模型不会给两篇文章出完全相同的题；跨篇去重上线后，固定题干会被质检
+    正确拦下，所以夹具必须带上篇目特有的词。
+    """
+    match = re.search(r'"title"\s*:\s*"([^"]+)"', request.user)
+    if match:
+        words = re.findall(r"[A-Za-z]{3,}", match.group(1))
+        if words:
+            return words[0].casefold()
+    return f"passage{len(request.user) % 97}"
+
+
+def valid_assessment_payload(
+    difficulty: Difficulty = Difficulty.STANDARD, topic: str = ""
+) -> dict:
     evidence = "Communities manage water carefully"
     if difficulty == Difficulty.FOUNDATION:
-        return _foundation_assessment(evidence)
-    if difficulty == Difficulty.ADVANCED:
-        return _advanced_assessment(evidence)
+        payload = _foundation_assessment(evidence)
+    elif difficulty == Difficulty.ADVANCED:
+        payload = _advanced_assessment(evidence)
+    else:
+        payload = _standard_assessment(evidence)
+    if topic:
+        # 连成一个 token（topic-focus-xxx），既让不同篇目彼此不同，又不会
+        # 意外撞上答案导致 question_leaks_answer。
+        for group in payload["question_groups"]:
+            for question in group["questions"]:
+                question["prompt"] = f"{question['prompt']} Topic-focus-{topic}."
+    return payload
+
+
+def _standard_assessment(evidence: str) -> dict:
     groups: list[dict] = []
     heading_questions = []
     for number, (label, answer) in enumerate(zip("ABCD", ["i", "ii", "iii", "iv"]), start=1):
@@ -221,7 +250,7 @@ class DeterministicProvider:
         elif request.stage.startswith("examiner_passage_review"):
             payload = valid_review_payload()
         elif request.stage.startswith("examiner_assessment"):
-            payload = valid_assessment_payload(self.difficulty)
+            payload = valid_assessment_payload(self.difficulty, _topic_token(request))
         else:
             raise AssertionError(f"Unexpected stage: {request.stage}")
         return ModelResult(

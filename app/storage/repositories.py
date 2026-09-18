@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 import json
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -20,10 +21,12 @@ from .database import (
     generation_units,
     jobs,
     practice_attempts,
+    review_samples,
     source_chapters,
     stage_attempts,
     usage_records,
     vocabulary_marks,
+    vocabulary_reviews,
 )
 
 RUNNING_RECOVERY_STATUSES: dict[UnitStatus, UnitStatus] = {
@@ -193,6 +196,115 @@ class Repository:
                 delete(vocabulary_marks).where(vocabulary_marks.c.word == key)
             )
 
+    # ---------- 抽样审阅 ----------
+
+    def upsert_review_samples(
+        self, rows: list[dict[str, Any]], *, job_id: str | None = None
+    ) -> int:
+        """把抽中的单元放进审阅队列；已审过的记录保留决定，只刷新任务关联。"""
+        if not rows:
+            return 0
+        written = 0
+        with self.database.engine.begin() as connection:
+            for row in rows:
+                statement = sqlite_insert(review_samples).values(
+                    unit_id=row["unit_id"],
+                    job_id=job_id or row.get("job_id"),
+                    status=row.get("status", "pending"),
+                    decision=row.get("decision"),
+                    payload=json.dumps(row.get("payload", {}), ensure_ascii=False),
+                )
+                statement = statement.on_conflict_do_update(
+                    index_elements=[review_samples.c.unit_id],
+                    set_={
+                        "job_id": job_id or row.get("job_id"),
+                        "updated_at": func.now(),
+                    },
+                )
+                connection.execute(statement)
+                written += 1
+        return written
+
+    def list_review_samples(self, status: str | None = None) -> list[dict[str, Any]]:
+        statement = select(review_samples).order_by(review_samples.c.updated_at.desc())
+        if status:
+            statement = statement.where(review_samples.c.status == status)
+        with self.database.engine.connect() as connection:
+            return [dict(row) for row in connection.execute(statement).mappings()]
+
+    def get_review_sample(self, unit_id: str) -> dict[str, Any] | None:
+        with self.database.engine.connect() as connection:
+            row = connection.execute(
+                select(review_samples).where(review_samples.c.unit_id == unit_id)
+            ).mappings().first()
+        return dict(row) if row else None
+
+    def decide_review_sample(
+        self, unit_id: str, *, status: str, decision: str, note: str = ""
+    ) -> bool:
+        with self.database.engine.begin() as connection:
+            result = connection.execute(
+                update(review_samples)
+                .where(review_samples.c.unit_id == unit_id)
+                .values(
+                    status=status,
+                    decision=decision,
+                    payload=json.dumps({"note": note}, ensure_ascii=False),
+                    updated_at=func.now(),
+                )
+            )
+        return bool(result.rowcount)
+
+    # ---------- 词汇复习（SRS） ----------
+
+    def list_vocabulary_reviews(self) -> dict[str, dict[str, Any]]:
+        with self.database.engine.connect() as connection:
+            rows = connection.execute(select(vocabulary_reviews)).mappings()
+            return {row["word"]: dict(row) for row in rows}
+
+    def get_vocabulary_review(self, word: str) -> dict[str, Any] | None:
+        key = word.strip().casefold()
+        with self.database.engine.connect() as connection:
+            row = connection.execute(
+                select(vocabulary_reviews).where(vocabulary_reviews.c.word == key)
+            ).mappings().first()
+        return dict(row) if row else None
+
+    def upsert_vocabulary_review(
+        self,
+        word: str,
+        *,
+        box: int,
+        due_at: dt.datetime,
+        seen: int,
+        lapses: int,
+    ) -> None:
+        key = word.strip().casefold()
+        if not key:
+            return
+        statement = sqlite_insert(vocabulary_reviews).values(
+            word=key, box=box, due_at=due_at, seen=seen, lapses=lapses, payload="{}"
+        )
+        statement = statement.on_conflict_do_update(
+            index_elements=[vocabulary_reviews.c.word],
+            set_={
+                "box": box,
+                "due_at": due_at,
+                "seen": seen,
+                "lapses": lapses,
+                "updated_at": func.now(),
+            },
+        )
+        with self.database.engine.begin() as connection:
+            connection.execute(statement)
+
+    def clear_vocabulary_review(self, word: str) -> None:
+        key = word.strip().casefold()
+        with self.database.engine.begin() as connection:
+            connection.execute(
+                delete(vocabulary_reviews).where(vocabulary_reviews.c.word == key)
+            )
+
     def delete_corpus(self, corpus_id: str) -> dict[str, int]:
         """Remove a corpus and every row derived from it, in foreign-key order."""
         with self.database.engine.begin() as connection:
@@ -204,7 +316,7 @@ class Repository:
                 ).scalars()
             )
             counts: dict[str, int] = {"units": len(unit_ids)}
-            for table in (practice_attempts, usage_records, stage_attempts):
+            for table in (practice_attempts, usage_records, stage_attempts, review_samples):
                 if unit_ids:
                     counts[table.name] = connection.execute(
                         delete(table).where(table.c.unit_id.in_(unit_ids))

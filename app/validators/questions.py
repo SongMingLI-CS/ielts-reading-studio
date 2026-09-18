@@ -2,10 +2,20 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from collections.abc import Sequence
 
 from app.models import Question, QuestionGroup, QuestionType, ReadingPassage
 
 from .reports import ReportBuilder
+from .similarity import (
+    DEFAULT_THRESHOLD as DEFAULT_SIMILARITY_THRESHOLD,
+)
+from .similarity import (
+    WITHIN_UNIT_THRESHOLD,
+    QuestionStem,
+    is_duplicate,
+    stems_from_groups,
+)
 
 COMPLETION_TYPES = {
     QuestionType.SENTENCE_COMPLETION,
@@ -22,6 +32,9 @@ def validate_questions(
     passage: ReadingPassage,
     groups: list[QuestionGroup],
     expected_total: int,
+    existing_questions: Sequence[QuestionStem] | None = None,
+    *,
+    unit_id: str = "",
 ):
     report = ReportBuilder("questions")
     paragraphs = {paragraph.label: paragraph.text for paragraph in passage.paragraphs}
@@ -56,6 +69,13 @@ def validate_questions(
 
     for group in groups:
         _validate_group(group, paragraphs, passage_text, report)
+
+    _validate_question_similarity(
+        groups,
+        report,
+        unit_id=unit_id,
+        existing_questions=existing_questions or (),
+    )
 
     evidence_checks = len(questions) - sum(
         issue.code in {"evidence_paragraph_invalid", "evidence_quote_not_found"}
@@ -228,6 +248,59 @@ def _validate_question(
             "Question prompt directly contains its answer.",
             affected_ids=affected,
             question_number=question.number,
+        )
+
+
+def _validate_question_similarity(
+    groups: list[QuestionGroup],
+    report: ReportBuilder,
+    *,
+    unit_id: str,
+    existing_questions: Sequence[QuestionStem],
+) -> None:
+    """拦下"换汤不换药"的题：同篇内部高度重合，或与已完成篇目几乎相同。
+
+    同篇内部的阈值更严格（0.8），跨篇用 0.72。触发后 issue 会进入返工流程，
+    作者/考官 Agent 拿到题干编号重写；改不动就转人工审阅，不会静默放行。
+    """
+    stems = stems_from_groups(unit_id or "candidate", groups)
+    for index, stem in enumerate(stems):
+        for other in stems[index + 1 :]:
+            duplicate, score = is_duplicate(
+                stem.text, other.text, threshold=WITHIN_UNIT_THRESHOLD
+            )
+            if duplicate:
+                report.add(
+                    "question_duplicate_within_unit",
+                    (
+                        f"Question {stem.number} overlaps question {other.number} "
+                        f"in the same unit ({score:.0%} similar); rewrite one of them."
+                    ),
+                    affected_ids=[str(stem.number), str(other.number)],
+                    question_number=stem.number,
+                )
+    if not existing_questions:
+        return
+    for stem in stems:
+        best: tuple[float, QuestionStem] | None = None
+        for candidate in existing_questions:
+            duplicate, score = is_duplicate(
+                stem.text, candidate.text, threshold=DEFAULT_SIMILARITY_THRESHOLD
+            )
+            if duplicate and (best is None or score > best[0]):
+                best = (score, candidate)
+        if best is None:
+            continue
+        score, candidate = best
+        report.add(
+            "question_duplicate_of_existing",
+            (
+                f"Question {stem.number} is {score:.0%} similar to question "
+                f"{candidate.number} of {candidate.unit_title or candidate.unit_id}; "
+                "ask a different question about this passage."
+            ),
+            affected_ids=[str(stem.number)],
+            question_number=stem.number,
         )
 
 

@@ -40,6 +40,74 @@ def test_accepts_basic_grounded_question(valid_passage):
     assert report.passed
 
 
+def test_flags_questions_that_repeat_within_the_same_unit(valid_passage):
+    repeated = "Which two measures did the city council adopt to reduce household water use?"
+    groups = [
+        group(
+            QuestionType.SHORT_ANSWER,
+            [
+                question(1, prompt=repeated, answer="water"),
+                question(2, prompt=repeated, answer="water"),
+            ],
+            word_limit=2,
+        )
+    ]
+    report = validate_questions(valid_passage, groups, expected_total=2)
+
+    assert "question_duplicate_within_unit" in report.codes
+    issue = next(
+        item for item in report.issues if item.code == "question_duplicate_within_unit"
+    )
+    assert issue.affected_ids == ["1", "2"]
+
+
+def test_flags_questions_that_repeat_an_existing_unit(valid_passage):
+    from app.validators.similarity import QuestionStem
+
+    prompt = "Which two measures did the city council adopt to reduce household water use?"
+    groups = [
+        group(
+            QuestionType.SHORT_ANSWER,
+            [question(1, prompt=prompt, answer="water")],
+            word_limit=2,
+        )
+    ]
+    report = validate_questions(
+        valid_passage,
+        groups,
+        expected_total=1,
+        existing_questions=[
+            QuestionStem(
+                unit_id="older-unit",
+                number=7,
+                group_type="short_answer",
+                prompt=prompt,
+                unit_title="An Older Passage",
+            )
+        ],
+    )
+
+    assert "question_duplicate_of_existing" in report.codes
+    issue = next(item for item in report.issues if item.code == "question_duplicate_of_existing")
+    assert "An Older Passage" in issue.message
+    assert "7" in issue.message
+
+
+def test_short_stems_do_not_trigger_the_duplicate_gate(valid_passage):
+    groups = [
+        group(
+            QuestionType.TRUE_FALSE_NOT_GIVEN,
+            [
+                question(1, prompt="Judge claim 1.", answer="TRUE"),
+                question(2, prompt="Judge claim 2.", answer="TRUE"),
+            ],
+        )
+    ]
+    report = validate_questions(valid_passage, groups, expected_total=2)
+
+    assert "question_duplicate_within_unit" not in report.codes
+
+
 def test_completion_answer_must_be_verbatim_and_within_limit(valid_passage):
     completion = group(
         QuestionType.SENTENCE_COMPLETION,

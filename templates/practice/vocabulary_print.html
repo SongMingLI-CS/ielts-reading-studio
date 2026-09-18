@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>生词本 · 打印版</title>
+  <link rel="stylesheet" href="/static/print.css?v=1">
+</head>
+<body>
+<main class="sheet">
+  <header class="sheet-head">
+    <div>
+      <h1>生词本{% if mode == 'quiz' %} · 自测卷{% endif %}</h1>
+      <p>{{ total }} 个单词 · 范围：{% if scope == 'saved' %}已收藏{% elif scope == 'known' %}已掌握{% else %}全部{% endif %} · 生成于 {{ generated_at }}</p>
+    </div>
+    <nav class="sheet-tools">
+      <a class="chip{% if mode == 'list' %} active{% endif %}" href="/practice/vocabulary/print?scope={{ scope }}&mode=list">清单</a>
+      <a class="chip{% if mode == 'quiz' %} active{% endif %}" href="/practice/vocabulary/print?scope={{ scope }}&mode=quiz">自测</a>
+      <a class="chip" href="/practice/vocabulary/print?scope=all&mode={{ mode }}">全部单词</a>
+      <button type="button" onclick="window.print()">打印 / 存为 PDF</button>
+      <a class="chip" href="/practice/vocabulary">返回生词本</a>
+    </nav>
+  </header>
+
+  {% if not rows %}
+  <p class="sheet-summary">这个范围里还没有单词。在练习解析页点「收藏」把生词加进来即可。</p>
+  {% elif mode == 'list' %}
+  <p class="sheet-summary"><span>按出现篇数从多到少排列：复现越多的词越值得先背。</span></p>
+  <table class="vocab-table">
+    <thead>
+      <tr><th>单词</th><th>词性</th><th>释义</th><th>搭配 / 例句</th><th>出自</th></tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>
+          <span class="vocab-word">{{ row.word }}</span>
+          {% if row.pronunciation %}<br><span class="vocab-meta">/{{ row.pronunciation.strip('/') }}/</span>{% endif %}
+        </td>
+        <td>{{ row.part_of_speech or '—' }}</td>
+        <td>{{ row.chinese_meaning or '—' }}</td>
+        <td>
+          {% if row.collocations %}{{ row.collocations|join('、') }}{% endif %}
+          {% if row.example %}<br><span class="vocab-meta">{{ row.example }}</span>{% endif %}
+        </td>
+        <td><span class="vocab-meta">{{ row.passages|join('、') }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="sheet-summary"><span>第一步：写下释义；第二步：翻到最后一页核对。括号里是出现篇数。</span></p>
+  <div class="quiz-grid">
+    {% for row in rows %}
+    <div class="quiz-item">
+      <span>{{ loop.index }}. <b>{{ row.word }}</b>{% if row.part_of_speech %} <span class="vocab-meta">{{ row.part_of_speech }}</span>{% endif %}</span>
+      <span class="quiz-line"></span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <h2 class="section">答案</h2>
+  <div class="answer-key-grid">
+    {% for row in rows %}
+    <div>{{ loop.index }}. {{ row.word }} —— {{ row.chinese_meaning or '（未收录释义）' }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <footer class="sheet-foot">IELTS Reading Studio · 生词本打印版 · 释义与例句来自已校验的阅读 Package。</footer>
+</main>
+</body>
+</html>

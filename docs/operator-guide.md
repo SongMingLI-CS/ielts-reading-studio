@@ -188,3 +188,27 @@ sudo systemctl restart ielts-reading-studio
 - zip 在系统临时目录生成，下载结束后自动删除；下载中断留下的临时包会在下次备份时清理。
 - 清理旧导出没有网页按钮：`rm -rf <output_dir>/exports/manual-1a2b3c4d` 即可。导出是副本，删掉不影响数据库中的题目。
 
+## 12. 质量审阅与词汇复习（运维视角）
+
+### 题目重复门禁
+
+`question_duplicate_threshold`（默认 0.72）是**扣费开关**：命中的题目会进入返工循环，最多 `examiner_revision_limit` 轮，仍不合格则转 `needs_review`。如果发现某批题目大量被判重复（换模型或换题型时可能），先调低难度的严格程度再调这个值，而不是关掉它——重复题一旦进入题库，只能靠 `/review/similarity` 事后清理。审阅页阈值 `question_report_threshold`（默认 0.5）只影响展示，不影响计费。
+
+索引按"已完成篇目集合"缓存，因此：
+
+- 单篇重跑会重建索引一次（读全部 Package，成本随篇数线性增长）；
+- 批任务只建一次索引，批内新完成的篇目实时进索引，不会自我重复。
+
+### 抽样审阅
+
+`review_sample_rate` / `review_sample_min` 决定每批自动抽样多少篇。抽样发生在 `run_job` 收尾，因此 CLI 的 `ielts-reading run <job-id>` 也会抽样。审阅记录存在 `review_samples` 表，删除语料库时会连同样本一起清理（外键顺序已处理）。
+
+需要加快节奏时把 `review_sample_rate` 设成 0 可以关闭自动抽样，页面上的「再抽一批样本」仍可手动抽。
+
+### 词汇复习
+
+- 复习状态存在 `vocabulary_reviews` 表（盒子、到期时间、复习次数、忘记次数），与 `vocabulary_marks`（收藏/已掌握）分离：删掉收藏不会丢进度，反之亦然。
+- 到期判断用 UTC；SQLite 取回的时间缺时区时按 UTC 补齐。
+- 间隔是 1/2/4/8/32 天。日更场景下"今天到期"通常只有个位数，属于正常现象。
+- 词汇全部来自已完成 Package 的 `passage.vocabulary`，因此**没有生成的篇目不会贡献词汇**；分类与联想都是纯本地计算，不产生任何 API 调用。
+

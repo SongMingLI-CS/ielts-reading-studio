@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}抽样审阅 · IELTS Reading Studio{% endblock %}
+{% block content %}
+{% if sampled %}<p class="library-flash">已抽 {{ sampled }} 篇进入审阅队列，请逐篇过一眼内容和答案。</p>{% endif %}
+{% if decided == 'passed' %}<p class="library-flash">已标记为「通过」，这一篇出题质量确认没问题。</p>{% endif %}
+{% if decided == 'failed' %}<p class="library-flash">已标记为「需返工」，可以到材料库重新生成该篇。</p>{% endif %}
+
+<section class="library-hero">
+  <div class="library-copy">
+    <p class="eyebrow">Quality review</p>
+    <h1>抽样审阅</h1>
+    <p class="lead">机器质检只能挡住规则内的错误。一批生成完会自动抽出少量篇目（默认 {{ (review_sample_rate * 100)|round|int }}%，至少 {{ review_sample_min }} 篇）放进这里，<b>由你实际读一遍文章和答案</b>再决定通过或返工。</p>
+    <div class="library-actions">
+      <form action="/review/sample" method="post">
+        <button type="submit">再抽一批样本</button>
+      </form>
+      <a class="button ghost" href="/review/similarity">查看相似题目（{{ duplicate_count }}）</a>
+    </div>
+  </div>
+  <aside class="library-totals">
+    <p class="eyebrow">队列</p>
+    <div class="totals-grid">
+      <div><strong>{{ totals.pending }}</strong><span>待审</span></div>
+      <div><strong>{{ totals.passed }}</strong><span>已通过</span></div>
+      <div><strong>{{ totals.failed }}</strong><span>需返工</span></div>
+      <div><strong>{{ totals.all }}</strong><span>累计审阅</span></div>
+    </div>
+  </aside>
+</section>
+
+{% if duplicates %}
+<section class="config-block">
+  <header class="config-head"><div><h2>相似题目提醒</h2><p>质检门禁只管住本次生成；这里是全库扫出来的疑似重复，建议顺手看一眼。</p></div></header>
+  <ul class="keep-list">
+    {% for pair in duplicates %}
+    <li>
+      <b>{{ pair.score }}%</b> ·
+      {{ pair.left.unit_title or pair.left.unit_id }} 第 {{ pair.left.number }} 题 ↔
+      {{ pair.right.unit_title or pair.right.unit_id }} 第 {{ pair.right.number }} 题
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="inline-note plain">共 {{ duplicate_count }} 对；完整列表见 <a class="text-link" href="/review/similarity">相似题目</a>。</p>
+</section>
+{% endif %}
+
+<section class="config-block">
+  <header class="config-head"><div><h2>待审样本（{{ pending|length }}）</h2><p>先读文章大意，再抽查答案和解析是否站得住。</p></div></header>
+  {% if pending %}
+  <div class="review-list">
+    {% for row in pending %}
+    <article class="review-card">
+      <header>
+        <div>
+          <p class="eyebrow">#{{ row.ordinal }} · {{ row.difficulty|title if row.difficulty else '—' }}</p>
+          <h3>{{ row.title or row.unit.id }}</h3>
+          <p class="corpus-meta">{{ row.questions }} 题{% if row.package and row.package.quality_report.passed %} · 质检通过{% elif row.package %} · ⚠ 质检有问题{% endif %}{% if row.reason %} · 来源：{{ row.reason }}{% endif %}</p>
+        </div>
+        <a class="button ghost small" href="/practice/{{ row.unit.id }}/analysis">打开文章与答案</a>
+      </header>
+      <form class="review-actions" action="/review/{{ row.unit.id }}/decide" method="post">
+        <label>批注（可选）
+          <input type="text" name="note" placeholder="例如：第 7 题证据句太弱" maxlength="200">
+        </label>
+        <button type="submit" name="decision" value="pass">通过</button>
+        <button type="submit" name="decision" value="rework" class="danger">需返工</button>
+      </form>
+      {% if row.unit and row.unit.corpus_id %}
+      <p class="inline-note plain">需要重做这一篇：去 <a class="text-link" href="/corpora/{{ row.unit.corpus_id }}/configure">生成题目</a> 页把 #{{ row.ordinal }} 加入生成范围。</p>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="inline-note plain">队列是空的。批任务跑完会自动抽样；也可以点上面的「再抽一批样本」从最近一批里抽。</p>
+  {% endif %}
+</section>
+
+{% if decided %}
+<section class="config-block">
+  <header class="config-head"><div><h2>已审阅（{{ decided|length }}）</h2><p>最近的决定排在前面。</p></div></header>
+  <div class="settings-rows">
+    {% for row in decided %}
+    <div class="settings-row">
+      <span class="settings-name">
+        {% if row.sample.status == 'passed' %}<span class="badge status-practice">通过</span>{% else %}<span class="badge status-review">需返工</span>{% endif %}
+        #{{ row.ordinal }}
+      </span>
+      <span class="settings-value">{{ row.title or row.unit.id }}</span>
+      <span class="settings-note">{{ row.note or '（无批注）' }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

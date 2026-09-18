@@ -1,0 +1,46 @@
+/* IELTS Reading Studio — 可打印页面（错题本 / 生词本）
+   这些页面不套 base.html：没有导航，只有内容和一个屏幕专用的打印按钮。 */
+
+:root{--ink:#172029;--forest:#123c35;--green:#1d6658;--line:#d9dfda}
+*{box-sizing:border-box}
+body{margin:0;background:#f3f4f0;color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5}
+.sheet{max-width:56rem;margin:0 auto;background:#fff;padding:2.2rem 2.4rem 3rem}
+.sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;border-bottom:2px solid var(--forest);padding-bottom:.8rem;margin-bottom:1.4rem}
+.sheet-head h1{font:1.7rem Georgia,serif;margin:0 0 .2rem}
+.sheet-head p{margin:0;color:#6f7b76;font-size:.82rem}
+.sheet-tools{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.sheet-tools a,.sheet-tools button,.chip{display:inline-block;border:1px solid var(--line);border-radius:.4rem;background:#f6f8f5;color:var(--forest);padding:.45rem .7rem;font-size:.82rem;font-weight:700;text-decoration:none;cursor:pointer}
+.sheet-tools button{background:var(--green);color:#fff;border-color:var(--green)}
+.chip.active{background:var(--mint,#dcebe5);border-color:#9ccbbe}
+.sheet-summary{display:flex;gap:1.2rem;flex-wrap:wrap;margin:0 0 1.2rem;color:#495651;font-size:.85rem}
+h2.section{font:1.15rem Georgia,serif;margin:1.6rem 0 .6rem;padding-bottom:.25rem;border-bottom:1px solid var(--line)}
+.item{border-left:.22rem solid var(--green);padding:.1rem 0 .7rem .8rem;margin:0 0 .9rem;break-inside:avoid}
+.item.passage{border-left-color:#9ccbbe}
+.item h3{font:1rem Georgia,serif;margin:0 0 .3rem}
+.item p{margin:.2rem 0;font-size:.86rem}
+.prompt{font-family:Georgia,serif}
+.answers{display:flex;gap:1rem;flex-wrap:wrap;font-size:.82rem;margin:.35rem 0 .2rem}
+.answer-you{color:#a8431f}
+.answer-key{color:#24674f;font-weight:700}
+.evidence{color:#5d6964;font-size:.8rem;font-style:italic}
+.explain{background:#f6f8f5;border-radius:.4rem;padding:.45rem .6rem;margin:.35rem 0 0;font-size:.82rem}
+.vocab-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.vocab-table th,.vocab-table td{text-align:left;vertical-align:top;padding:.5rem .6rem;border-bottom:1px solid #eef1ee}
+.vocab-table th{background:#f4f6f3;font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:#6f7b76}
+.vocab-word{font-weight:800;font-family:Georgia,serif}
+.vocab-meta{color:#8a958f;font-size:.76rem;font-weight:500}
+.quiz-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem 1.6rem}
+.quiz-item{display:flex;gap:.5rem;align-items:baseline;font-size:.88rem;break-inside:avoid}
+.quiz-line{flex:1;border-bottom:1px dotted #8a958f;min-height:1.1rem}
+.answer-key-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.3rem 1.2rem;font-size:.85rem}
+.sheet-foot{margin-top:2rem;padding-top:.7rem;border-top:1px solid var(--line);color:#8a958f;font-size:.75rem}
+
+@media print{
+  body{background:#fff}
+  .sheet{max-width:none;margin:0;padding:0}
+  .sheet-tools{display:none}
+  .item,.vocab-table tr,.quiz-item,.answer-key-grid>div{break-inside:avoid}
+  h2.section{break-after:avoid}
+  a{color:inherit;text-decoration:none}
+  @page{margin:14mm}
+}

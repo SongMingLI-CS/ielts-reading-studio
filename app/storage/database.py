@@ -140,6 +140,31 @@ vocabulary_marks = Table(
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 
+review_samples = Table(
+    "review_samples",
+    metadata,
+    Column("unit_id", String, ForeignKey("generation_units.id"), primary_key=True),
+    Column("job_id", String, index=True),
+    Column("status", String, nullable=False, index=True),  # pending / passed / failed
+    Column("decision", String),
+    Column("payload", Text, nullable=False, server_default="{}"),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
+vocabulary_reviews = Table(
+    "vocabulary_reviews",
+    metadata,
+    Column("word", String, primary_key=True),
+    Column("box", Integer, nullable=False, server_default="1"),
+    Column("due_at", DateTime(timezone=True), nullable=False, index=True),
+    Column("seen", Integer, nullable=False, server_default="0"),
+    Column("lapses", Integer, nullable=False, server_default="0"),
+    Column("payload", Text, nullable=False, server_default="{}"),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
 
 class Database:
     """SQLite database owner with a schema shared by all repository instances."""

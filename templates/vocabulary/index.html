@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}词汇记忆 · IELTS Reading Studio{% endblock %}
+{% block content %}
+<section class="library-hero">
+  <div class="library-copy">
+    <p class="eyebrow">Vocabulary &amp; memory</p>
+    <h1>词汇记忆</h1>
+    <p class="lead">把练习里出现过的词按<b>词性、复现频率、来源篇目、难度、同根词族</b>分好组，再用 Leitner 盒子的间隔重复排复习：答对进下一盒（间隔翻倍），答错退回第一盒。<b>释义、例句、搭配全部来自已校验的阅读原文</b>，不需要外部词典。</p>
+    <div class="library-actions">
+      <a class="button" href="/vocabulary/review">开始复习（{{ totals.due }} 个到期）</a>
+      <a class="button ghost" href="/vocabulary/review?mode=all">复习全部（{{ totals.tracked }}）</a>
+      <a class="button ghost" href="/practice/vocabulary">生词本与导出</a>
+    </div>
+  </div>
+  <aside class="library-totals">
+    <p class="eyebrow">词库</p>
+    <div class="totals-grid">
+      <div><strong>{{ totals.all }}</strong><span>全部词条</span></div>
+      <div><strong>{{ totals.saved }}</strong><span>已收藏</span></div>
+      <div><strong>{{ totals.tracked }}</strong><span>在复习队列</span></div>
+      <div><strong>{{ totals.due }}</strong><span>今天到期</span></div>
+    </div>
+    {% if totals.families %}<p class="totals-note">已自动归出 {{ totals.families }} 个同根词族</p>{% endif %}
+  </aside>
+</section>
+
+<section class="config-block">
+  <header class="config-head">
+    <div><h2>复习进度</h2><p>盒子越靠后，复习间隔越长（{% for box, days in box_intervals.items() %}{{ box }} 盒 = {{ days }} 天{% if not loop.last %} · {% endif %}{% endfor %}）。</p></div>
+  </header>
+  <div class="box-strip">
+    {% for box in range(1, max_box + 1) %}
+    <div class="box-cell">
+      <strong>{{ box_counts[box] }}</strong>
+      <span>第 {{ box }} 盒</span>
+      <small>间隔 {{ box_intervals[box] }} 天</small>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="config-block">
+  <header class="config-head">
+    <div><h2>分类浏览</h2><p>同一批词换几个角度看：哪些该先背、哪些其实是一家人。</p></div>
+  </header>
+  <nav class="chip-row">
+    {% for value, label in group_tabs %}
+    <a class="chip{% if selected_group == value %} active{% endif %}" href="/vocabulary?group={{ value }}&scope={{ scope }}">{{ label }}</a>
+    {% endfor %}
+  </nav>
+  <div class="vocab-sections">
+    {% for section in group_sections %}
+    <div class="vocab-section">
+      <p class="vocab-section-head">{% if selected_group == 'family' %}<b>{{ section.stem }}-</b> 词族（{{ section.words|length }} 个）{% else %}<b>{{ section.label }}</b> · {{ section.rows|length }} 个{% endif %}</p>
+      <p class="chip-list">
+        {% set items = section.words if selected_group == 'family' else section.rows %}
+        {% for item in items %}
+        <a class="chip" href="/vocabulary?group={{ selected_group }}&scope={{ scope }}&focus={{ item.key }}">{{ item.word }}</a>
+        {% endfor %}
+      </p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+{% if focus %}
+<section class="config-block">
+  <header class="config-head"><div><h2>{{ focus.word }}</h2><p>{{ focus.part_of_speech or '词性未标注' }} · 出现在 {{ focus.passage_count }} 篇 · 难度提示：{{ focus.level }}（{{ focus.level_reason }}）</p></div></header>
+  <div class="word-card">
+    <div class="word-main">
+      {% if focus.pronunciation %}<p class="word-phon">/{{ focus.pronunciation.strip('/') }}/</p>{% endif %}
+      <p class="word-meaning">{{ focus.chinese_meaning or '（暂无释义）' }}</p>
+      {% if focus.collocations %}<p class="word-meta">搭配：{{ focus.collocations|join('、') }}</p>{% endif %}
+      {% if focus.example %}<p class="word-example">{{ focus.example }}</p>{% endif %}
+      <p class="word-meta">出自：{{ focus.passages|join('、') }}</p>
+      <p class="word-meta">复习状态：{% if focus.review_box %}第 {{ focus.review_box }} 盒 · 已复习 {{ focus.seen }} 次 · 忘记 {{ focus.lapses }} 次{% else %}尚未加入复习{% endif %}</p>
+      <div class="word-actions">
+        <form action="/vocabulary/track" method="post">
+          <input type="hidden" name="word" value="{{ focus.word }}">
+          <input type="hidden" name="scope" value="{{ scope }}">
+          {% if focus.review_box %}
+          <button type="submit" name="action" value="remove" class="ghost">移出复习</button>
+          {% else %}
+          <button type="submit" name="action" value="add">加入复习</button>
+          {% endif %}
+        </form>
+        <a class="button ghost" href="/vocabulary/review?mode=all">去复习</a>
+      </div>
+    </div>
+    {% if focus.related %}
+    <div class="word-related">
+      <p class="eyebrow">记忆联想</p>
+      <ul>
+        {% for item in focus.related %}
+        <li><a class="text-link" href="/vocabulary?scope={{ scope }}&group={{ selected_group }}&focus={{ item.word|lower }}">{{ item.word }}</a> <span class="badge">{{ item.why }}</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+<section class="config-block">
+  <header class="config-head">
+    <div><h2>词条（{{ rows|length }}）</h2><p>点词看记忆联想；「加入复习」把它排进今天的队列。</p></div>
+    <div class="pick-tools">
+      <a class="chip{% if scope == 'saved' %} active{% endif %}" href="/vocabulary?scope=saved&group={{ selected_group }}">已收藏</a>
+      <a class="chip{% if scope == 'tracked' %} active{% endif %}" href="/vocabulary?scope=tracked&group={{ selected_group }}">复习队列</a>
+      <a class="chip{% if scope == 'all' %} active{% endif %}" href="/vocabulary?scope=all&group={{ selected_group }}">全部</a>
+    </div>
+  </header>
+  {% if rows %}
+  <div class="word-grid">
+    {% for row in rows %}
+    <article class="word-tile">
+      <header>
+        <a class="word-tile-word" href="/vocabulary?scope={{ scope }}&group={{ selected_group }}&focus={{ row.key }}">{{ row.word }}</a>
+        <span class="badge">{{ row.level }}</span>
+      </header>
+      <p class="word-tile-meaning">{{ row.chinese_meaning or '（暂无释义）' }}</p>
+      <p class="word-meta">{{ row.part_of_speech or '词性未标注' }}{% if row.passage_count > 1 %} · 复现 {{ row.passage_count }} 篇{% endif %}{% if row.review_box %} · 第 {{ row.review_box }} 盒{% endif %}</p>
+      <form action="/vocabulary/track" method="post">
+        <input type="hidden" name="word" value="{{ row.word }}">
+        <input type="hidden" name="scope" value="{{ scope }}">
+        {% if row.review_box %}
+        <button type="submit" name="action" value="remove" class="ghost small">移出复习</button>
+        {% else %}
+        <button type="submit" name="action" value="add" class="small">加入复习</button>
+        {% endif %}
+      </form>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="inline-note plain">这个范围里还没有词条。在练习解析页点「收藏」把生词加进来，它们就会出现在这里。</p>
+  {% endif %}
+</section>
+{% endblock %}

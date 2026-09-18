@@ -138,6 +138,29 @@ def _settings_groups(service: ReadingStudioService) -> list[dict[str, Any]]:
             ],
         },
         {
+            "title": "质检与审阅",
+            "blurb": "决定生成时拦下什么、以及需要多少人看。",
+            "rows": [
+                {
+                    "name": "题目重复门禁",
+                    "value": f"相似度 ≥ {config.question_duplicate_threshold:.0%}",
+                    "note": "新题与已有题目超过这个相似度就判为重复，进入返工；改不动就转人工。",
+                },
+                {
+                    "name": "相似度审阅页阈值",
+                    "value": f"≥ {config.question_report_threshold:.0%}",
+                    "note": "审阅页列出疑似重复的宽松阈值，宁可多列给人看，不在生成时误拦。",
+                },
+                {
+                    "name": "批任务自动抽样",
+                    "value": (
+                        f"{config.review_sample_rate:.0%} · 至少 {config.review_sample_min} 篇"
+                    ),
+                    "note": "一批跑完后自动抽几篇进「抽样审阅」队列，由人读一遍再决定通过或返工。",
+                },
+            ],
+        },
+        {
             "title": "切分与合并",
             "blurb": "决定语料库怎么被切成一篇篇练习。",
             "rows": [

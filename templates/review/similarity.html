@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}相似题目 · IELTS Reading Studio{% endblock %}
+{% block content %}
+<div class="practice-topbar">
+  <a class="back-link" href="/review">← 抽样审阅</a>
+  <div class="practice-meta"><span class="badge">共 {{ pairs|length }} 对</span><span class="badge">比对 {{ questions_checked }} 道题</span></div>
+</div>
+
+<header class="preview-head">
+  <p class="eyebrow">Question similarity</p>
+  <h1>相似题目</h1>
+  <p class="lead">把已完成篇目里的题干两两比对，列出实词重合度高的组合。生成时的硬门禁在 <b>{{ (blocking_threshold * 100)|round|int }}%</b> 以上（会直接触发返工），这一页用更宽松的 <b>{{ (threshold * 100)|round|int }}%</b> 列出来给你人工判断——毕竟"同一篇文章问了两次同一件事"和"两篇文章用词相近"是两回事。</p>
+</header>
+
+<form class="filter-row" action="/review/similarity" method="get">
+  <label>相似度阈值
+    <input type="number" name="threshold" step="0.05" min="0.2" max="1" value="{{ threshold }}">
+  </label>
+  <button type="submit">重新扫描</button>
+</form>
+
+{% if pairs %}
+<section class="config-block">
+  {% for pair in pairs %}
+  <article class="similarity-pair">
+    <p class="similarity-score">{{ pair.score }}% 相似</p>
+    <div class="similarity-side">
+      <p class="eyebrow">{{ pair.left.unit_title or pair.left.unit_id }} · 第 {{ pair.left.number }} 题</p>
+      <p class="similarity-prompt">{{ pair.left.prompt }}</p>
+      <p class="similarity-answer">答案：{{ pair.left.answer }}</p>
+      {% if pair.left.unit_id != pair.right.unit_id %}
+      <a class="text-link" href="/practice/{{ pair.left.unit_id }}/analysis">看这篇文章</a>
+      {% endif %}
+    </div>
+    <div class="similarity-side">
+      <p class="eyebrow">{{ pair.right.unit_title or pair.right.unit_id }} · 第 {{ pair.right.number }} 题</p>
+      <p class="similarity-prompt">{{ pair.right.prompt }}</p>
+      <p class="similarity-answer">答案：{{ pair.right.answer }}</p>
+      <a class="text-link" href="/practice/{{ pair.right.unit_id }}/analysis">看这篇文章</a>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+{% else %}
+<section class="config-block">
+  <p class="inline-note plain">当前阈值下没有发现相似题目，题库看起来是干净的。</p>
+</section>
+{% endif %}
+{% endblock %}

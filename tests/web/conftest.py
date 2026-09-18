@@ -12,6 +12,7 @@ from app.models import (
     ReadingPassage,
     SourceBrief,
     UnitStatus,
+    VocabularyEntry,
 )
 from app.pipeline.service import ReadingStudioService
 from app.web.app import create_app
@@ -78,3 +79,28 @@ def needs_review_unit(web_service, completed_unit):
     unit = original.model_copy(update={"id": "needs-review", "status": UnitStatus.NEEDS_REVIEW, "ordinal": 99})
     web_service.repository.add_unit(unit)
     return unit
+
+
+@pytest.fixture
+def vocabulary_unit(web_service, completed_unit):
+    """A completed unit whose package carries a small vocabulary list."""
+    entries = [
+        VocabularyEntry(
+            word="conservation",
+            pronunciation="ˌkɒnsəˈveɪʃn",
+            part_of_speech="n.",
+            chinese_meaning="保护；节约",
+            collocations=["water conservation"],
+            example="Water conservation matters in dry regions.",
+        ),
+        VocabularyEntry(word="conserve", part_of_speech="v.", chinese_meaning="节约；保存"),
+        VocabularyEntry(word="sustainable", part_of_speech="adj.", chinese_meaning="可持续的"),
+        VocabularyEntry(word="municipal", part_of_speech="", chinese_meaning="市政的"),
+        VocabularyEntry(word="infrastructure", part_of_speech="n.", chinese_meaning="基础设施"),
+        VocabularyEntry(word="scarcity", part_of_speech="n.", chinese_meaning="短缺"),
+    ]
+    package = completed_unit.package.model_copy(deep=True)
+    passage = package.passage.model_copy(update={"vocabulary": entries})
+    package = package.model_copy(update={"passage": passage})
+    web_service.store.write_package(completed_unit.id, package)
+    return SimpleNamespace(id=completed_unit.id, package=package, corpus_id=completed_unit.corpus_id)

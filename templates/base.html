@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/static/app.css?v=4">
   <link rel="stylesheet" href="/static/practice-center.css?v=6">
   <link rel="stylesheet" href="/static/studio.css?v=1">
-  <link rel="stylesheet" href="/static/corpora.css?v=2">
+  <link rel="stylesheet" href="/static/corpora.css?v=3">
 </head>
 <body>
   <header class="site-header">
@@ -17,6 +17,8 @@
       <a href="/"{% if request.url.path == '/' %} aria-current="page"{% endif %}>首页</a>
       <a href="/corpora"{% if request.url.path.startswith('/corpora') and request.url.path != '/corpora/import' %} aria-current="page"{% endif %}>语料</a>
       <a href="/practice"{% if request.url.path.startswith('/practice') %} aria-current="page"{% endif %}>阅读练习</a>
+      <a href="/vocabulary"{% if request.url.path.startswith('/vocabulary') %} aria-current="page"{% endif %}>词汇</a>
+      <a href="/review"{% if request.url.path.startswith('/review') %} aria-current="page"{% endif %}>审阅</a>
       <a href="/novel"{% if request.url.path.startswith('/novel') %} aria-current="page"{% endif %}>情境小说</a>
       <a href="/corpora/import"{% if request.url.path == '/corpora/import' %} aria-current="page"{% endif %}>导入</a>
       <a href="/exports"{% if request.url.path.startswith('/exports') %} aria-current="page"{% endif %}>导出</a>

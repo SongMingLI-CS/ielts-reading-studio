@@ -38,6 +38,11 @@ def test_import_sample_approve_batch_export_round_trip(tmp_path, monkeypatch):
     job = studio.create_job(corpus.id, ordinals=[2, 3, 4])
     summary = studio.run_job(job["id"])
     assert len(summary.completed) == 3
+    # 批任务收尾会自动抽样，把"人工看一眼"排进审阅队列
+    samples = studio.repository.list_review_samples()
+    assert samples
+    assert all(row["status"] == "pending" for row in samples)
+    assert {row["unit_id"] for row in samples} <= set(summary.completed)
     assert all(unit.status == UnitStatus.COMPLETED for unit in studio.repository.list_job_units(job["id"]))
 
     paths = studio.export_job(job["id"], formats={"json", "html", "docx"})
