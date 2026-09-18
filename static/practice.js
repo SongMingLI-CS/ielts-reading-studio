@@ -16,8 +16,66 @@
   const elapsedInput = el('elapsed-seconds'), submitHint = el('submit-hint');
   const attemptInput = form.querySelector('input[name="attempt_id"]');
   const practiceShell = document.querySelector('.practice-shell');
+  const paneResizer = el('pane-resizer');
   const paneTabs = [...document.querySelectorAll('[data-show-pane]')];
   if (practiceShell) practiceShell.classList.add('mobile-tabs-enabled');
+
+  const paneWidthKey = 'ielts-reading:pane-width';
+  const defaultPaneWidth = 53;
+  const desktopPanes = window.matchMedia('(min-width: 1025px)');
+  const clampPaneWidth = (value) => Math.min(70, Math.max(30, value));
+  const setPaneWidth = (value, persist = false) => {
+    if (!practiceShell || !paneResizer) return;
+    const width = clampPaneWidth(Number(value) || defaultPaneWidth);
+    practiceShell.style.setProperty('--practice-reading-width', `${width}%`);
+    paneResizer.setAttribute('aria-valuenow', String(Math.round(width)));
+    if (persist) {
+      try { window.localStorage.setItem(paneWidthKey, String(width)); } catch (error) { /* private mode */ }
+    }
+  };
+  if (paneResizer) {
+    let savedPaneWidth = defaultPaneWidth;
+    try { savedPaneWidth = Number(window.localStorage.getItem(paneWidthKey)) || defaultPaneWidth; } catch (error) { /* private mode */ }
+    setPaneWidth(savedPaneWidth);
+
+    const widthFromPointer = (clientX) => {
+      const bounds = practiceShell.getBoundingClientRect();
+      if (!bounds.width) return defaultPaneWidth;
+      return ((clientX - bounds.left) / bounds.width) * 100;
+    };
+    paneResizer.addEventListener('pointerdown', (event) => {
+      if (!desktopPanes.matches || event.button !== 0) return;
+      event.preventDefault();
+      paneResizer.setPointerCapture(event.pointerId);
+      practiceShell.classList.add('is-resizing');
+    });
+    paneResizer.addEventListener('pointermove', (event) => {
+      if (!paneResizer.hasPointerCapture(event.pointerId)) return;
+      setPaneWidth(widthFromPointer(event.clientX));
+    });
+    const finishResize = (event) => {
+      if (!paneResizer.hasPointerCapture(event.pointerId)) return;
+      paneResizer.releasePointerCapture(event.pointerId);
+      practiceShell.classList.remove('is-resizing');
+      setPaneWidth(paneResizer.getAttribute('aria-valuenow'), true);
+    };
+    paneResizer.addEventListener('pointerup', finishResize);
+    paneResizer.addEventListener('pointercancel', finishResize);
+    paneResizer.addEventListener('lostpointercapture', () => practiceShell.classList.remove('is-resizing'));
+    paneResizer.addEventListener('dblclick', () => setPaneWidth(defaultPaneWidth, true));
+    paneResizer.addEventListener('keydown', (event) => {
+      if (!desktopPanes.matches) return;
+      const current = Number(paneResizer.getAttribute('aria-valuenow')) || defaultPaneWidth;
+      const step = event.shiftKey ? 5 : 2;
+      let next = null;
+      if (event.key === 'ArrowLeft') next = current - step;
+      if (event.key === 'ArrowRight') next = current + step;
+      if (event.key === 'Home') next = defaultPaneWidth;
+      if (next === null) return;
+      event.preventDefault();
+      setPaneWidth(next, true);
+    });
+  }
 
   // crypto.randomUUID needs a secure context (https or localhost), so fall back
   // instead of crashing when the page is opened over plain http from a LAN address.
@@ -108,27 +166,29 @@
 
   const body = () => ({ attempt_id: state.attempt_id, answers: collect(), elapsed_seconds: elapsed() });
   let saveTimer;
+  let saveSequence = 0;
   const save = async () => {
+    const sequence = ++saveSequence;
     persistBrowser();
     setStatus('saving', '正在保存');
     try {
-      const response = await fetch(`/practice/${unitId}/save`, {
+      const data = await window.AppRequest.requestJson(`/practice/${unitId}/save`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body()),
+        timeout: 12000,
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
       if (data && data.attempt_id) state.attempt_id = data.attempt_id;
       persistBrowser();
-      setStatus('', '已保存到本机');
+      if (sequence === saveSequence) setStatus('', '已保存到服务器和本机');
       return true;
     } catch (error) {
-      const unauthorized = String(error.message).includes('401');
-      setStatus(
-        'error',
-        unauthorized
-          ? '服务器要求重新登录，草稿暂存在浏览器'
-          : `草稿只在浏览器里（${error.message}）`,
-      );
+      if (sequence === saveSequence) {
+        setStatus(
+          'error',
+          error.status === 401
+            ? '服务器要求重新登录，草稿暂存在浏览器'
+            : `草稿暂存在浏览器（${error.message}）`,
+        );
+      }
       return false;
     }
   };
@@ -250,13 +310,12 @@
     const button = form.querySelector('button[type="submit"]');
     if (button) { button.disabled = true; button.textContent = '正在判分…'; }
     try {
-      const response = await fetch(`/practice/${unitId}/submit`, {
+      const data = await window.AppRequest.requestJson(`/practice/${unitId}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ attempt_id: state.attempt_id, answers, elapsed_seconds: elapsed() }),
+        timeout: 20000,
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
       dropStore();
       window.location.href = data.redirect_url || `/practice/${unitId}/result/${data.attempt_id}`;
     } catch (error) {

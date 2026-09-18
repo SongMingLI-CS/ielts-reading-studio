@@ -37,6 +37,13 @@
     </div>
   </form>
 
+  <section id="writing-loading" class="writing-loading" aria-hidden="true" hidden>
+    <div class="panel writing-loading-head"><span class="writing-spinner" aria-hidden="true"></span><div><h2>正在生成反馈</h2><p id="writing-stage">正在准备评估内容…</p></div></div>
+    <div class="writing-skeleton-grid" aria-hidden="true">
+      <span></span><span></span><span></span><span></span>
+    </div>
+  </section>
+
   <section id="writing-result" class="writing-result" aria-live="polite" hidden>
     <div class="panel writing-score-card">
       <div><p class="eyebrow">Overall band</p><h2>评估结果</h2></div>
@@ -52,4 +59,4 @@
   </section>
 </div>
 {% endblock %}
-{% block scripts %}<script src="/static/writing.js?v=1" defer></script>{% endblock %}
+{% block scripts %}<script src="/static/request.js?v=1" defer></script><script src="/static/writing.js?v=2" defer></script>{% endblock %}

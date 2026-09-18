@@ -108,10 +108,14 @@
   </div>
 </form>
 
-<p class="kn-result-line">
-  共 <b>{{ digest.pagination.total }}</b> 条{% if digest.pagination.total %}，当前显示第 {{ digest.pagination.range_label }} 条{% endif %}
-  {%- if digest.pagination.pages > 1 %} · 第 {{ digest.pagination.page }} / {{ digest.pagination.pages }} 页{% endif %}
-</p>
+<div class="kn-results-summary">
+  <p class="kn-result-line">
+    共 <b>{{ digest.pagination.total }}</b> 条{% if digest.pagination.total %}，当前显示第 {{ digest.pagination.range_label }} 条{% endif %}
+    {%- if digest.pagination.pages > 1 %} · 第 {{ digest.pagination.page }} / {{ digest.pagination.pages }} 页{% endif %}
+  </p>
+  <p id="kn-filter-status" class="kn-filter-status" role="status" aria-live="polite"></p>
+</div>
+<div id="kn-active-filters" class="kn-active-filters" aria-label="当前筛选条件" hidden></div>
 
 {% if digest.view == 'terms' %}
 <p class="kn-legend">
@@ -165,5 +169,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/knowledge.js?v=1" defer></script>
+<script src="/static/knowledge.js?v=2" defer></script>
 {% endblock %}

@@ -64,7 +64,10 @@ def test_terms_view_lists_words_from_both_sources(
     assert "阅读练习 ·" in page.text
     # 例句里高亮了被讲解的词
     assert 'class="kw"' in page.text
-    assert "/static/knowledge.css?v=1" in page.text
+    assert "/static/knowledge.css?v=2" in page.text
+    assert 'id="kn-filter-status"' in page.text
+    assert 'id="kn-active-filters"' in page.text
+    assert 'src="/static/knowledge.js?v=2"' in page.text
 
 
 def test_collocations_view_lists_phrases(client, vocabulary_unit, novel_output):

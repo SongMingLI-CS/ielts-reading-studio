@@ -113,6 +113,14 @@
 .kn-filter .kn-check input { width: auto; margin: 0; }
 .kn-filter-actions { display: flex; align-items: center; gap: .7rem; padding-bottom: .15rem; }
 .kn-filter-actions button { padding: .55rem 1rem; }
+.kn-filter[aria-busy="true"]{opacity:.72}
+.kn-results-summary{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.kn-filter-status{margin:.7rem 0;color:#4b6e66;font-size:.86rem;font-weight:650}
+.kn-active-filters{display:flex;align-items:center;flex-wrap:wrap;gap:.45rem;margin:-.25rem 0 1rem;color:#4b6e66;font-size:.82rem}
+.kn-active-filters span{padding:.24rem .58rem;border:1px solid #cfdad4;border-radius:2rem;background:#fff}
+.kn-card-enter{animation:kn-card-enter .35s ease both;animation-delay:var(--kn-enter-delay,0ms)}
+@keyframes kn-card-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.kn-card-enter{animation:none}}
 .kn-reset { color: #4b6e66; font-size: .85rem; }
 
 .kn-result-line { margin: 1.2rem 0 .5rem; color: #4c5b56; font-size: .92rem; }

@@ -29,14 +29,15 @@
   <button type="button" role="tab" aria-selected="false" data-show-pane="questions">答题 <span id="mobile-answered-count">0</span></button>
 </div>
 <div class="practice-shell" data-mobile-pane="reading">
-  <section class="reading-pane">
+  <section class="reading-pane" id="reading-pane">
     <div class="pane-label">Reading passage</div>
     <h1>{{ package.passage.title }}</h1>
     <article class="passage practice-passage">
       {% for paragraph in package.passage.paragraphs %}<p id="paragraph-{{ paragraph.label }}"><strong>{{ paragraph.label }}</strong><span>{{ paragraph.text }}</span></p>{% endfor %}
     </article>
   </section>
-  <section class="answer-pane">
+  <button class="pane-resizer" id="pane-resizer" type="button" role="separator" aria-label="调整文章和题目区域宽度" aria-orientation="vertical" aria-controls="reading-pane answer-pane" aria-valuemin="30" aria-valuemax="70" aria-valuenow="53" title="拖动或使用左右方向键调整；双击恢复默认宽度"></button>
+  <section class="answer-pane" id="answer-pane">
     <div class="answer-intro"><p class="eyebrow">Questions</p><h2>完成全部题目</h2><p id="progress-copy">已完成 0 题</p></div>
     <form id="practice-form" method="post" action="/practice/{{ package.unit.id }}/submit" data-unit-id="{{ package.unit.id }}" data-attempt-id="{{ attempt_id }}" data-saved-answers='{{ saved_answers|tojson }}' data-resume-seconds="{{ resume_seconds }}">
       <input type="hidden" name="attempt_id" value="{{ attempt_id }}">
@@ -76,4 +77,4 @@
   </section>
 </div>
 {% endblock %}
-{% block scripts %}<script src="/static/practice.js?v=3"></script>{% endblock %}
+{% block scripts %}<script src="/static/request.js?v=1"></script><script src="/static/practice.js?v=5"></script>{% endblock %}

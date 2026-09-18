@@ -12,6 +12,12 @@ def test_practice_page_does_not_render_answer_key(client, completed_unit):
     assert 'class="mobile-pane-tabs"' in response.text
     assert 'data-show-pane="reading"' in response.text
     assert 'data-show-pane="questions"' in response.text
+    assert 'id="pane-resizer"' in response.text
+    assert 'role="separator"' in response.text
+    assert 'aria-controls="reading-pane answer-pane"' in response.text
+    assert 'aria-valuenow="53"' in response.text
+    assert 'src="/static/request.js?v=1"' in response.text
+    assert 'src="/static/practice.js?v=5"' in response.text
 
 
 def test_session_form_can_submit_without_javascript(client, completed_unit):

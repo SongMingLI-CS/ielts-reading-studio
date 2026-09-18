@@ -120,6 +120,9 @@ def test_job_monitor_pause_and_unit_json(client, web_service, completed_unit):
     detail = client.get("/jobs/job-1")
     assert detail.status_code == 200
     assert completed_unit.id in detail.text
+    assert 'id="job-connection"' in detail.text
+    assert 'src="/static/request.js?v=1"' in detail.text
+    assert 'src="/static/jobs.js?v=2"' in detail.text
 
     paused = client.post("/jobs/job-1/pause", follow_redirects=False)
     assert paused.status_code == 303

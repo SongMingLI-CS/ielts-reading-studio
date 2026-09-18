@@ -7,6 +7,8 @@
   const button = document.querySelector("#evaluate-button");
   const status = document.querySelector("#writing-status");
   const result = document.querySelector("#writing-result");
+  const loading = document.querySelector("#writing-loading");
+  const stage = document.querySelector("#writing-stage");
 
   const wordCount = (text) => (text.trim().match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g) || []).length;
   const updateCount = () => { count.textContent = `${wordCount(essay.value)} 词`; };
@@ -67,11 +69,22 @@
     result.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const errorMessage = (response, body) => {
-    if (response.status === 422) return "请检查题目和作文是否完整，并满足最小长度。";
-    const detail = body && body.detail;
-    if (detail && typeof detail.message === "string") return `评估服务暂时不可用：${detail.message}`;
-    return "评估失败，请稍后重试或到设置页检查模型连接。";
+  let stageTimers = [];
+  const stopStages = () => {
+    stageTimers.forEach((timer) => window.clearTimeout(timer));
+    stageTimers = [];
+  };
+  const startStages = () => {
+    const stages = [
+      [0, "正在准备评估内容…"],
+      [8000, "模型正在阅读作文并检查任务回应…"],
+      [25000, "正在整理四项评分标准与改进建议…"],
+      [55000, "评估仍在进行，复杂作文可能需要更长时间…"],
+    ];
+    stopStages();
+    stages.forEach(([delay, message]) => {
+      stageTimers.push(window.setTimeout(() => { stage.textContent = message; }, delay));
+    });
   };
 
   form.addEventListener("submit", async (event) => {
@@ -80,9 +93,12 @@
     button.disabled = true;
     button.textContent = "正在评估…";
     status.className = "is-working";
-    status.textContent = "模型正在阅读并评分，请保持页面打开。";
+    status.textContent = "模型正在阅读并评分；你的题目和作文会保留在页面中。";
+    loading.hidden = false;
+    loading.setAttribute("aria-hidden", "false");
+    startStages();
     try {
-      const response = await fetch("/api/writing/evaluate", {
+      const data = await window.AppRequest.requestJson("/api/writing/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -92,19 +108,21 @@
           title: document.querySelector("#writing-title").value || null,
           include_sample_answer: document.querySelector("#include-sample").checked,
         }),
+        timeout: 90000,
       });
-      let body = null;
-      try { body = await response.json(); } catch (_) { /* handled below */ }
-      if (!response.ok) throw new Error(errorMessage(response, body));
-      showResult(body);
+      showResult(data);
       status.className = "is-success";
       status.textContent = "评估完成，结果已保存。";
     } catch (error) {
       status.className = "is-error";
-      status.textContent = error instanceof Error ? error.message : "评估失败，请稍后重试。";
+      if (error.status === 422) status.textContent = "请检查题目和作文是否完整，并满足最小长度。";
+      else status.textContent = `${error.message || "评估失败。"} 作文内容仍在，可直接重试。`;
     } finally {
+      stopStages();
+      loading.hidden = true;
+      loading.setAttribute("aria-hidden", "true");
       button.disabled = false;
-      button.textContent = "重新评估";
+      button.textContent = status.className === "is-error" ? "重试评估" : "重新评估";
     }
   });
 })();
