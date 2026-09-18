@@ -48,9 +48,9 @@ def paraphrase_lines(rows: list[dict[str, Any]]) -> list[str]:
     for row in rows[:MAX_ROWS]:
         lines.append(f"### {row['passage_title']} · 第 {row['number']} 题")
         lines.append("")
-        lines.append(f"- 题干：{row['prompt']}")
-        lines.append(f"- 原文（{row['evidence_label']}）：{row['evidence_quote']}")
-        lines.append(f"- 答案：{row['answer']}")
+        lines.append(f"- {row.get('prompt_label', '题干')}：{row['prompt']}")
+        lines.append(f"- 原文（段落 {row['evidence_label']}）：{row['evidence_quote']}")
+        lines.append(f"- {row.get('answer_label', '答案')}：{row['answer']}")
         if row["form_pairs"]:
             pairs = "；".join(
                 f"{item['prompt']} ≈ {item['quote']}" for item in row["form_pairs"]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
@@ -100,6 +101,20 @@ def test_source_and_text_filters_narrow_the_list(client, vocabulary_unit, novel_
     assert "abandon" not in level.text
 
 
+def test_meaning_and_kind_filters(client, vocabulary_unit, novel_output):
+    without_meaning = client.get("/knowledge?meanings=true&source=novel")
+    assert "abandon" in without_meaning.text
+
+    # 名词短语单独归类，不和固定搭配混在一起
+    kind_page = client.get("/knowledge?kind=phrase")
+    assert kind_page.status_code == 200
+    assert "固定搭配" in kind_page.text  # 选项卡里仍有该视图
+
+    pos_page = client.get("/knowledge?pos=verb")
+    assert pos_page.status_code == 200
+    assert "动词" in pos_page.text
+
+
 def test_pagination_and_view_switch_keep_filters(client, vocabulary_unit, novel_output):
     page = client.get("/knowledge?size=1&sort=alpha")
 
@@ -149,6 +164,53 @@ def test_print_page_drops_site_chrome(client, vocabulary_unit, novel_output):
     assert "/static/print.css" in page.text
     assert "site-header" not in page.text
     assert "abandon" in page.text
+
+
+def test_matching_headings_uses_the_heading_instead_of_the_paragraph_label(
+    client, web_service, vocabulary_unit
+):
+    """匹配标题题的题干只是 "Paragraph A"，真正的考点是「标题 ↔ 原文」的概括关系。"""
+    from app.models import QuestionType
+
+    package = web_service.load_package(vocabulary_unit.id)
+    group = package.question_groups[0]
+    questions = [
+        group.questions[0].model_copy(
+            update={"prompt": "Paragraph A", "answer": "vi"}
+        ),
+        *group.questions[1:],
+    ]
+    updated = package.model_copy(
+        update={
+            "question_groups": [
+                group.model_copy(
+                    update={
+                        "type": QuestionType.MATCHING_HEADINGS,
+                        "instructions": "Match each paragraph with the correct heading.",
+                        "options": [
+                            "i. A narrow escape",
+                            "vi. The discovery of a gruesome object",
+                        ],
+                        "questions": questions,
+                    }
+                ),
+                *package.question_groups[1:],
+            ]
+        }
+    )
+    web_service.store.write_package(vocabulary_unit.id, updated)
+
+    page = client.get("/knowledge?view=paraphrase")
+
+    assert page.status_code == 200
+    assert "标题（选项 vi）" in page.text
+    # 高亮会把短语切成 <mark>，比较前先去标签
+    plain = re.sub(r"<[^>]+>", "", page.text)
+    assert "The discovery of a gruesome object" in plain
+    assert "原文 · 段落" in page.text
+    assert "标题是概括说法" in page.text
+    # 题号仍然是原来那一道，方便跳回套题
+    assert "第 1 题" in page.text
 
 
 def test_nav_links_to_the_knowledge_digest(client):

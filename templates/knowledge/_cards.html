@@ -4,16 +4,17 @@
   <article class="kn-card kn-card-sub">
     <header class="kn-card-head">
       <h3 class="kn-sub-title">{{ note.passage_title }} · 第 {{ note.number }} 题</h3>
+      {% if note.question_type %}<span class="kn-chip">{{ digest.type_labels.get(note.question_type, note.question_type.replace('_', ' ')) }}</span>{% endif %}
       <span class="kn-chip">{{ note.difficulty }}</span>
       <span class="kn-chip kn-chip-hint">{{ note.hint }}</span>
     </header>
     <div class="kn-pair">
       <div class="kn-pair-side kn-sub-side">
-        <p class="kn-pair-label">题干</p>
+        <p class="kn-pair-label">{{ note.prompt_label }}</p>
         <p class="kn-pair-text">{{ note.prompt_html }}</p>
       </div>
       <div class="kn-pair-side kn-src-side">
-        <p class="kn-pair-label">原文 · {{ note.evidence_label }}</p>
+        <p class="kn-pair-label">原文 · 段落 {{ note.evidence_label }}</p>
         <p class="kn-pair-text">{{ note.quote_html }}</p>
       </div>
     </div>
@@ -25,7 +26,7 @@
     {% endif %}
     <details class="kn-detail">
       <summary>答案与解析</summary>
-      <p class="kn-answer">答案：<b>{{ note.answer }}</b></p>
+      <p class="kn-answer">{{ note.answer_label }}：<b>{{ note.answer }}</b></p>
       <p>{{ note.chinese_explanation }}</p>
     </details>
     <footer class="kn-sources">
@@ -60,7 +61,7 @@
     <header class="kn-card-head">
       <h3 class="kn-word">{{ row.headword }}</h3>
       {% if row.phonetic %}<span class="kn-phonetic">{{ row.phonetic }}</span>{% endif %}
-      <span class="kn-chip">{{ row.pos_label }}{% if row.pos_inferred %}（推断）{% endif %}</span>
+      {% if row.pos_label != digest.labels.kinds[row.kind] %}<span class="kn-chip">{{ row.pos_label }}{% if row.pos_inferred %}（推断）{% endif %}</span>{% endif %}
       {% if row.kind != 'word' %}<span class="kn-chip kn-chip-kind">{{ digest.labels.kinds[row.kind] }}</span>{% endif %}
       <span class="kn-level kn-level-{{ row.level|lower }}" title="{{ row.level_reason }}">{{ row.level }}{% if row.level_source == 'heuristic' %}<sup>估</sup>{% endif %}</span>
       {% if row.occurrences >= 2 %}<span class="kn-chip kn-chip-freq">出现 {{ row.occurrences }} 次</span>{% endif %}
@@ -87,7 +88,9 @@
     <footer class="kn-sources">
       {% for source in row.sources %}<a href="{{ source.href }}">{{ source.label }}</a>{% endfor %}
       <span class="kn-counts">
-        阅读 {{ row.source_counts.reading }} 篇 · 小说 {{ row.source_counts.novel }} 次
+        {%- set reading = row.source_counts.reading -%}
+        {%- set novel = row.source_counts.novel -%}
+        {% if reading and novel %}阅读 {{ reading }} 篇 · 小说 {{ novel }} 次{% elif reading %}阅读 {{ reading }} 篇{% elif novel %}小说 {{ novel }} 次{% endif %}
       </span>
     </footer>
   </article>

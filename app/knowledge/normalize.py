@@ -18,8 +18,10 @@ KIND_LABELS = {
     "word": "单词",
     "collocation": "固定搭配",
     "phrasal": "短语动词",
+    "phrase": "短语",
 }
-KIND_ORDER = ("word", "collocation", "phrasal")
+KIND_ORDER = ("word", "collocation", "phrasal", "phrase")
+POS_LABELS = {**POS_GROUPS, "other": "其他"}
 _HINT_TO_LEVEL = {"基础": "B1", "进阶": "B2", "高阶": "C1"}
 _PARTICLES = {
     "about",
@@ -86,8 +88,14 @@ def resolve_level(word: str, cefr: str | None) -> dict[str, str]:
     }
 
 
-def resolve_pos(word: str, part_of_speech: str | None) -> dict[str, Any]:
-    """词性：能识别就用标注，否则按词形推断并标注来源。"""
+def resolve_pos(
+    word: str, part_of_speech: str | None, kind: str = "word"
+) -> dict[str, Any]:
+    """词性：能识别就用标注，否则按词形推断并标注来源。
+
+    多词条目（固定搭配、短语）本身没有词性可归类，就给一个说明性的标签，
+    而不是让页面显示"其他 / 未标注"。
+    """
     declared = (part_of_speech or "").strip()
     group = pos_group(declared)
     inferred = False
@@ -95,29 +103,46 @@ def resolve_pos(word: str, part_of_speech: str | None) -> dict[str, Any]:
         guessed = infer_pos(word)
         group = guessed if guessed != "other" else "other"
         inferred = True
+    if group == "other" and kind != "word":
+        label = _phrase_pos_label(declared, kind)
+    else:
+        label = POS_GROUPS[group]
     return {
         "pos_key": group,
-        "pos_label": POS_GROUPS[group],
+        "pos_label": label,
         "pos_declared": declared,
         "pos_inferred": inferred,
     }
 
 
+def _phrase_pos_label(declared: str, kind: str) -> str:
+    lowered = declared.casefold()
+    if "noun" in lowered:
+        return "名词短语"
+    if kind == "phrasal" or "verb" in lowered:
+        return "短语动词"
+    if kind == "collocation":
+        return "固定搭配"
+    return "短语"
+
+
 def kind_of(word: str, part_of_speech: str | None) -> str:
-    """单词 / 固定搭配 / 短语动词。"""
+    """单词 / 固定搭配 / 短语动词 / 短语。"""
     cleaned = (word or "").strip()
     if not is_phrase(cleaned):
         return "word"
     lowered = cleaned.casefold()
     pieces = lowered.replace("-", " ").split()
     declared = (part_of_speech or "").casefold()
+    if declared.startswith("noun") or " noun" in declared:
+        # 名词性短语（an advanced age、Beijing accent）单独一类，避免和搭配混在一起
+        return "phrase"
     looks_verbal = "verb" in declared or "phrase" not in declared
     if (
         len(pieces) >= 2
         and pieces[-1] in _PARTICLES
         and pieces[0] not in _DETERMINERS
         and looks_verbal
-        and not declared.startswith("noun")
     ):
         return "phrasal"
     return "collocation"

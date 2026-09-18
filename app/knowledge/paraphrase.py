@@ -102,8 +102,17 @@ def question_note(
     evidence_label: str,
     evidence_quote: str,
     chinese_explanation: str,
+    question_type: str = "",
+    prompt_label: str = "题干",
+    answer_label: str = "答案",
+    prompt_raw: str = "",
+    hint_override: str = "",
 ) -> dict[str, Any]:
-    """一条"同义替换"知识点（一道题一条）。"""
+    """一条"同义替换"知识点（一道题一条）。
+
+    ``prompt`` 是真正拿来做对照的文本：匹配标题题的题干本身只是 "Paragraph A"，
+    真正要对照的是选项里的标题，因此由调用方先用 ``prompt_label`` 说明这一侧是什么。
+    """
     alignment = align(prompt, evidence_quote)
     return {
         "unit_id": unit_id,
@@ -111,9 +120,14 @@ def question_note(
         "difficulty": difficulty,
         "number": number,
         "prompt": prompt,
+        "prompt_label": prompt_label,
+        "prompt_raw": prompt_raw or prompt,
         "answer": answer,
+        "answer_label": answer_label,
         "evidence_label": evidence_label,
         "evidence_quote": evidence_quote,
         "chinese_explanation": chinese_explanation,
+        "question_type": question_type,
         **alignment,
+        **({"hint": hint_override} if hint_override else {}),
     }

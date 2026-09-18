@@ -28,6 +28,7 @@ def _filters(
     q: str,
     has_collocation: bool,
     repeats: bool,
+    meanings: bool,
     sort: str,
     size: int,
     page: int,
@@ -41,6 +42,7 @@ def _filters(
         "q": q,
         "has_collocation": has_collocation,
         "repeats": repeats,
+        "meanings": meanings,
         "sort": sort,
         "size": size,
         "page": page,
@@ -56,10 +58,9 @@ def _query_string(filters: dict[str, Any]) -> str:
             pairs.append((key, str(value)))
     if filters.get("q"):
         pairs.append(("q", str(filters["q"])))
-    if filters.get("has_collocation"):
-        pairs.append(("has_collocation", "true"))
-    if filters.get("repeats"):
-        pairs.append(("repeats", "true"))
+    for flag in ("has_collocation", "repeats", "meanings"):
+        if filters.get(flag):
+            pairs.append((flag, "true"))
     if filters.get("size"):
         pairs.append(("size", str(filters["size"])))
     return urlencode(pairs)
@@ -100,6 +101,7 @@ def knowledge_home(
     q: str = "",
     has_collocation: bool = False,
     repeats: bool = False,
+    meanings: bool = False,
     sort: str = "alpha",
     size: int = 0,
     page: int = 1,
@@ -116,6 +118,7 @@ def knowledge_home(
                 q,
                 has_collocation,
                 repeats,
+                meanings,
                 sort,
                 size,
                 page,
@@ -149,6 +152,7 @@ def knowledge_print(
     q: str = "",
     has_collocation: bool = False,
     repeats: bool = False,
+    meanings: bool = False,
     sort: str = "alpha",
     size: int = MAX_PRINT_ROWS,
     page: int = 1,
@@ -165,6 +169,7 @@ def knowledge_print(
                 q,
                 has_collocation,
                 repeats,
+                meanings,
                 sort,
                 min(size or MAX_PRINT_ROWS, MAX_PRINT_ROWS),
                 page,
@@ -194,6 +199,7 @@ def knowledge_markdown(
     q: str = "",
     has_collocation: bool = False,
     repeats: bool = False,
+    meanings: bool = False,
     sort: str = "alpha",
     size: int = 0,
     page: int = 1,
@@ -209,6 +215,7 @@ def knowledge_markdown(
             q,
             has_collocation,
             repeats,
+            meanings,
             sort,
             size,
             page,

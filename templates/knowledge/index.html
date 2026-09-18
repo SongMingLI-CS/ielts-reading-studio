@@ -84,7 +84,7 @@
     <select name="pos">
       <option value="all"{% if filters.pos == 'all' %} selected{% endif %}>全部词性</option>
       {% for pos in digest.options.pos %}
-      <option value="{{ pos }}"{% if filters.pos == pos %} selected{% endif %}>{{ pos }}</option>
+      <option value="{{ pos }}"{% if filters.pos == pos %} selected{% endif %}>{{ digest.labels.pos.get(pos, pos) }}</option>
       {% endfor %}
     </select>
   </label>
@@ -95,6 +95,18 @@
       {% for value, label in digest.labels.sorts.items() %}
       <option value="{{ value }}"{% if filters.sort == value %} selected{% endif %}>{{ label }}</option>
       {% endfor %}
+    </select>
+  </label>
+  {% if digest.view == 'terms' %}
+  <label class="kn-check"><input type="checkbox" name="has_collocation" value="true"{% if filters.has_collocation %} checked{% endif %}> 只看有固定搭配</label>
+  <label class="kn-check"><input type="checkbox" name="repeats" value="true"{% if filters.repeats %} checked{% endif %}> 只看复现 ≥2 次</label>
+  {% endif %}
+  <label class="kn-check"><input type="checkbox" name="meanings" value="true"{% if filters.meanings %} checked{% endif %}> 只看有释义</label>
+  <div class="kn-filter-actions">
+    <button type="submit">应用筛选</button>
+    <a class="kn-reset" href="/knowledge?view={{ digest.view }}">重置</a>
+  </div>
+</form>
 
 <p class="kn-result-line">
   共 <b>{{ digest.pagination.total }}</b> 条{% if digest.pagination.total %}，当前显示第 {{ digest.pagination.range_label }} 条{% endif %}
@@ -155,15 +167,3 @@
 {% block scripts %}
 <script src="/static/knowledge.js?v=1" defer></script>
 {% endblock %}
-
-    </select>
-  </label>
-  {% if digest.view == 'terms' %}
-  <label class="kn-check"><input type="checkbox" name="has_collocation" value="true"{% if filters.has_collocation %} checked{% endif %}> 只看有固定搭配</label>
-  <label class="kn-check"><input type="checkbox" name="repeats" value="true"{% if filters.repeats %} checked{% endif %}> 只看复现 ≥2 次</label>
-  {% endif %}
-  <div class="kn-filter-actions">
-    <button type="submit">应用筛选</button>
-    <a class="kn-reset" href="/knowledge?view={{ digest.view }}">重置</a>
-  </div>
-</form>

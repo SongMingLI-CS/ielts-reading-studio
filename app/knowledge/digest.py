@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .normalize import KIND_LABELS, KIND_ORDER, LEVEL_LABELS, LEVELS
+from .normalize import KIND_LABELS, KIND_ORDER, LEVEL_LABELS, LEVELS, POS_LABELS
 from .novel import load_novel_terms
 from .reading import load_reading_terms
 
@@ -29,6 +29,16 @@ SORT_LABELS = {
     "source": "来源",
 }
 PAGE_SIZES = {"terms": 48, "collocations": 60, "paraphrase": 20}
+TYPE_LABELS = {
+    "matching_headings": "匹配标题",
+    "true_false_not_given": "判断 TRUE/FALSE",
+    "yes_no_not_given": "判断 YES/NO",
+    "matching_information": "信息匹配",
+    "multiple_choice": "选择题",
+    "sentence_completion": "句子填空",
+    "summary_completion": "摘要填空",
+    "short_answer": "简答",
+}
 _LEVEL_RANK = {"C1": 0, "B2": 1, "B1": 2}
 
 
@@ -167,6 +177,7 @@ def filter_terms(
     query: str = "",
     has_collocation: bool = False,
     repeats: bool = False,
+    meanings: bool = False,
 ) -> list[dict[str, Any]]:
     """按页面筛选条过滤（条件之间是"与"关系）。"""
     selected: list[dict[str, Any]] = []
@@ -183,6 +194,8 @@ def filter_terms(
         if level != "all" and row["level"] != level:
             continue
         if pos != "all" and row.get("pos_key") != pos:
+            continue
+        if meanings and not (row.get("meaning") or "").strip():
             continue
         if has_collocation and not row["collocations"]:
             continue
@@ -259,6 +272,7 @@ def matches_note(note: dict[str, Any], query: str) -> bool:
     haystack = " ".join(
         [
             note["prompt"],
+            note.get("prompt_raw", ""),
             note["evidence_quote"],
             note["answer"],
             note["chinese_explanation"],
@@ -291,6 +305,7 @@ def build_digest(service: Any, **options: Any) -> dict[str, Any]:
     query = (options.get("q") or "").strip()
     has_collocation = bool(options.get("has_collocation"))
     repeats = bool(options.get("repeats"))
+    meanings = bool(options.get("meanings"))
     sort = options.get("sort") if options.get("sort") in SORTS else "alpha"
     size = int(options.get("size") or PAGE_SIZES[view])
     page = int(options.get("page") or 1)
@@ -306,12 +321,19 @@ def build_digest(service: Any, **options: Any) -> dict[str, Any]:
                 query=query,
                 has_collocation=has_collocation,
                 repeats=repeats,
+                meanings=meanings,
             ),
             sort,
         )
     elif view == "collocations":
         filtered = sort_terms(
-            filter_terms(collocations, source=source, level=level, query=query),
+            filter_terms(
+                collocations,
+                source=source,
+                level=level,
+                query=query,
+                meanings=meanings,
+            ),
             sort,
         )
     else:
@@ -358,6 +380,7 @@ def build_digest(service: Any, **options: Any) -> dict[str, Any]:
             "q": query,
             "has_collocation": has_collocation,
             "repeats": repeats,
+            "meanings": meanings,
             "sort": sort,
             "size": size,
         },
@@ -374,7 +397,9 @@ def build_digest(service: Any, **options: Any) -> dict[str, Any]:
         "labels": {
             "kinds": KIND_LABELS,
             "levels": LEVEL_LABELS,
+            "pos": POS_LABELS,
             "views": VIEW_LABELS,
             "sorts": SORT_LABELS,
         },
+        "type_labels": TYPE_LABELS,
     }

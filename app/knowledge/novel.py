@@ -105,8 +105,9 @@ def _term_row(
     if not word:
         return None
     key = str(entry.get("lemma") or word).strip().casefold()
+    kind = kind_of(word, entry.get("part_of_speech"))
     level = resolve_level(word, entry.get("cefr"))
-    pos = resolve_pos(word, entry.get("part_of_speech"))
+    pos = resolve_pos(word, entry.get("part_of_speech"), kind)
     first = entry.get("first_chapter")
     first = int(first) if isinstance(first, int) else None
     collocation = str(entry.get("collocation") or "").strip()
@@ -119,7 +120,7 @@ def _term_row(
     return {
         "key": key,
         "headword": word,
-        "kind": kind_of(word, entry.get("part_of_speech")),
+        "kind": kind,
         "phonetic": str(entry.get("phonetic") or "").strip(),
         "meaning": str(entry.get("meaning") or "").strip(),
         "example": str(entry.get("example_sentence") or "").strip(),
