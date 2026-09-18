@@ -10,6 +10,7 @@ from .classify import (
     classify_rows,
     difficulty_hint,
     form_families,
+    infer_pos,
     pos_group,
     related_words,
 )
@@ -24,6 +25,7 @@ __all__ = [
     "difficulty_hint",
     "due_date",
     "form_families",
+    "infer_pos",
     "interval_days",
     "next_box",
     "pos_group",

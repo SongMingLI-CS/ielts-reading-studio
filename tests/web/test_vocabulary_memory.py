@@ -25,6 +25,16 @@ def test_pos_group_maps_common_notations():
     assert pos_group("phrase") == "other"
 
 
+def test_infer_pos_falls_back_to_word_shape():
+    from app.vocabulary import infer_pos
+
+    assert infer_pos("carefully") == "adverb"
+    assert infer_pos("municipal") == "adjective"
+    assert infer_pos("conservation") == "noun"
+    assert infer_pos("modernize") == "verb"
+    assert infer_pos("shovel") == "other"
+
+
 def test_difficulty_hint_uses_length_and_suffix():
     assert difficulty_hint("flux")["level"] == "基础"
     assert difficulty_hint("infrastructure")["level"] == "高阶"
@@ -72,7 +82,10 @@ def test_classify_rows_builds_every_grouping():
     assert len(grouped["by_frequency"][0]["rows"]) == 1
     assert {item["label"] for item in grouped["by_source"]} == {"A", "B", "C"}
     assert grouped["by_pos"]["noun"]["rows"][0]["word"] == "conservation"
-    assert grouped["by_pos"]["other"]["rows"][0]["word"] == "municipal"
+    # 没有标注词性的词条按词形推断（municipal → 形容词），并在页面上标注"推断"
+    assert grouped["by_pos"]["adjective"]["rows"][0]["word"] == "municipal"
+    assert grouped["by_pos"]["adjective"]["rows"][0]["pos_inferred"] is True
+    assert grouped["by_pos"]["adjective"]["rows"][0]["pos_label"] == "形容词"
     assert grouped["families"][0]["stem"] == "conserv"
     assert rows[1]["review_box"] == 2 and rows[1]["seen"] == 3
     assert rows[0]["review_box"] == 0

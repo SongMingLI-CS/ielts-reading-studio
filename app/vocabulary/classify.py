@@ -69,6 +69,23 @@ INFLECTIONS = tuple(
 LEVELS = ("基础", "进阶", "高阶")
 
 
+def infer_pos(word: str) -> str:
+    """没有 part_of_speech 时按词形推断词性（早期数据普遍缺这个字段）。
+
+    只是给分类用，页面上会标注"推断"，不会写回数据库。
+    """
+    letters = re.sub(r"[^a-z]", "", word.strip().casefold())
+    if letters.endswith("ly") and len(letters) > 4:
+        return "adverb"
+    if letters.endswith(("ous", "ive", "al", "ic", "able", "ible", "ful", "less")):
+        return "adjective"
+    if letters.endswith(("tion", "sion", "ment", "ness", "ity", "ance", "ence", "ship")):
+        return "noun"
+    if letters.endswith(("ize", "ise", "ify", "ate")):
+        return "verb"
+    return "other"
+
+
 def pos_group(part_of_speech: str | None) -> str:
     """把 "n." / "adj" / "verb" 之类的标注归到五组之一。"""
     if not part_of_speech:
@@ -164,7 +181,16 @@ def classify_rows(
     by_source: dict[str, list[dict[str, Any]]] = {}
     bands = {"高频复现（≥3 篇）": [], "出现过 2 次": [], "只出现 1 次": []}
     for row in rows:
-        by_pos[pos_group(row.get("part_of_speech"))].append(row)
+        declared = pos_group(row.get("part_of_speech"))
+        if declared == "other" and not (row.get("part_of_speech") or "").strip():
+            inferred = infer_pos(row["word"])
+            row["pos_inferred"] = inferred != "other"
+            row["pos_key"] = inferred if inferred != "other" else "other"
+        else:
+            row["pos_inferred"] = False
+            row["pos_key"] = declared
+        by_pos[row["pos_key"]].append(row)
+        row["pos_label"] = POS_GROUPS[row["pos_key"]]
         hint = difficulty_hint(row["word"])
         row["level"] = hint["level"]
         row["level_reason"] = hint["reason"]

@@ -57,3 +57,74 @@ def test_rejects_markdown_fence_and_placeholder(valid_passage, brief):
     valid_passage.paragraphs[0].text += " ``` TODO: add conclusion"
     report = validate_passage("原文", brief, valid_passage)
     assert {"markdown_fence_present", "unfinished_placeholder"} <= set(report.codes)
+
+
+def test_empty_vocabulary_is_allowed(valid_passage, brief):
+    report = validate_passage("原文", brief, valid_passage)
+
+    assert report.metrics["vocabulary_entries"] == 0
+    assert "vocabulary_too_short" not in report.codes
+
+
+def test_half_filled_vocabulary_is_rejected(valid_passage, brief):
+    """线上出现过：只给 word，其余字段全为 null —— 词汇板块会因此失效。"""
+    from app.models import VocabularyEntry
+
+    valid_passage.vocabulary = [
+        VocabularyEntry(word="carefully"),
+        VocabularyEntry(word="seasonal"),
+    ]
+    report = validate_passage("原文", brief, valid_passage)
+
+    assert {"vocabulary_too_short", "vocabulary_meaning_missing"} <= set(report.codes)
+    assert "vocabulary_pos_missing" in report.codes
+
+
+def test_vocabulary_entries_must_be_real_terms_from_the_passage(valid_passage, brief):
+    from app.models import VocabularyEntry
+
+    valid_passage.vocabulary = [
+        VocabularyEntry(
+            word="not in the passage at all",
+            part_of_speech="n.",
+            chinese_meaning="不存在",
+        ),
+        VocabularyEntry(
+            word="a whole sentence used as a term 2025",
+            part_of_speech="n.",
+            chinese_meaning="句子",
+        ),
+    ]
+    report = validate_passage("原文", brief, valid_passage)
+
+    assert "vocabulary_word_not_in_passage" in report.codes
+    assert "vocabulary_entry_not_a_term" in report.codes
+
+
+def test_complete_vocabulary_passes(valid_passage, brief):
+    from app.models import VocabularyEntry
+
+    words = [
+        ("carefully", "adv.", "小心地"),
+        ("seasonal", "adj.", "季节性的"),
+        ("supplies", "n.", "供给"),
+        ("decline", "v.", "下降"),
+        ("communities", "n.", "社区"),
+        ("manage", "v.", "管理"),
+        ("water", "n.", "水"),
+        ("seasonal supplies", "n.", "季节性供给"),
+    ]
+    valid_passage.vocabulary = [
+        VocabularyEntry(word=word, part_of_speech=pos, chinese_meaning=meaning)
+        for word, pos, meaning in words
+    ]
+    report = validate_passage("原文", brief, valid_passage)
+
+    assert report.metrics["vocabulary_entries"] == 8
+    assert not {
+        "vocabulary_too_short",
+        "vocabulary_meaning_missing",
+        "vocabulary_pos_missing",
+        "vocabulary_word_not_in_passage",
+        "vocabulary_entry_not_a_term",
+    } & set(report.codes)

@@ -1,7 +1,7 @@
 """Versioned role prompts and concrete JSON response examples."""
 
 AUTHOR_BRIEF_PROMPT_VERSION = "3"
-AUTHOR_PASSAGE_PROMPT_VERSION = "5"
+AUTHOR_PASSAGE_PROMPT_VERSION = "6"
 EXAMINER_PROMPT_VERSION = "1"
 
 AUTHOR_BRIEF_SYSTEM = """You are Agent A, the source-grounded passage author.
@@ -25,11 +25,22 @@ and all vocabulary fields in English, even when the source is Chinese. Produce
 700–900 English words in 6–9 paragraphs. This is a hard limit: count and compress
 the complete passage before returning JSON, and never exceed 900 words or 9
 paragraphs. Prefer synthesis over listing every source detail. Each paragraph
-must cite source_ids. Vocabulary entries must use the field name "word".
+must cite source_ids.
+Vocabulary: 10 entries of IELTS-useful English words and two-word collocations
+that actually occur in your passage. Use exactly these keys per entry:
+"word" (single word or short collocation, lowercase unless a real proper noun;
+never a literal translation of a Chinese proper noun), "pronunciation" (IPA
+without slashes), "part_of_speech" (one of "n.", "v.", "adj.", "adv."),
+"chinese_meaning" (simplified Chinese gloss, required), "collocations" (1-2
+short English phrases), "example" (one sentence copied or adapted from your
+passage). Never leave a vocabulary field empty or null.
 Example JSON:
 {"title":"Title","difficulty":"standard","word_count":750,
 "paragraphs":[{"label":"A","text":"Text","source_ids":["f1"]}],
-"vocabulary":[],"source_coverage":{"f1":["A"]},"author_revision":0}
+"vocabulary":[{"word":"porcelain","pronunciation":"ˈpɔːsəlɪn","part_of_speech":"n.",
+"chinese_meaning":"瓷器","collocations":["fine porcelain"],"example":"Traders
+carried porcelain along the river."}],
+"source_coverage":{"f1":["A"]},"author_revision":0}
 """
 
 EXAMINER_REVIEW_SYSTEM = """You are Agent B, an independent IELTS Academic

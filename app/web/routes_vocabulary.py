@@ -93,6 +93,7 @@ def vocabulary_home(
     group: str = "pos",
     scope: str = "saved",
     focus: str | None = None,
+    meanings: str = "all",
 ):
     now = _now()
     rows = _study_rows(service)
@@ -103,6 +104,9 @@ def vocabulary_home(
         scoped = _tracked(rows)
     else:
         scoped = rows
+    if meanings == "with":
+        # 早期生成的词条可能只有 word、没有释义；这类词背不了，但删掉可惜。
+        scoped = [row for row in scoped if (row["chinese_meaning"] or "").strip()]
     grouped = classify_rows(rows)
     selected_group = group if group in GROUPS else "pos"
     due = _due(rows, now)
@@ -132,6 +136,7 @@ def vocabulary_home(
             ],
             "rows": scoped[:80],
             "scope": scope,
+            "meanings": meanings if meanings in {"all", "with"} else "all",
             "totals": {
                 "all": len(rows),
                 "saved": sum(row["status"] == "saved" for row in rows),
@@ -139,6 +144,9 @@ def vocabulary_home(
                 "tracked": len(_tracked(rows)),
                 "due": len(due),
                 "families": len(grouped["families"]),
+                "no_meaning": sum(
+                    not (row["chinese_meaning"] or "").strip() for row in rows
+                ),
             },
             "box_counts": {
                 box: sum(row["review_box"] == box for row in rows)

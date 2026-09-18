@@ -123,12 +123,79 @@ def validate_passage(source_text: str, brief: SourceBrief, passage: ReadingPassa
             )
 
     metrics = _difficulty_metrics(words, full_text)
+    metrics["vocabulary_entries"] = len(passage.vocabulary)
+    _validate_vocabulary(passage, full_text, report)
     return report.build(
         source_coverage=(len(required_ids & covered_ids) / len(required_ids) if required_ids else 1.0),
         passage_word_count=word_count,
         paragraph_count=paragraph_count,
         metrics=metrics,
     )
+
+
+VOCABULARY_MIN_ENTRIES = 8
+
+
+def _validate_vocabulary(
+    passage: ReadingPassage,
+    full_text: str,
+    report: ReportBuilder,
+) -> None:
+    """词汇表是词汇功能的数据源，字段残缺会让整个板块失效。
+
+    线上曾出现只给 ``word``、其余字段全为 null 的情况（模型只看到
+    ``"vocabulary":[]`` 这个示例，没有字段说明），这里把它变成明确的质检项：
+    条数够、词条在原文里出现过、必须有中文释义、不能是专有名词短语。
+    """
+    entries = passage.vocabulary
+    if 0 < len(entries) < VOCABULARY_MIN_ENTRIES:
+        # 空列表不拦（等于"这篇没给词汇"），但给了却给不齐是要返工的。
+        report.add(
+            "vocabulary_too_short",
+            f"Passage lists {len(entries)} vocabulary entries; expected either none "
+            f"or at least {VOCABULARY_MIN_ENTRIES}.",
+        )
+    missing_meaning = [
+        entry.word for entry in entries if not (entry.chinese_meaning or "").strip()
+    ]
+    if missing_meaning:
+        report.add(
+            "vocabulary_meaning_missing",
+            "Every vocabulary entry needs a Chinese meaning.",
+            affected_ids=missing_meaning[:12],
+        )
+    missing_pos = [
+        entry.word for entry in entries if not (entry.part_of_speech or "").strip()
+    ]
+    if missing_pos:
+        report.add(
+            "vocabulary_pos_missing",
+            "Every vocabulary entry needs a part of speech.",
+            affected_ids=missing_pos[:12],
+        )
+    haystack = full_text.casefold()
+    absent = [
+        entry.word
+        for entry in entries
+        if entry.word.strip() and entry.word.strip().casefold() not in haystack
+    ]
+    if absent:
+        report.add(
+            "vocabulary_word_not_in_passage",
+            "Vocabulary entries must appear in the passage.",
+            affected_ids=absent[:12],
+        )
+    unusable = [
+        entry.word
+        for entry in entries
+        if len(entry.word.split()) > 3 or any(ch.isdigit() for ch in entry.word)
+    ]
+    if unusable:
+        report.add(
+            "vocabulary_entry_not_a_term",
+            "Vocabulary entries must be short terms, not sentences or numbered items.",
+            affected_ids=unusable[:12],
+        )
 
 
 def _specific_markers(text: str) -> list[str]:

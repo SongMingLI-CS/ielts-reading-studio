@@ -21,6 +21,7 @@
       <div><strong>{{ totals.due }}</strong><span>今天到期</span></div>
     </div>
     {% if totals.families %}<p class="totals-note">已自动归出 {{ totals.families }} 个同根词族</p>{% endif %}
+    {% if totals.no_meaning %}<p class="totals-note">⚠ {{ totals.no_meaning }} 个词条只有单词、没有释义（早期生成的数据）；重新生成该篇即可补齐</p>{% endif %}
   </aside>
 </section>
 
@@ -69,7 +70,7 @@
   <div class="word-card">
     <div class="word-main">
       {% if focus.pronunciation %}<p class="word-phon">/{{ focus.pronunciation.strip('/') }}/</p>{% endif %}
-      <p class="word-meaning">{{ focus.chinese_meaning or '（暂无释义）' }}</p>
+      <p class="word-meaning">{{ focus.chinese_meaning or '（无释义·早期生成）' }}</p>
       {% if focus.collocations %}<p class="word-meta">搭配：{{ focus.collocations|join('、') }}</p>{% endif %}
       {% if focus.example %}<p class="word-example">{{ focus.example }}</p>{% endif %}
       <p class="word-meta">出自：{{ focus.passages|join('、') }}</p>
@@ -105,9 +106,10 @@
   <header class="config-head">
     <div><h2>词条（{{ rows|length }}）</h2><p>点词看记忆联想；「加入复习」把它排进今天的队列。</p></div>
     <div class="pick-tools">
-      <a class="chip{% if scope == 'saved' %} active{% endif %}" href="/vocabulary?scope=saved&group={{ selected_group }}">已收藏</a>
-      <a class="chip{% if scope == 'tracked' %} active{% endif %}" href="/vocabulary?scope=tracked&group={{ selected_group }}">复习队列</a>
-      <a class="chip{% if scope == 'all' %} active{% endif %}" href="/vocabulary?scope=all&group={{ selected_group }}">全部</a>
+      <a class="chip{% if scope == 'saved' %} active{% endif %}" href="/vocabulary?scope=saved&group={{ selected_group }}&meanings={{ meanings }}">已收藏</a>
+      <a class="chip{% if scope == 'tracked' %} active{% endif %}" href="/vocabulary?scope=tracked&group={{ selected_group }}&meanings={{ meanings }}">复习队列</a>
+      <a class="chip{% if scope == 'all' %} active{% endif %}" href="/vocabulary?scope=all&group={{ selected_group }}&meanings={{ meanings }}">全部</a>
+      <a class="chip{% if meanings == 'with' %} active{% endif %}" href="/vocabulary?scope={{ scope }}&group={{ selected_group }}&meanings={{ 'all' if meanings == 'with' else 'with' }}">{% if meanings == 'with' %}显示全部{% else %}只看有释义{% endif %}</a>
     </div>
   </header>
   {% if rows %}
@@ -118,8 +120,8 @@
         <a class="word-tile-word" href="/vocabulary?scope={{ scope }}&group={{ selected_group }}&focus={{ row.key }}">{{ row.word }}</a>
         <span class="badge">{{ row.level }}</span>
       </header>
-      <p class="word-tile-meaning">{{ row.chinese_meaning or '（暂无释义）' }}</p>
-      <p class="word-meta">{{ row.part_of_speech or '词性未标注' }}{% if row.passage_count > 1 %} · 复现 {{ row.passage_count }} 篇{% endif %}{% if row.review_box %} · 第 {{ row.review_box }} 盒{% endif %}</p>
+      <p class="word-tile-meaning">{{ row.chinese_meaning or '（无释义·早期生成）' }}</p>
+      <p class="word-meta">{{ row.part_of_speech or row.pos_label }}{% if row.pos_inferred %}（按词形推断）{% endif %}{% if row.passage_count > 1 %} · 复现 {{ row.passage_count }} 篇{% endif %}{% if row.review_box %} · 第 {{ row.review_box }} 盒{% endif %}</p>
       <form action="/vocabulary/track" method="post">
         <input type="hidden" name="word" value="{{ row.word }}">
         <input type="hidden" name="scope" value="{{ scope }}">
