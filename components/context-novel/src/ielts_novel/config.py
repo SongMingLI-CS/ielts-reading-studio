@@ -7,7 +7,14 @@ from typing import Any
 
 import yaml
 from dotenv import load_dotenv
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    ValidationError,
+    model_validator,
+)
 
 
 class ConfigurationError(ValueError):
@@ -20,7 +27,7 @@ class DensityConfig(BaseModel):
     max_per_500_chars: int = Field(35, ge=1)
 
     @model_validator(mode="after")
-    def ordered(self) -> "DensityConfig":
+    def ordered(self) -> DensityConfig:
         if not self.min_per_500_chars <= self.target_per_500_chars <= self.max_per_500_chars:
             raise ValueError("density must satisfy min <= target <= max")
         return self
@@ -48,7 +55,7 @@ class AppConfig(BaseModel):
     density: DensityConfig = Field(default_factory=DensityConfig)
 
     @classmethod
-    def load(cls, path: str | Path = "config.yaml", *, require_api_key: bool = False) -> "AppConfig":
+    def load(cls, path: str | Path = "config.yaml", *, require_api_key: bool = False) -> AppConfig:
         config_path = Path(path).resolve()
         load_dotenv(config_path.parent / ".env", override=False)
         try:

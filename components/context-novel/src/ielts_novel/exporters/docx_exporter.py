@@ -4,15 +4,14 @@ import re
 from pathlib import Path
 
 from docx import Document
-from docx.enum.text import WD_BREAK
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
+from docx.enum.text import WD_BREAK
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor
 
 from ielts_novel.models import ConvertedChapter, InsertedTerm
 from ielts_novel.storage.atomic import atomic_save_document
-
 
 PINK = "FCE4EC"
 

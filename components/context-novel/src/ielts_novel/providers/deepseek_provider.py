@@ -4,7 +4,7 @@ import json
 import logging
 import random
 import time
-from typing import Callable
+from collections.abc import Callable
 
 from openai import OpenAI
 from pydantic import ValidationError
@@ -12,8 +12,16 @@ from pydantic import ValidationError
 from ielts_novel.config import AppConfig, redact_secrets
 from ielts_novel.models import Chapter, ConvertedChapter, VocabularyItem
 from ielts_novel.prompts import SYSTEM_PROMPT, build_user_prompt
-from ielts_novel.providers.base import EmptyResponseError, InvalidResponseError, ModelProvider, ProviderAuthError, ProviderBillingError, ProviderError, ProviderRateLimitError, ProviderResult
-
+from ielts_novel.providers.base import (
+    EmptyResponseError,
+    InvalidResponseError,
+    ModelProvider,
+    ProviderAuthError,
+    ProviderBillingError,
+    ProviderError,
+    ProviderRateLimitError,
+    ProviderResult,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -89,7 +97,7 @@ class DeepSeekProvider(ModelProvider):
                 if attempt >= self.config.max_retries:
                     if status == 429:
                         raise ProviderRateLimitError("DeepSeek rate limit persisted after retries") from None
-                    raise exc
+                    raise
                 delay = min(32, 2 ** (attempt + 1)) + self.jitter()
                 LOGGER.warning("DeepSeek request retry %s after %s", attempt + 1, redact_secrets(type(exc).__name__))
                 self.sleeper(delay)
@@ -123,7 +131,9 @@ class DeepSeekProvider(ModelProvider):
         try:
             response = self.client.models.list()
             return response is not None
-        except Exception as exc:
+        # The OpenAI SDK raises transport/TLS/timeout errors that share no common base class,
+        # so this boundary has to catch broadly and re-raise a classified, redacted error.
+        except Exception as exc:  # noqa: BLE001 - provider boundary normalises SDK failures
             status = getattr(exc, "status_code", None)
             if status == 401:
                 raise ProviderAuthError("DeepSeek authentication failed") from None

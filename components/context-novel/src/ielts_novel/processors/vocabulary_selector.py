@@ -71,7 +71,7 @@ class VocabularySelector:
             return pool
         buckets: list[list[VocabularyItem]] = []
         used: set[str] = set()
-        for category, category_ratio in CATEGORY_RATIOS.items():
+        for category in CATEGORY_RATIOS:
             for cefr, cefr_ratio in CEFR_RATIOS.items():
                 bucket = [item for item in pool if item.cefr == cefr and item.category == category]
                 if bucket:

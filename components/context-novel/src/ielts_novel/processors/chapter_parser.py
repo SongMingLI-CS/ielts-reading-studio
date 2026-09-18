@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from bs4 import BeautifulSoup
@@ -11,7 +11,6 @@ from docx import Document
 from ebooklib import ITEM_DOCUMENT, epub
 
 from ielts_novel.models import Chapter, Paragraph
-
 
 _CN_NUMBER = "0-9〇零一二三四五六七八九十百千万两"
 CHAPTER_TITLE_RE = re.compile(

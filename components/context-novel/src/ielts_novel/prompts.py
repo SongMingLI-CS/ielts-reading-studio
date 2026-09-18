@@ -6,7 +6,6 @@ import re
 
 from ielts_novel.models import Chapter, VocabularyItem
 
-
 SYSTEM_PROMPT = """你是一名中文小说编辑和雅思词汇教学专家。
 你的任务是在不改变剧情、人物关系、叙事视角和段落结构的前提下，把适合当前语境的中文词语自然替换为英文雅思词汇或短语。
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from ielts_novel.storage.atomic import atomic_write_text
@@ -39,7 +39,7 @@ class ProgressStore:
             self.connection.commit()
 
     def claim(self, chapter_id: int, *, allow_failed: bool = True) -> bool:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         with self.connection:
             row = self.connection.execute("SELECT status FROM chapter_progress WHERE chapter_id=?", (chapter_id,)).fetchone()
             if row and row[0] == "completed":
@@ -61,7 +61,7 @@ class ProgressStore:
         self._set(chapter_id, "failed", 0, error_type)
 
     def _set(self, chapter_id: int, status: str, inserted_count: int, error_type: str | None) -> None:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         with self.connection:
             self.connection.execute(
                 "INSERT INTO chapter_progress(chapter_id,status,inserted_count,error_type,updated_at) VALUES(?,?,?,?,?) "
@@ -88,7 +88,7 @@ class ProgressStore:
                 "completed": self.completed_ids(),
                 "failed": self.failed_ids(),
                 "running": self._ids("running"),
-                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(UTC).isoformat(),
             }
             atomic_write_text(
                 self.snapshot_path,

@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
-
-from ielts_novel.models import ConvertedChapter, ConvertedParagraph, InsertedTerm
 from ielts_novel.exporters.txt_exporter import export_chapters_txt, render_chapters_txt
+from ielts_novel.models import ConvertedChapter, ConvertedParagraph, InsertedTerm
 
 
 def _chapter(chapter_id: int, title: str, texts: list[str]) -> ConvertedChapter:

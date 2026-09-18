@@ -24,4 +24,12 @@ where = [".", "components/context-novel/src"]
 include = ["app*", "ielts_novel*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# Both suites run from the repository root so a single offline command covers the
+# application and the bundled context-novel component.
+testpaths = ["tests", "components/context-novel/tests"]
+
+[tool.ruff]
+# Syntax-level target for the whole repository; `requires-python` already pins 3.12+,
+# this makes the modernisation rules (e.g. `datetime.UTC`) deterministic in CI.
+target-version = "py312"
+

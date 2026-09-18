@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from ielts_novel.models import VocabularyItem
-from ielts_novel.processors.vocabulary_selector import VocabularyCatalogError, VocabularySelector, validate_catalog
+from ielts_novel.processors.vocabulary_selector import (
+    VocabularyCatalogError,
+    VocabularySelector,
+    validate_catalog,
+)
 
 
 def _items(count=100):

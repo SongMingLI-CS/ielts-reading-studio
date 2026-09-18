@@ -3,7 +3,13 @@ from __future__ import annotations
 import json
 
 from ielts_novel.models import VocabularyItem
-from ielts_novel.processors.vocabulary_builder import CATEGORY_RATIOS, CEFR_RATIOS, VocabularyBuilder, build_buckets, fill_phonetics
+from ielts_novel.processors.vocabulary_builder import (
+    CATEGORY_RATIOS,
+    CEFR_RATIOS,
+    VocabularyBuilder,
+    build_buckets,
+    fill_phonetics,
+)
 
 
 class FakeProvider:
@@ -125,7 +131,6 @@ def test_builder_keeps_going_when_a_batch_fails(tmp_path):
 
 
 def test_fill_phonetics_only_touches_items_without_phonetic():
-    from ielts_novel.processors.vocabulary_builder import fill_phonetics
 
     class PhoneticProvider:
         def __init__(self):

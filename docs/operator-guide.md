@@ -78,7 +78,7 @@ SQLite WAL 模式下备份时应同时复制可能存在的 `state.db-wal` 和 `
 - `agent_schema_error`：模型 JSON 不符合 Pydantic 契约，错误会脱敏并保存。
 - `needs_review`：达到返工上限；先检查 `failed/` 与 `reports/`，不要盲目重跑。
 
-运行 `scripts/verify.ps1` 可确认本地代码、依赖和离线路径完整。真实样篇之前还应核对 DeepSeek 官方当前模型名与价格，并保持模型名由配置提供。
+运行 `scripts/verify.sh`（macOS / Linux）或 `scripts/verify.ps1`（Windows）可确认本地代码、依赖和离线路径完整：两个测试套件、`app/` 与组件源码的字节编译、四处 Ruff 检查与 CLI 帮助烟雾测试。真实样篇之前还应核对 DeepSeek 官方当前模型名与价格，并保持模型名由配置提供。
 
 ## 9. 远程部署（服务器）
 

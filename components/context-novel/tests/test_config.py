@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 
 import pytest
-
 from ielts_novel.config import AppConfig, ConfigurationError, redact_secrets
 
 

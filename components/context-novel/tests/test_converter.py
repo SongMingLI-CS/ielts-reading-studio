@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import string
-from dataclasses import replace
 
 from ielts_novel.models import Chapter, ConvertedChapter, ConvertedParagraph, Paragraph
-from ielts_novel.processors.chapter_converter import ChapterConverter, ChapterConversionError
+from ielts_novel.processors.chapter_converter import (
+    ChapterConversionError,
+    ChapterConverter,
+)
 from ielts_novel.providers.base import ProviderResult
 
 

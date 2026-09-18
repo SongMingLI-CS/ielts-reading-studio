@@ -3,17 +3,25 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-
 from pathlib import Path
 
 from ielts_novel.batch import BatchRunner
-from ielts_novel.config import AppConfig, ConfigurationError
+from ielts_novel.config import AppConfig, ConfigurationError, redact_secrets
 from ielts_novel.exporters.txt_exporter import export_chapters_txt, load_chapters
-from ielts_novel.orchestrator import build_volume, enforce_run_limits, estimate_dry_run, process_single_chapter
-from ielts_novel.processors.chapter_parser import ChapterDetectionError, parse_novel, write_detection_report
+from ielts_novel.orchestrator import (
+    build_volume,
+    enforce_run_limits,
+    estimate_dry_run,
+    process_single_chapter,
+)
+from ielts_novel.processors.chapter_parser import (
+    ChapterDetectionError,
+    parse_novel,
+    write_detection_report,
+)
 from ielts_novel.processors.vocabulary_builder import VocabularyBuilder
-from ielts_novel.providers.deepseek_provider import DeepSeekProvider
 from ielts_novel.processors.vocabulary_selector import validate_catalog
+from ielts_novel.providers.deepseek_provider import DeepSeekProvider
 from ielts_novel.storage.progress_store import ProgressStore
 
 
@@ -122,8 +130,8 @@ def main(argv: list[str] | None = None) -> int:
         summary = runner.run_concurrent(ids) if config.concurrency > 1 else runner.run(ids)
         print(json.dumps(summary.as_dict(), ensure_ascii=False))
         return 0 if not summary.failed else 1
-    except Exception as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001 - CLI boundary: any failure is reported as exit code 2
+        print(f"ERROR: {redact_secrets(str(exc))}", file=sys.stderr)
         return 2
 
 

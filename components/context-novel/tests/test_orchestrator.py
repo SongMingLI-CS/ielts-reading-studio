@@ -3,8 +3,19 @@ from __future__ import annotations
 import json
 
 from ielts_novel.config import AppConfig
-from ielts_novel.models import Chapter, ConvertedChapter, ConvertedParagraph, InsertedTerm, Paragraph, VocabularyItem
-from ielts_novel.orchestrator import convert_chunk_with_fallback, process_single_chapter, split_chapter
+from ielts_novel.models import (
+    Chapter,
+    ConvertedChapter,
+    ConvertedParagraph,
+    InsertedTerm,
+    Paragraph,
+    VocabularyItem,
+)
+from ielts_novel.orchestrator import (
+    convert_chunk_with_fallback,
+    process_single_chapter,
+    split_chapter,
+)
 from ielts_novel.processors.quality_checker import QualityChecker
 from ielts_novel.providers.base import ProviderResult
 
@@ -102,7 +113,11 @@ def test_term_glued_to_chinese_is_still_found_in_text():
 
 def test_deterministic_top_up_never_breaks_the_per_sentence_cap():
     from ielts_novel.orchestrator import deterministic_top_up
-    from ielts_novel.processors.term_extractor import extract_occurrences, group_by_sentence, sentence_spans
+    from ielts_novel.processors.term_extractor import (
+        extract_occurrences,
+        group_by_sentence,
+        sentence_spans,
+    )
 
     source = Chapter(chapter_id=1, chapter_title="第一章", paragraphs=[Paragraph(id="1-001", text="他凝视着远方，心中有些紧张。" * 8)])
     terms = [InsertedTerm(word=word, lemma=word, meaning="义", part_of_speech="noun", cefr="B2") for word in ("alpha", "beta", "gamma")]

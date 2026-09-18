@@ -8,7 +8,6 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from ielts_novel.models import VocabularyItem
 from ielts_novel.storage.atomic import atomic_save_workbook
 
-
 HEADERS = ["单词或短语", "lemma", "音标", "词性", "中文释义", "CEFR等级", "IELTS类别", "常用搭配", "原创例句", "本书累计出现次数"]
 
 

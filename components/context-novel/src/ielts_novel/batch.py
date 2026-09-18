@@ -5,7 +5,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from ielts_novel.config import AppConfig
@@ -162,7 +162,7 @@ class BatchRunner:
 
     def _write_check_report(self, summary: BatchSummary, done: int, started: float, *, final: bool = False) -> Path:
         report = {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "chapters_processed": done,
             "success": len(summary.completed),
             "failed": len(summary.failed),

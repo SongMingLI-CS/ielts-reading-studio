@@ -5,8 +5,11 @@ import json
 import pytest
 from docx import Document
 from ebooklib import epub
-
-from ielts_novel.processors.chapter_parser import ChapterDetectionError, parse_novel, write_detection_report
+from ielts_novel.processors.chapter_parser import (
+    ChapterDetectionError,
+    parse_novel,
+    write_detection_report,
+)
 
 
 @pytest.mark.parametrize(

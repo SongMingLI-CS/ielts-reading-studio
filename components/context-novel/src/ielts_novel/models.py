@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -85,7 +85,7 @@ class VocabularyItem(InsertedTerm):
 class UsageRecord(BaseModel):
     chapter_id: int
     model: str
-    request_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    request_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
     input_tokens: int = 0
     output_tokens: int = 0
     retry_count: int = 0

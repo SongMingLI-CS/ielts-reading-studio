@@ -3,12 +3,16 @@ from __future__ import annotations
 from zipfile import ZipFile
 
 from docx import Document
-from openpyxl import load_workbook
-
 from ielts_novel.exporters.docx_exporter import export_chapter_docx, export_volume_docx
 from ielts_novel.exporters.html_exporter import export_chapter_html, export_index_html
 from ielts_novel.exporters.xlsx_exporter import export_glossary_xlsx
-from ielts_novel.models import ConvertedChapter, ConvertedParagraph, InsertedTerm, VocabularyItem
+from ielts_novel.models import (
+    ConvertedChapter,
+    ConvertedParagraph,
+    InsertedTerm,
+    VocabularyItem,
+)
+from openpyxl import load_workbook
 
 
 def _chapter():

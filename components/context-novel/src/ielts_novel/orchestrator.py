@@ -4,22 +4,41 @@ import json
 import math
 import re
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from ielts_novel.config import AppConfig
 from ielts_novel.exporters.docx_exporter import export_chapter_docx, export_volume_docx
 from ielts_novel.exporters.html_exporter import export_chapter_html, export_index_html
 from ielts_novel.exporters.xlsx_exporter import export_glossary_xlsx
-from ielts_novel.models import Chapter, ConvertedChapter, InsertedTerm, UsageRecord, VocabularyItem
-from ielts_novel.processors.chapter_converter import ChapterConverter, ChapterConversionError
+from ielts_novel.models import (
+    Chapter,
+    ConvertedChapter,
+    InsertedTerm,
+    UsageRecord,
+    VocabularyItem,
+)
+from ielts_novel.processors.chapter_converter import (
+    ChapterConversionError,
+    ChapterConverter,
+)
 from ielts_novel.processors.quality_checker import QualityChecker
-from ielts_novel.processors.term_extractor import build_lookup, collect_annotations, extract_occurrences, merge_lookup, normalize_chapter, paragraph_lookup, repair_chapter_stacking, revert_last_occurrence, sentence_spans
+from ielts_novel.processors.term_extractor import (
+    build_lookup,
+    collect_annotations,
+    extract_occurrences,
+    merge_lookup,
+    normalize_chapter,
+    paragraph_lookup,
+    repair_chapter_stacking,
+    revert_last_occurrence,
+    sentence_spans,
+)
 from ielts_novel.processors.vocabulary_selector import VocabularySelector
 from ielts_novel.providers.base import ModelProvider
+from ielts_novel.storage.atomic import atomic_write_text
 from ielts_novel.storage.glossary_store import GlossaryStore
 from ielts_novel.storage.progress_store import ProgressStore
-from ielts_novel.storage.atomic import atomic_write_text
 
 MINIMUM_DENSITY_PER_500 = 20
 TARGET_DENSITY_PER_500 = 28
@@ -103,7 +122,7 @@ def _write_usage(path: Path, records) -> None:
         current["input_tokens"] += record.input_tokens
         current["output_tokens"] += record.output_tokens
         current["requests"].append(record.model_dump(mode="json"))
-    current["updated_at"] = datetime.now(timezone.utc).isoformat()
+    current["updated_at"] = datetime.now(UTC).isoformat()
     atomic_write_text(path, json.dumps(current, ensure_ascii=False, indent=2))
 
 

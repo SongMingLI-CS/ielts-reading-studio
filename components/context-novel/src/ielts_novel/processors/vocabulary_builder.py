@@ -8,7 +8,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ielts_novel.models import VocabularyItem
-from ielts_novel.processors.vocabulary_selector import CATEGORY_RATIOS, CEFR_RATIOS, LOW_VALUE
+from ielts_novel.processors.vocabulary_selector import (
+    CATEGORY_RATIOS,
+    CEFR_RATIOS,
+    LOW_VALUE,
+)
 from ielts_novel.providers.base import ModelProvider
 
 CATEGORY_LABELS = {

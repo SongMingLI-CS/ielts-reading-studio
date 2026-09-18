@@ -2,8 +2,17 @@ from __future__ import annotations
 
 import string
 
-from ielts_novel.models import Chapter, ConvertedChapter, ConvertedParagraph, InsertedTerm, Paragraph
-from ielts_novel.processors.quality_checker import QualityChecker, repair_english_stacking
+from ielts_novel.models import (
+    Chapter,
+    ConvertedChapter,
+    ConvertedParagraph,
+    InsertedTerm,
+    Paragraph,
+)
+from ielts_novel.processors.quality_checker import (
+    QualityChecker,
+    repair_english_stacking,
+)
 
 
 def _source(chars=500):

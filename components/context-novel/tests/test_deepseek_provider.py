@@ -5,10 +5,15 @@ import logging
 from types import SimpleNamespace
 
 import pytest
-
-from ielts_novel.config import AppConfig, ConfigurationError
+from ielts_novel.config import AppConfig
 from ielts_novel.models import Chapter, Paragraph
-from ielts_novel.providers.base import EmptyResponseError, InvalidResponseError, ProviderAuthError, ProviderBillingError, ProviderRateLimitError
+from ielts_novel.providers.base import (
+    EmptyResponseError,
+    InvalidResponseError,
+    ProviderAuthError,
+    ProviderBillingError,
+    ProviderRateLimitError,
+)
 from ielts_novel.providers.deepseek_provider import DeepSeekProvider
 
 
@@ -139,7 +144,8 @@ def test_rate_limit_exhaustion_has_safe_error():
 def test_secret_never_appears_in_logs(caplog):
     caplog.set_level(logging.DEBUG)
     provider, _ = _provider([ApiError(500), ApiError(500), ApiError(500)])
-    with pytest.raises(Exception):
+    # Three 500s exhaust max_retries, so the provider re-raises the final SDK error unchanged.
+    with pytest.raises(ApiError):
         provider.generate_chapter(_chapter(), [], [])
     assert "sk-test-secret" not in caplog.text
 

@@ -4,7 +4,14 @@ import json
 
 from ielts_novel.batch import BatchRunner, format_status
 from ielts_novel.config import AppConfig
-from ielts_novel.models import Chapter, ConvertedChapter, ConvertedParagraph, InsertedTerm, Paragraph, VocabularyItem
+from ielts_novel.models import (
+    Chapter,
+    ConvertedChapter,
+    ConvertedParagraph,
+    InsertedTerm,
+    Paragraph,
+    VocabularyItem,
+)
 from ielts_novel.providers.base import ProviderResult
 
 
@@ -37,7 +44,14 @@ def _chapters(count: int) -> list[Chapter]:
 
 
 def _config(tmp_path, **overrides) -> AppConfig:
-    defaults = dict(output_dir=tmp_path / "output", batch_confirmed=True, max_chapters_per_run=50, concurrency=1, check_report_every=20, volume_size=50)
+    defaults = {
+        "output_dir": tmp_path / "output",
+        "batch_confirmed": True,
+        "max_chapters_per_run": 50,
+        "concurrency": 1,
+        "check_report_every": 20,
+        "volume_size": 50,
+    }
     defaults.update(overrides)
     return AppConfig(**defaults)
 

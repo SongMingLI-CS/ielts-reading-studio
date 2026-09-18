@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 from ielts_novel.models import ConvertedChapter, ConvertedParagraph, InsertedTerm
-from ielts_novel.processors.term_extractor import build_lookup, extract_occurrences, normalize_chapter, repair_chapter_stacking
+from ielts_novel.processors.term_extractor import (
+    build_lookup,
+    extract_occurrences,
+    normalize_chapter,
+    repair_chapter_stacking,
+)
 
 CATALOG = [
     InsertedTerm(word="conceal", lemma="conceal", meaning="掩饰", part_of_speech="verb", cefr="B2", phonetic="/kənˈsiːl/"),

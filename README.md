@@ -192,8 +192,18 @@ HTML 是不依赖网络的单文件，交卷前界面不暴露答案。DOCX 单�
 
 ## 验证
 
+一个命令跑完全部离线门禁：两个测试套件（`tests/` 与 `components/context-novel/tests/`）、
+`app/` 与组件源码的字节编译、四处 Ruff 检查、CLI 帮助烟雾测试。不需要 API Key，
+也不会访问网络——`tests/conftest.py` 会直接拦截任何非回环连接与 DNS 解析。
+
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\verify.ps1
+powershell -ExecutionPolicy Bypass -File scripts\verify.ps1   # Windows
 ```
 
-该脚本运行完整测试、语法编译、Ruff 和 CLI 帮助烟雾测试，不需要 API Key。更详细的恢复、备份和状态说明见 [运维指南](docs/operator-guide.md)。
+```bash
+bash scripts/verify.sh                                        # macOS / Linux
+```
+
+当前基线：**480 passed**（主项目 361 + 情境小说组件 119）、Ruff 全仓零告警。CI
+（`.github/workflows/ci.yml`）在 Python 3.12 与 3.13 上执行同一条命令，并且不配置任何密钥。
+更详细的恢复、备份和状态说明见 [运维指南](docs/operator-guide.md)。

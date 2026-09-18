@@ -1,12 +1,22 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from pathlib import Path
 
-from ielts_novel.models import Chapter, ConvertedChapter, InsertedTerm, Paragraph, UsageRecord, VocabularyItem
+from ielts_novel.models import (
+    Chapter,
+    ConvertedChapter,
+    InsertedTerm,
+    Paragraph,
+    UsageRecord,
+    VocabularyItem,
+)
 from ielts_novel.processors.quality_checker import QualityChecker, QualityReport
-from ielts_novel.processors.term_extractor import build_lookup, normalize_chapter, repair_chapter_stacking
+from ielts_novel.processors.term_extractor import (
+    build_lookup,
+    normalize_chapter,
+    repair_chapter_stacking,
+)
 from ielts_novel.providers.base import ModelProvider, ProviderResult
 
 
