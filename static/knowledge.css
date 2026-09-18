@@ -1,0 +1,285 @@
+/* 知识点手册：为"读"而不是为"刷"排版。
+   正文用衬线体、例句给足行距与左右留白，界面控件才用无衬线体。 */
+
+.kn-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+  padding: 1.75rem 1.9rem;
+  background: linear-gradient(150deg, #f6f4ec 0%, #eef4f0 62%, #e7f0ec 100%);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+}
+.kn-hero-copy h1 { margin: .2rem 0 .9rem; }
+.kn-hero-copy .lead { max-width: 46rem; }
+.kn-hero-actions { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: 1.15rem; }
+.kn-hero-actions .button { font-size: .9rem; padding: .6rem .95rem; }
+.kn-hero-actions .ghost {
+  background: #ffffffcc;
+  color: var(--forest);
+  border: 1px solid #c9d8d1;
+}
+.kn-totals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .7rem;
+  margin: 0;
+}
+.kn-totals > div {
+  background: #fffffff2;
+  border: 1px solid #dbe4df;
+  border-radius: .7rem;
+  padding: .7rem .85rem;
+}
+.kn-totals dt { font-size: .78rem; letter-spacing: .04em; color: #4b6e66; font-weight: 700; }
+.kn-totals dd { font: 700 1.7rem/1.1 Georgia, "Songti SC", serif; margin: .25rem 0 .15rem; }
+.kn-totals small { display: block; color: #6b7772; font-size: .74rem; line-height: 1.45; }
+.kn-totals-note { grid-column: 1 / -1; color: #586662; font-size: .82rem; margin: 0; }
+
+.kn-note {
+  margin: 1.15rem 0 0;
+  padding: .8rem 1rem;
+  background: #fff9ea;
+  border: 1px solid #dcc48c;
+  border-radius: .6rem;
+  font-size: .9rem;
+}
+.kn-note code, .kn-foot-note code { background: #ffffffb0; padding: .05rem .3rem; border-radius: .25rem; }
+
+/* 视图切换 */
+.kn-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin: 1.9rem 0 1.1rem;
+}
+.kn-view {
+  display: inline-flex;
+  align-items: baseline;
+  gap: .5rem;
+  padding: .58rem 1.05rem;
+  border-radius: 2rem;
+  border: 1px solid #cfdad4;
+  background: #ffffff;
+  color: #2c4a43;
+  text-decoration: none;
+  font-weight: 650;
+}
+.kn-view-count {
+  font-size: .76rem;
+  font-weight: 700;
+  color: #5b6f69;
+  background: #eef2ef;
+  border-radius: 2rem;
+  padding: .12rem .5rem;
+}
+.kn-view.active {
+  background: var(--forest);
+  border-color: var(--forest);
+  color: #fff;
+  box-shadow: 0 8px 20px #123c3522;
+}
+.kn-view.active .kn-view-count { background: #ffffff2e; color: #fff; }
+.kn-view:hover { transform: translateY(-1px); }
+
+/* 筛选条 */
+.kn-filter {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: .7rem 1rem;
+  align-items: end;
+  padding: .95rem 1.1rem;
+  background: #fbfbf8f2;
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--line);
+  border-radius: .8rem;
+}
+.kn-filter label { margin: 0; font-size: .8rem; font-weight: 700; color: #4b6e66; }
+.kn-filter label > span { display: block; margin-bottom: .28rem; }
+.kn-filter input, .kn-filter select { margin: 0; max-width: none; padding: .5rem .55rem; font-size: .9rem; }
+.kn-search { grid-column: span 2; }
+.kn-filter .kn-check {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  font-weight: 600;
+  color: #3d534d;
+  padding-bottom: .5rem;
+}
+.kn-filter .kn-check input { width: auto; margin: 0; }
+.kn-filter-actions { display: flex; align-items: center; gap: .7rem; padding-bottom: .15rem; }
+.kn-filter-actions button { padding: .55rem 1rem; }
+.kn-reset { color: #4b6e66; font-size: .85rem; }
+
+.kn-result-line { margin: 1.2rem 0 .5rem; color: #4c5b56; font-size: .92rem; }
+.kn-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem 1.1rem;
+  margin: 0 0 1.4rem;
+  font-size: .82rem;
+  color: #55635e;
+}
+.kn-legend-hint { color: #7b8783; }
+
+
+/* 条目列表：宽屏两列，窄屏一列 */
+.kn-list { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
+@media (min-width: 1080px) {
+  .kn-list-terms, .kn-list-colloc { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.kn-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: .8rem;
+  padding: 1.1rem 1.25rem 1rem;
+  break-inside: avoid;
+}
+.kn-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .45rem .6rem;
+  margin-bottom: .5rem;
+}
+.kn-word, .kn-phrase, .kn-sub-title {
+  margin: 0;
+  font-family: Georgia, "Songti SC", "Times New Roman", serif;
+  font-size: 1.5rem;
+  line-height: 1.2;
+  letter-spacing: .01em;
+}
+.kn-phrase { font-size: 1.32rem; }
+.kn-sub-title { font-size: 1.05rem; font-family: inherit; font-weight: 700; }
+.kn-phonetic { color: #6d7a75; font-size: .9rem; font-family: Georgia, serif; }
+.kn-chip {
+  font-size: .74rem;
+  font-weight: 700;
+  color: #31524a;
+  background: #eaf1ee;
+  border-radius: 2rem;
+  padding: .18rem .55rem;
+  white-space: nowrap;
+}
+.kn-chip-kind { background: #e7eefb; color: #2f4a76; }
+.kn-chip-freq { background: #fdf0e3; color: #8a5525; }
+.kn-chip-hint { background: #f4ecfb; color: #5b3f7d; font-weight: 600; }
+.kn-level {
+  font-size: .74rem;
+  font-weight: 800;
+  border-radius: .3rem;
+  padding: .16rem .45rem;
+  border: 1px solid transparent;
+}
+.kn-level sup { font-size: .58rem; font-weight: 700; margin-left: .1rem; }
+.kn-level-b1 { background: #e8f4ea; color: #2c6b3e; border-color: #c8e2cf; }
+.kn-level-b2 { background: #e9eff8; color: #2f4f85; border-color: #ccdaee; }
+.kn-level-c1 { background: #f3ecf9; color: #5b3f7d; border-color: #ddd0ee; }
+
+.kn-meaning { font-size: 1rem; color: #2b3a36; margin: .1rem 0 .6rem; line-height: 1.6; }
+.kn-meaning-empty { color: #8a7a55; font-size: .9rem; }
+.kn-collocs { display: flex; flex-wrap: wrap; gap: .35rem; margin: 0 0 .7rem; }
+.kn-colloc {
+  font-family: Georgia, serif;
+  font-size: .88rem;
+  background: #f4f7f5;
+  border: 1px dashed #c6d5ce;
+  border-radius: .45rem;
+  padding: .22rem .5rem;
+  color: #24443c;
+}
+.kn-example {
+  margin: 0 0 .7rem;
+  padding: .55rem 0 .55rem .85rem;
+  border-left: 3px solid #cfe0d8;
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 1rem;
+  line-height: 1.72;
+  color: #23302c;
+}
+.kn-contexts { margin: 0 0 .7rem; font-size: .88rem; color: #45524e; display: flex; flex-wrap: wrap; gap: .3rem .9rem; }
+.kn-contexts-label { font-weight: 700; color: #4b6e66; }
+.kn-context small { color: #8b9691; }
+.kn-arrow { color: #9aa5a1; }
+
+
+.kn-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem .8rem;
+  align-items: center;
+  padding-top: .55rem;
+  border-top: 1px solid #eef1ee;
+  font-size: .8rem;
+}
+.kn-sources a { color: #1d6658; text-decoration: none; border-bottom: 1px dotted #9dbfb5; }
+.kn-sources a:hover { border-bottom-style: solid; }
+.kn-counts { color: #7b8783; margin-left: auto; }
+.kn-owner { margin: 0 0 .55rem; font-size: .86rem; color: #4c5b56; }
+.kn-owner a { color: #1d6658; }
+
+/* 高亮：低饱和，打印时不会变成一片荧光 */
+mark.kw { background: #fdf3c9; color: inherit; padding: 0 .12em; border-radius: .2rem; }
+mark.kw-coll { background: #dff0e8; color: inherit; padding: 0 .12em; border-radius: .2rem; }
+mark.kw-sub { background: #fbe4e2; color: inherit; padding: 0 .12em; border-radius: .2rem; }
+mark.kw-src { background: #d9edf0; color: inherit; padding: 0 .12em; border-radius: .2rem; }
+
+/* 同义替换：题干与原文并排 */
+.kn-pair { display: grid; gap: .7rem; grid-template-columns: 1fr; }
+@media (min-width: 760px) { .kn-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kn-pair-side { border-radius: .6rem; padding: .7rem .85rem; }
+.kn-sub-side { background: #fdf6f5; border: 1px solid #f0dcd9; }
+.kn-src-side { background: #f2fafb; border: 1px solid #d5e9ec; }
+.kn-pair-label { margin: 0 0 .3rem; font-size: .74rem; font-weight: 800; letter-spacing: .05em; color: #5d6c68; text-transform: uppercase; }
+.kn-pair-text { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 1rem; line-height: 1.7; }
+.kn-forms { margin: .7rem 0 .2rem; display: flex; flex-wrap: wrap; gap: .3rem .5rem; align-items: center; font-size: .84rem; }
+.kn-forms-label { font-weight: 700; color: #4b6e66; }
+.kn-form-pair { background: #f5f5f0; border: 1px solid #e2e2d8; border-radius: .4rem; padding: .15rem .45rem; font-family: Georgia, serif; }
+.kn-detail { margin: .55rem 0 .35rem; font-size: .9rem; }
+.kn-detail summary { cursor: pointer; color: #1d6658; font-weight: 650; }
+.kn-detail p { margin: .45rem 0 0; line-height: 1.65; }
+.kn-answer b { font-family: Georgia, serif; }
+
+.kn-empty { background: #fff; border: 1px dashed #cfdad4; border-radius: .8rem; padding: 1.6rem 1.4rem; }
+.kn-empty h2 { margin: 0 0 .5rem; font-size: 1.15rem; }
+.kn-empty p { margin: 0; color: #55635e; line-height: 1.7; }
+
+.kn-pager { display: flex; align-items: center; justify-content: center; gap: 1rem; margin: 1.6rem 0 .5rem; }
+.kn-page-button {
+  padding: .55rem .95rem;
+  border: 1px solid #cfdad4;
+  border-radius: .5rem;
+  background: #fff;
+  color: #1d6658;
+  text-decoration: none;
+  font-weight: 650;
+}
+.kn-page-button.disabled { color: #a8b2ae; border-style: dashed; }
+.kn-page-info { color: #5d6c68; font-size: .88rem; }
+
+.kn-foot-note { margin: 1.4rem 0 0; color: #6b7772; font-size: .82rem; line-height: 1.7; }
+.kn-foot-note a { color: #1d6658; }
+
+@media (max-width: 980px) {
+  .kn-hero { grid-template-columns: 1fr; padding: 1.35rem 1.25rem; }
+  .kn-search { grid-column: span 1; }
+  .kn-filter { position: static; }
+}
+@media (max-width: 700px) {
+  .kn-totals { grid-template-columns: 1fr 1fr; }
+  .kn-word { font-size: 1.32rem; }
+}
+
+/* 打印：只留内容与排版 */
+@media print {
+  .kn-hero, .kn-filter, .kn-views, .kn-pager, .kn-legend, .kn-totals-note, .kn-foot-note, .kn-note { display: none !important; }
+  .kn-list { display: block !important; }
+  .kn-card { border-color: #d5d5d5; margin-bottom: .7rem; }
+  .kn-example { font-size: 10.5pt; }
+  .kn-pair { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}

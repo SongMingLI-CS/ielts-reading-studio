@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>知识点手册 · 打印版</title>
+  <link rel="stylesheet" href="/static/knowledge.css?v=1">
+  <link rel="stylesheet" href="/static/print.css?v=1">
+</head>
+<body>
+<main class="sheet kn-sheet">
+  <header class="sheet-head">
+    <div>
+      <h1>知识点手册 · {{ digest.view_label }}</h1>
+      <p>
+        共 {{ digest.pagination.total }} 条，本份打印前 {{ max_rows }} 条
+        {%- if filters.source != 'all' %} · 来源 {{ filters.source }}{% endif %}
+        {%- if filters.level != 'all' %} · 难度 {{ digest.labels.levels[filters.level] }}{% endif %}
+        {%- if filters.kind != 'all' %} · 类型 {{ digest.labels.kinds[filters.kind] }}{% endif %}
+        {%- if filters.q %} · 关键词「{{ filters.q }}」{% endif %}
+      </p>
+    </div>
+    <nav class="sheet-tools">
+      <button type="button" onclick="window.print()">打印 / 存为 PDF</button>
+      <a class="chip" href="/knowledge?{{ base_query }}">返回汇总页</a>
+      <a class="chip" href="/knowledge/export.md?{{ base_query }}">导出 Markdown</a>
+    </nav>
+  </header>
+
+  <p class="sheet-summary">
+    <span>来源：阅读练习 {{ digest.stats.reading_units }} 篇 · 情境小说 {{ digest.stats.novel_chapters }} 章</span>
+    <span>词条 {{ digest.stats.terms }} · 固定搭配 {{ digest.stats.collocations }} · 同义替换线索 {{ digest.stats.paraphrase }}</span>
+  </p>
+
+  {% if digest.rows %}
+  {% include "knowledge/_cards.html" %}
+  {% else %}
+  <p class="sheet-summary">当前筛选下没有内容：换一个视图或放宽筛选后再打印。</p>
+  {% endif %}
+
+  <footer class="sheet-foot">
+    IELTS Reading Studio · 知识点手册打印版 · 释义、搭配与例句取自生成时的原文，未使用外部词典。
+  </footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,96 @@
+{% if digest.view == 'paraphrase' %}
+<div class="kn-list kn-list-sub">
+  {% for note in digest.rows %}
+  <article class="kn-card kn-card-sub">
+    <header class="kn-card-head">
+      <h3 class="kn-sub-title">{{ note.passage_title }} · 第 {{ note.number }} 题</h3>
+      <span class="kn-chip">{{ note.difficulty }}</span>
+      <span class="kn-chip kn-chip-hint">{{ note.hint }}</span>
+    </header>
+    <div class="kn-pair">
+      <div class="kn-pair-side kn-sub-side">
+        <p class="kn-pair-label">题干</p>
+        <p class="kn-pair-text">{{ note.prompt_html }}</p>
+      </div>
+      <div class="kn-pair-side kn-src-side">
+        <p class="kn-pair-label">原文 · {{ note.evidence_label }}</p>
+        <p class="kn-pair-text">{{ note.quote_html }}</p>
+      </div>
+    </div>
+    {% if note.form_pairs %}
+    <p class="kn-forms">
+      <span class="kn-forms-label">词形变化</span>
+      {% for pair in note.form_pairs %}<span class="kn-form-pair">{{ pair.prompt }} ≈ {{ pair.quote }}</span>{% endfor %}
+    </p>
+    {% endif %}
+    <details class="kn-detail">
+      <summary>答案与解析</summary>
+      <p class="kn-answer">答案：<b>{{ note.answer }}</b></p>
+      <p>{{ note.chinese_explanation }}</p>
+    </details>
+    <footer class="kn-sources">
+      <a href="/practice/{{ note.unit_id }}/compare">原文对照</a>
+      <a href="/practice/{{ note.unit_id }}">做这套题</a>
+    </footer>
+  </article>
+  {% endfor %}
+</div>
+{% elif digest.view == 'collocations' %}
+<div class="kn-list kn-list-colloc">
+  {% for row in digest.rows %}
+  <article class="kn-card">
+    <header class="kn-card-head">
+      <h3 class="kn-phrase">{{ row.headword_html }}</h3>
+      <span class="kn-chip kn-chip-kind">固定搭配</span>
+      <span class="kn-level kn-level-{{ row.level|lower }}" title="{{ row.level_reason }}">{{ row.level }}{% if row.level_source == 'heuristic' %}<sup>估</sup>{% endif %}</span>
+    </header>
+    <p class="kn-owner">所属词 <a href="/knowledge?view=terms&q={{ row.word|urlencode }}">{{ row.word }}</a>{% if row.meaning %} · {{ row.meaning }}{% endif %}</p>
+    {% if row.example_html %}<blockquote class="kn-example">{{ row.example_html }}</blockquote>{% endif %}
+    <footer class="kn-sources">
+      {% for source in row.sources %}<a href="{{ source.href }}">{{ source.label }}</a>{% endfor %}
+      {% if row.occurrences >= 2 %}<span class="kn-chip kn-chip-freq">出现 {{ row.occurrences }} 次</span>{% endif %}
+    </footer>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="kn-list kn-list-terms">
+  {% for row in digest.rows %}
+  <article class="kn-card">
+    <header class="kn-card-head">
+      <h3 class="kn-word">{{ row.headword }}</h3>
+      {% if row.phonetic %}<span class="kn-phonetic">{{ row.phonetic }}</span>{% endif %}
+      <span class="kn-chip">{{ row.pos_label }}{% if row.pos_inferred %}（推断）{% endif %}</span>
+      {% if row.kind != 'word' %}<span class="kn-chip kn-chip-kind">{{ digest.labels.kinds[row.kind] }}</span>{% endif %}
+      <span class="kn-level kn-level-{{ row.level|lower }}" title="{{ row.level_reason }}">{{ row.level }}{% if row.level_source == 'heuristic' %}<sup>估</sup>{% endif %}</span>
+      {% if row.occurrences >= 2 %}<span class="kn-chip kn-chip-freq">出现 {{ row.occurrences }} 次</span>{% endif %}
+    </header>
+    {% if row.meaning %}
+    <p class="kn-meaning">{{ row.meaning }}</p>
+    {% else %}
+    <p class="kn-meaning kn-meaning-empty">（这篇是早期生成的，没带中文释义；例句与搭配仍可用）</p>
+    {% endif %}
+    {% if row.collocations %}
+    <p class="kn-collocs">
+      {% for collocation in row.collocations %}<span class="kn-colloc">{{ collocation }}</span>{% endfor %}
+    </p>
+    {% endif %}
+    {% if row.example_html %}<blockquote class="kn-example">{{ row.example_html }}</blockquote>{% endif %}
+    {% if row.contexts %}
+    <p class="kn-contexts">
+      <span class="kn-contexts-label">中英语境</span>
+      {% for context in row.contexts %}
+      <span class="kn-context">{{ context.zh }} <span class="kn-arrow">→</span> {{ context.en_html }}{% if context.chapter_id %} <small>第 {{ context.chapter_id }} 章</small>{% endif %}</span>
+      {% endfor %}
+    </p>
+    {% endif %}
+    <footer class="kn-sources">
+      {% for source in row.sources %}<a href="{{ source.href }}">{{ source.label }}</a>{% endfor %}
+      <span class="kn-counts">
+        阅读 {{ row.source_counts.reading }} 篇 · 小说 {{ row.source_counts.novel }} 次
+      </span>
+    </footer>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}

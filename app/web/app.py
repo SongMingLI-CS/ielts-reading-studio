@@ -16,6 +16,7 @@ from .routes_corpora import router as corpora_router
 from .routes_exports import router as exports_router
 from .routes_home import router as home_router
 from .routes_jobs import router as jobs_router
+from .routes_knowledge import router as knowledge_router
 from .routes_novel import router as novel_router
 from .routes_practice import router as practice_router
 from .routes_review import router as review_router
@@ -44,7 +45,9 @@ def create_app(
         authorization = request.headers.get("Authorization", "")
         if authorization.startswith("Basic "):
             try:
-                decoded = base64.b64decode(authorization[6:], validate=True).decode("utf-8")
+                decoded = base64.b64decode(authorization[6:], validate=True).decode(
+                    "utf-8"
+                )
                 supplied_username, supplied_password = decoded.split(":", 1)
             except (binascii.Error, UnicodeDecodeError, ValueError):
                 pass
@@ -57,7 +60,9 @@ def create_app(
             return Response(
                 "需要登录",
                 status_code=401,
-                headers={"WWW-Authenticate": 'Basic realm="IELTS Reading Studio", charset="UTF-8"'},
+                headers={
+                    "WWW-Authenticate": 'Basic realm="IELTS Reading Studio", charset="UTF-8"'
+                },
             )
         return await call_next(request)
 
@@ -69,6 +74,7 @@ def create_app(
     application.include_router(corpora_router)
     application.include_router(jobs_router)
     application.include_router(practice_router)
+    application.include_router(knowledge_router)
     application.include_router(exports_router)
     application.include_router(novel_router)
     application.include_router(backup_router)

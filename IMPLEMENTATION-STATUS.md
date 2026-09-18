@@ -32,7 +32,7 @@ DeepSeek 适配器与双智能体已接入应用，但真实样篇门禁尚未�
 
 | 检查项 | 命令 | 结果 |
 |---|---|---|
-| 单元 + 集成测试 | `python -m pytest -q` | **314 passed** |
+| 单元 + 集成测试 | `python -m pytest -q` | **344 passed** |
 | 静态检查 | `python -m ruff check app tests` | **All checks passed!** |
 | 语法编译 | `python -m compileall -q app` | 通过 |
 | CLI 烟雾检查 | `python -m app.cli --help` | 通过，列出 10 个命令 |
@@ -196,6 +196,7 @@ SQLite：2000 章、1000 单元全部落库
 | 抽样审阅 | 批任务收尾自动抽样进人工队列，通过/返工带批注；`review_samples` 表 |
 | 可打印导出 | 错题本（含解析开关）与生词本（清单/自测卷）独立打印页，可直接存 PDF |
 | 词汇记忆 | 五维分类 + 同根词族 + 记忆联想，Leitner 五盒间隔重复，四选一复习卡（词库不足降级自评） |
+| 知识点汇总 | `/knowledge` 把阅读题与情境小说合成一本手册：词汇精讲、固定搭配、题干↔原文同义替换三个视图，服务端筛选分页、打印版与 Markdown 导出 |
 | 词汇表契约 | 提示词写明字段与质量要求；质检拦下"只有 word、其余为空"的半截数据；旧数据按词形推断词性 |
 
 ## 6. 如何验证当前状态
@@ -203,7 +204,7 @@ SQLite：2000 章、1000 单元全部落库
 ```powershell
 cd C:\Users\Lenovo\Desktop\ielts-reading-studio
 python -m pip install -e ".[dev]"      # 若尚未安装
-python -m pytest -q                    # 预期 179 passed
+python -m pytest -q                    # 预期 344 passed
 python -m compileall -q app            # 语法编译检查
 python -m ruff check app tests         # 预期 All checks passed!
 ```

@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}知识点汇总 · IELTS Reading Studio{% endblock %}
+{% block content %}
+<section class="kn-hero">
+  <div class="kn-hero-copy">
+    <p class="eyebrow">Knowledge digest</p>
+    <h1>知识点汇总</h1>
+    <p class="lead">
+      把已经生成的<b>阅读练习</b>和<b>情境小说</b>重新整理成一份手册：出现过的词、词所在的固定搭配，
+      以及阅读题里"<b>题干怎么说 ↔ 原文怎么说</b>"的同义替换线索。
+      释义、搭配、例句全部取自生成时的原文，每条都标了出处，可以一键跳回篇目或章节。
+    </p>
+    <div class="kn-hero-actions">
+      <a class="button" href="/knowledge?{{ base_query }}&size=200" >本页全部展开</a>
+      <a class="button ghost" href="/knowledge/print?{{ base_query }}">打印 / 存 PDF</a>
+      <a class="button ghost" href="/knowledge/export.md?{{ base_query }}">导出 Markdown</a>
+    </div>
+  </div>
+  <dl class="kn-totals">
+    <div><dt>词条</dt><dd>{{ digest.stats.terms }}</dd><small>其中固定搭配/短语 {{ digest.stats.phrase_terms }}</small></div>
+    <div><dt>固定搭配</dt><dd>{{ digest.stats.collocations }}</dd><small>可集中记的搭配条目</small></div>
+    <div><dt>同义替换线索</dt><dd>{{ digest.stats.paraphrase }}</dd><small>来自阅读题的题干与原文</small></div>
+    <div><dt>来源</dt><dd>{{ digest.stats.reading_units + digest.stats.novel_chapters }}</dd><small>阅读 {{ digest.stats.reading_units }} 篇 · 小说 {{ digest.stats.novel_chapters }} 章</small></div>
+  </dl>
+  <p class="kn-totals-note">
+    复现 ≥2 次的词 {{ digest.stats.repeated }} 个 · 阅读与小说都出现的 {{ digest.stats.both_sources }} 个 ·
+    带音标的 {{ digest.stats.with_phonetic }} 个
+  </p>
+</section>
+
+{% if not digest.stats.novel_available %}
+<p class="kn-note">
+  ⚠ 还没有读到情境小说的术语库（<code>output/context-novel/glossary.json</code>）。
+  先去 <a href="/novel">情境小说</a> 生成章节，这里就会自动并入小说侧的词汇与搭配。
+</p>
+{% endif %}
+
+<nav class="kn-views" aria-label="知识点视图">
+  {% for view, label in digest.labels.views.items() %}
+  <a class="kn-view{% if digest.view == view %} active{% endif %}"
+     href="/knowledge?{{ view_queries[view] }}">
+    <span class="kn-view-label">{{ label }}</span>
+    <span class="kn-view-count">{{ digest.view_counts[view] }}</span>
+  </a>
+  {% endfor %}
+</nav>
+
+<form class="kn-filter" method="get" action="/knowledge" data-autosubmit>
+  <input type="hidden" name="view" value="{{ digest.view }}">
+  <label class="kn-search">
+    <span>搜索</span>
+    <input type="search" name="q" value="{{ filters.q }}" placeholder="词、中文释义、搭配、例句…">
+  </label>
+  <label>
+    <span>来源</span>
+    <select name="source">
+      <option value="all"{% if filters.source == 'all' %} selected{% endif %}>全部来源</option>
+      <option value="reading"{% if filters.source == 'reading' %} selected{% endif %}>仅阅读练习（{{ digest.source_counts.reading }}）</option>
+      <option value="novel"{% if filters.source == 'novel' %} selected{% endif %}>仅情境小说（{{ digest.source_counts.novel }}）</option>
+      <option value="both"{% if filters.source == 'both' %} selected{% endif %}>两边都出现（{{ digest.source_counts.both }}）</option>
+    </select>
+  </label>
+  <label>
+    <span>难度</span>
+    <select name="level">
+      <option value="all"{% if filters.level == 'all' %} selected{% endif %}>全部难度</option>
+      {% for level in digest.options.levels %}
+      <option value="{{ level }}"{% if filters.level == level %} selected{% endif %}>{{ digest.labels.levels[level] }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% if digest.view == 'terms' %}
+  <label>
+    <span>类型</span>
+    <select name="kind">
+      <option value="all"{% if filters.kind == 'all' %} selected{% endif %}>全部类型</option>
+      {% for kind in digest.options.kinds %}
+      <option value="{{ kind }}"{% if filters.kind == kind %} selected{% endif %}>{{ digest.labels.kinds[kind] }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    <span>词性</span>
+    <select name="pos">
+      <option value="all"{% if filters.pos == 'all' %} selected{% endif %}>全部词性</option>
+      {% for pos in digest.options.pos %}
+      <option value="{{ pos }}"{% if filters.pos == pos %} selected{% endif %}>{{ pos }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  <label>
+    <span>排序</span>
+    <select name="sort">
+      {% for value, label in digest.labels.sorts.items() %}
+      <option value="{{ value }}"{% if filters.sort == value %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+
+<p class="kn-result-line">
+  共 <b>{{ digest.pagination.total }}</b> 条{% if digest.pagination.total %}，当前显示第 {{ digest.pagination.range_label }} 条{% endif %}
+  {%- if digest.pagination.pages > 1 %} · 第 {{ digest.pagination.page }} / {{ digest.pagination.pages }} 页{% endif %}
+</p>
+
+{% if digest.view == 'terms' %}
+<p class="kn-legend">
+  <span><mark class="kw">高亮</mark> 例句里被讲解的词或搭配</span>
+  <span class="kn-legend-hint">等级标注带<sup>估</sup>表示阅读侧没有 CEFR，按词形推断</span>
+</p>
+{% elif digest.view == 'collocations' %}
+<p class="kn-legend"><span><mark class="kw-coll">高亮</mark> 搭配里的核心词</span><span class="kn-legend-hint">搭配的中文释义继承它所属的词，例句取自生成原文</span></p>
+{% else %}
+<p class="kn-legend">
+  <span><mark class="kw-sub">题干侧</mark> 题干用的替换措辞</span>
+  <span><mark class="kw-src">原文侧</mark> 原文的对应措辞</span>
+  <span class="kn-legend-hint">同一道题两侧都高亮，说明答案要靠这层替换定位</span>
+</p>
+{% endif %}
+
+{% if digest.rows %}
+{% include "knowledge/_cards.html" %}
+{% else %}
+<section class="kn-empty">
+  <h2>这个筛选条件下没有知识点</h2>
+  <p>
+    可能的原因：只生成了阅读篇目但没选任何词、小说还没生成章节、或者筛选太窄。
+    先 <a href="/knowledge">重置筛选</a> 看看全部内容，或者去
+    <a href="/practice">阅读练习</a> 与 <a href="/novel">情境小说</a> 生成更多材料。
+  </p>
+</section>
+{% endif %}
+
+{% if digest.pagination.pages > 1 %}
+<nav class="kn-pager" aria-label="分页">
+  {% if digest.pagination.has_prev %}
+  <a class="kn-page-button" href="/knowledge?{{ base_query }}&page={{ digest.pagination.page - 1 }}">← 上一页</a>
+  {% else %}
+  <span class="kn-page-button disabled">← 上一页</span>
+  {% endif %}
+  <span class="kn-page-info">第 {{ digest.pagination.page }} / {{ digest.pagination.pages }} 页</span>
+  {% if digest.pagination.has_next %}
+  <a class="kn-page-button" href="/knowledge?{{ base_query }}&page={{ digest.pagination.page + 1 }}">下一页 →</a>
+  {% else %}
+  <span class="kn-page-button disabled">下一页 →</span>
+  {% endif %}
+</nav>
+{% endif %}
+
+<p class="kn-foot-note">
+  数据来源：<code>output/packages/*.json</code> 的已校验篇目与 <code>output/context-novel/</code> 的小说术语库，
+  全部由本地整理，不额外调用模型。
+  <a href="/vocabulary">词汇库</a>仍保留收藏与导出，<a href="/practice/vocabulary">生词本</a>用于练习时的即时收藏。
+</p>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/knowledge.js?v=1" defer></script>
+{% endblock %}
+
+    </select>
+  </label>
+  {% if digest.view == 'terms' %}
+  <label class="kn-check"><input type="checkbox" name="has_collocation" value="true"{% if filters.has_collocation %} checked{% endif %}> 只看有固定搭配</label>
+  <label class="kn-check"><input type="checkbox" name="repeats" value="true"{% if filters.repeats %} checked{% endif %}> 只看复现 ≥2 次</label>
+  {% endif %}
+  <div class="kn-filter-actions">
+    <button type="submit">应用筛选</button>
+    <a class="kn-reset" href="/knowledge?view={{ digest.view }}">重置</a>
+  </div>
+</form>
