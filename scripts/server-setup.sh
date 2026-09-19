@@ -379,20 +379,17 @@ check_tls_unit() {
   return 0
 }
 
-# The public site's port. Used for the SNI-less catch-all block: browsers do not send SNI
-# for an IP literal, and without a catch-all the handshake fails instead of just warning.
-tls_site_port() {
-  local port
-  port="$(printf '%s' "$TLS_SITE" | sed -nE 's#^[a-zA-Z]+://[^/:]+:([0-9]+).*#\1#p')"
-  printf '%s' "${port:-443}"
+# The public site's host name, used as Caddy's `default_sni`. Browsers do not send SNI for
+# an IP literal (RFC 6066), and without a default the handshake fails outright instead of
+# merely warning about an untrusted certificate.
+tls_site_host() {
+  printf '%s' "$TLS_SITE" | sed -nE 's#^[a-zA-Z]+://([^/:]+).*#\1#p'
 }
 
-# Render the shipped template into $1 (site address + catch-all address). The catch-all
-# carries an explicit https:// scheme: a bare ":8766" is an HTTP site, and Caddy refuses to
-# multiplex HTTP and HTTPS on one port.
+# Render the shipped template into $1 (site address + default_sni host name).
 render_caddyfile_into() {
   sed -e "s|{{SITE_ADDRESS}}|${TLS_SITE}|g" \
-    -e "s|{{CATCH_ALL_ADDRESS}}|https://:$(tls_site_port)|g" \
+    -e "s|{{DEFAULT_SNI}}|$(tls_site_host)|g" \
     "$CADDYFILE_SOURCE" >"$1"
 }
 
