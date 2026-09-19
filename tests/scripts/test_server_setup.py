@@ -352,10 +352,29 @@ def test_apply_renders_the_caddyfile_with_the_configured_site(tmp_path: Path) ->
     assert result.returncode == 0, result.stderr
     rendered = (tmp_path / "caddy" / "ielts-reading-studio.caddyfile").read_text(encoding="utf-8")
     assert "{{SITE_ADDRESS}}" not in rendered, "占位符必须被替换"
+    assert "{{CATCH_ALL_ADDRESS}}" not in rendered
     assert "https://203.0.113.9:9443 {" in rendered
     assert "tls internal" in rendered
     assert "reverse_proxy 127.0.0.1:8768" in rendered
+    assert rendered.count("import ielts_site") == 2, "主站点与兜底站点共用同一段配置"
+    assert "\n:9443 {" in rendered, "无 SNI 的握手需要同端口兜底站点"
     assert "auto_https disable_redirects" in rendered, "80 端口属于别的服务，不能绑定"
+
+
+def test_catch_all_falls_back_to_443_without_an_explicit_port(tmp_path: Path) -> None:
+    checkout = _checkout(tmp_path, _complete_env())
+
+    result = _run(
+        checkout,
+        "--apply",
+        "--no-worker",
+        extra_env={"IELTS_TLS_SITE": "https://ielts.example.com"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    rendered = (tmp_path / "caddy" / "ielts-reading-studio.caddyfile").read_text(encoding="utf-8")
+    assert "https://ielts.example.com {" in rendered
+    assert "\n:443 {" in rendered
 
 
 def test_apply_installs_the_https_unit(tmp_path: Path) -> None:

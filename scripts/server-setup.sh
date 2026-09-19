@@ -379,6 +379,21 @@ check_tls_unit() {
   return 0
 }
 
+# The public site's port. Used for the SNI-less catch-all block: browsers do not send SNI
+# for an IP literal, and without a catch-all the handshake fails instead of just warning.
+tls_site_port() {
+  local port
+  port="$(printf '%s' "$TLS_SITE" | sed -nE 's#^[a-zA-Z]+://[^/:]+:([0-9]+).*#\1#p')"
+  printf '%s' "${port:-443}"
+}
+
+# Render the shipped template into $1 (site address + catch-all address).
+render_caddyfile_into() {
+  sed -e "s|{{SITE_ADDRESS}}|${TLS_SITE}|g" \
+    -e "s|{{CATCH_ALL_ADDRESS}}|:$(tls_site_port)|g" \
+    "$CADDYFILE_SOURCE" >"$1"
+}
+
 install_tls_unit() {
   if ((WITH_TLS == 0)); then
     log '按要求跳过 HTTPS 入口'
@@ -389,7 +404,7 @@ install_tls_unit() {
   fi
   local config_path="$CADDY_CONFIG_DIR/$CADDY_CONFIG_NAME" rendered installed_unit="" refresh=0
   rendered="$(mktemp)"
-  sed "s|{{SITE_ADDRESS}}|${TLS_SITE}|g" "$CADDYFILE_SOURCE" >"$rendered"
+  render_caddyfile_into "$rendered"
   installed_unit="$(unit_path "$TLS_UNIT")" || installed_unit=""
   # Compare file contents, not just presence: a fixed unit or a changed site address has to
   # actually land, otherwise re-running --apply after a failed start changes nothing.
