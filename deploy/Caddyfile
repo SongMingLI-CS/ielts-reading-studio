@@ -1,21 +1,22 @@
 # IELTS Learning Studio —— 公网 HTTPS 入口（Caddy 独立实例）
 #
 # 这份配置由 scripts/server-setup.sh 渲染后安装到
-# /etc/caddy/ielts-reading-studio.caddyfile：站点地址占位符会替换成 IELTS_TLS_SITE
-# （默认 https://<公网IP>:8766），兜底站点的占位符则替换成同一个端口。
+# /etc/caddy/ielts-reading-studio.caddyfile：站点地址占位符替换成 IELTS_TLS_SITE
+# （默认 https://<公网IP>:8766），default_sni 占位符替换成同一个主机名。
 #
-# 为什么是这样（本机实测结论）：
-#   1) 80 端口属于别的服务 → 不能监听 80，因此关掉自动跳转，不做 http→https 重定向；
-#   2) 443 端口留给本机另一个项目（Novel Agent）的 Caddy，所以这里沿用原来的 8766
-#      端口号（云安全组已经放行），只是把协议从 http 换成 https；
+# 为什么是这样（都是本机实测结论）：
+#   1) 80 端口属于别的服务 → 不监听 80，也不做 http→https 跳转；
+#   2) 443 端口留给同机另一个项目（Novel Agent）的 Caddy，因此沿用原来的 8766 端口号
+#      （云安全组已经放行），只把协议从 http 换成 https；
 #   3) 未备案域名在大陆机房会被按 SNI 拦截，而**浏览器访问 IP 时按 RFC 不发 SNI**：
-#      实测「无 SNI」的握手会以 `tlsv1 alert internal error` 失败（只有一个以 IP 为
-#      站点地址的块时没有默认证书）。因此必须再加一个同端口的兜底块，让无 SNI 的
-#      握手也拿到证书；浏览器只会提示「证书不受信任」，不会有域名不匹配；
+#      实测无 SNI 的握手会以 `tlsv1 alert internal error` 失败，所以用 `default_sni`
+#      指定站点主机名，让无 SNI 握手与带 SNI 一样拿到 SAN=IP 的内部证书；浏览器只会
+#      提示「证书不受信任」，不会有域名不匹配。（也试过「同端口兜底站点」，Caddy 拒绝
+#      在同一个端口混合 HTTP/HTTPS，见 git 历史。）
 #   4) 应用只监听 127.0.0.1:8768，Caddy 是唯一的网络入口。
 #
-# 想换成受信任证书时（有已备案域名后）：把站点地址改成 https://你的域名，
-# 删掉两处 tls internal，并让 80 端口（或 DNS-01）能完成 ACME 校验即可。
+# 换成受信任证书（有已备案域名后）：把站点地址改成 https://你的域名、删掉 tls internal
+# （default_sni 会随站点主机名一起变化），并让 80 端口或 DNS 能完成 ACME 校验即可。
 
 {
 	# 管理接口只在本机、且换到 2020，避免与共享的 caddy.service（2019）冲突

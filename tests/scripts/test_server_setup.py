@@ -336,6 +336,8 @@ def test_scripts_survive_a_non_utf8_locale(tmp_path: Path) -> None:
 
 
 def test_dry_run_reports_the_https_entry_without_writing(tmp_path: Path) -> None:
+    """Must not depend on the host: an explicitly set IELTS_SYSTEMD_DIR is searched alone."""
+
     checkout = _checkout(tmp_path, _complete_env())
 
     result = _run(checkout, "--no-worker")

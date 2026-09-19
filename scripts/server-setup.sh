@@ -37,6 +37,13 @@ CADDY_CONFIG_NAME="${IELTS_CADDY_CONFIG_NAME:-ielts-reading-studio.caddyfile}"
 TLS_SITE="${IELTS_TLS_SITE:-https://192.144.160.196:8766}"
 SUDO="${IELTS_SUDO:-sudo}"
 SYSTEMD_DIR="${IELTS_SYSTEMD_DIR:-/etc/systemd/system}"
+#: With an explicit directory (tests, a non-standard prefix) only that directory is
+#: searched: falling back to /etc would make the result depend on the host that runs the
+#: script, and a test asserting "unit not installed" would fail on a machine that has it.
+SYSTEMD_DIR_EXPLICIT=0
+if [[ -n "${IELTS_SYSTEMD_DIR:-}" ]]; then
+  SYSTEMD_DIR_EXPLICIT=1
+fi
 TRUSTED_PROXIES_DEFAULT="${IELTS_TRUSTED_PROXIES_DEFAULT:-127.0.0.1}"
 
 APPLY=0
@@ -201,11 +208,15 @@ worker_unit_installed() {
 # Where systemd finds a unit, or non-zero when it is not installed at all.
 unit_path() {
   local name="$1" candidate
-  for candidate in \
-    "$SYSTEMD_DIR/${name}.service" \
-    "/etc/systemd/system/${name}.service" \
-    "/lib/systemd/system/${name}.service" \
-    "/usr/lib/systemd/system/${name}.service"; do
+  local -a candidates=("$SYSTEMD_DIR/${name}.service")
+  if ((SYSTEMD_DIR_EXPLICIT == 0)); then
+    candidates+=(
+      "/etc/systemd/system/${name}.service"
+      "/lib/systemd/system/${name}.service"
+      "/usr/lib/systemd/system/${name}.service"
+    )
+  fi
+  for candidate in "${candidates[@]}"; do
     if [[ -f "$candidate" ]]; then
       printf '%s' "$candidate"
       return 0
