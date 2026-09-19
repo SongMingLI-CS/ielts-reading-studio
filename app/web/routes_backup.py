@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime as dt
 import os
-import sqlite3
 import tempfile
 import zipfile
 from pathlib import Path
@@ -15,6 +14,7 @@ from starlette.background import BackgroundTask
 from starlette.requests import Request
 
 from app.pipeline.service import ReadingStudioService
+from app.storage.snapshot import snapshot_database
 
 from .dependencies import get_service
 
@@ -67,17 +67,7 @@ def _clean_stale_archives(max_age_seconds: int = 3600) -> None:
 
 def _snapshot_database(database: Path, target: Path) -> None:
     """Copy the SQLite file through the backup API so WAL content is included."""
-    if not database.exists():
-        return
-    source = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
-    try:
-        destination = sqlite3.connect(target)
-        try:
-            source.backup(destination)
-        finally:
-            destination.close()
-    finally:
-        source.close()
+    snapshot_database(database, target)
 
 
 @router.get("/backup")

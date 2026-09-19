@@ -19,6 +19,7 @@ from app.storage.migrations import (
     MigrationError,
     looks_like_legacy_database,
     migrate_path,
+    read_schema_revision,
     schema_status,
 )
 
@@ -230,3 +231,19 @@ def test_service_startup_migrates_the_database(tmp_path: Path) -> None:
 
     assert service.migration.to_revision == service.migration.head_revision
     assert service.database.schema_revision() == service.migration.head_revision
+
+
+def test_migration_works_from_any_working_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Alembic's script_location must not depend on the caller's cwd."""
+
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+
+    result = migrate_path(tmp_path / "state.db")
+
+    assert result.to_revision == result.head_revision
+    assert read_schema_revision(tmp_path / "state.db") == result.head_revision
+    assert not (elsewhere / "migrations").exists()

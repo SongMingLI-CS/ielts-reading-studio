@@ -10,7 +10,8 @@ from app.config import AppConfig, ConfigurationError, redact_secrets
 from app.models import Difficulty
 from app.pipeline.service import ReadingStudioService
 from app.planning.units import default_question_types
-from app.storage.migrations import MigrationError, schema_status
+from app.storage.migrations import MigrationError, schema_status_for_path
+from app.storage.snapshot import snapshot_database
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -183,6 +184,20 @@ def export_command(
 
 
 @app.command()
+def snapshot(
+    target: Annotated[Path, typer.Option("--target", help="快照输出文件路径")],
+    config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
+) -> None:
+    """Write a consistent SQLite snapshot; safe to run while the service is running."""
+    settings = _guard(lambda: AppConfig.load(config))
+    created = _guard(lambda: snapshot_database(settings.database_path, target))
+    if not created:
+        typer.echo(f"数据库尚不存在，未生成快照: {settings.database_path}")
+        return
+    typer.echo(f"快照: {target}")
+
+
+@app.command()
 def migrate(
     config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
     check: Annotated[bool, typer.Option("--check", help="只显示版本状态，不修改数据库")] = False,
@@ -192,7 +207,7 @@ def migrate(
 
     settings = _guard(lambda: AppConfig.load(config))
     database = Database(settings.database_path)
-    current, head = _guard(lambda: schema_status(database.engine))
+    current, head = _guard(lambda: schema_status_for_path(settings.database_path))
     typer.echo(f"数据库: {settings.database_path}")
     typer.echo(f"当前版本: {current or '未迁移'}")
     typer.echo(f"目标版本: {head}")

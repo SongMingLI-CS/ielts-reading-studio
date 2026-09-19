@@ -15,6 +15,7 @@ Why this module exists instead of calling ``metadata.create_all``:
 
 from __future__ import annotations
 
+import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -83,6 +84,9 @@ def alembic_config(database_url: str) -> Config:
     if not ini_path.exists():  # pragma: no cover - only on a broken checkout
         raise MigrationError(f"找不到 Alembic 配置：{ini_path}")
     config = Config(str(ini_path))
+    # Alembic resolves `script_location` against the current working directory, so pin it
+    # to an absolute path: migrations must work from any cwd (deploy script, cron, tests).
+    config.set_main_option("script_location", str(ini_path.parent / "migrations"))
     config.set_main_option("sqlalchemy.url", database_url)
     return config
 
@@ -117,6 +121,34 @@ def looks_like_legacy_database(engine: Engine | Connection) -> bool:
     if _VERSION_TABLE in tables:
         return False
     return bool(tables & LEGACY_TABLES)
+
+
+def read_schema_revision(path: str | Path) -> str | None:
+    """Read the recorded revision straight from the file, creating nothing.
+
+    ``--check`` must not turn an empty deployment into a database file, so this path
+    opens the file read-only and reports ``None`` when it does not exist yet.
+    """
+
+    database = Path(path)
+    if not database.exists() or database.stat().st_size == 0:
+        return None
+    connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
+    try:
+        try:
+            row = connection.execute("SELECT version_num FROM alembic_version").fetchone()
+        except sqlite3.Error:
+            return None
+        return row[0] if row else None
+    finally:
+        connection.close()
+
+
+def schema_status_for_path(path: str | Path) -> tuple[str | None, str]:
+    """Read-only ``(current, head)`` for a database file that may not exist yet."""
+
+    config = alembic_config(f"sqlite+pysqlite:///{Path(path)}")
+    return read_schema_revision(path), _head_revision(config)
 
 
 def migrate_engine(engine: Engine, *, stamp_legacy: bool = True) -> MigrationResult:

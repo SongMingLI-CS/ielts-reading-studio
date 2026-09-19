@@ -150,19 +150,61 @@ server {
 
 ## 10. 更新已有部署
 
-服务器上的项目目录就是一份 git 检出，更新只有一条命令：
+服务器上的项目目录就是一份 git 检出。日常更新用一条命令，它会一路做到「服务真的能响应」：
 
 ```bash
 ~/ielts-reading-studio/scripts/deploy.sh
 ```
 
-脚本会先确认没有本地改动（`output/`、`input/`、`.env`、`.env.web`、`.venv` 都在 `.gitignore` 里，git 不会碰它们），再执行 `git pull --ff-only`，随后重启 systemd 服务并打印状态。手工等价操作：
+它按顺序执行：
+
+1. **部署前检查**（只读）：工作树是否干净、当前 commit、`.venv` 是否存在、`config.yaml` 与 `.env.web` 是否可读、`input/`/`output/` 是否可读写、磁盘空间、当前 schema 版本与待迁移状态。
+2. **一致性快照**：用 SQLite online backup 把 `state.db` 写到 `backups/deploy-<UTC时间>.db`，只保留最近 10 份（`IELTS_KEEP_SNAPSHOTS` 可调）。快照失败会直接中止部署。
+3. `git pull --ff-only`。
+4. `uv sync --frozen --extra dev` 按 `uv.lock` 同步依赖（没有 uv 时回退到 `pip install -e .`）。
+5. `ielts-reading migrate` 执行数据库迁移，失败即中止。
+6. 离线验证：`python -m pytest -q`（无网络、无 API Key）。
+7. `sudo systemctl restart ielts-reading-studio`，然后**真正请求** `http://127.0.0.1:8766/healthz`（最多 20 次 × 1 秒）。`systemctl is-active` 只能说明进程活着，不能说明网站可用。
+
+任何一步失败都会走**回滚**：停止服务 → 把代码切回部署前的 commit（`git switch --detach`，不使用破坏性重置）→ 如果已经执行过迁移就恢复快照并删除 `-wal`/`-shm` → 重启旧版本并再次做健康检查。回滚后仍不健康时，脚本打印脱敏后的 `journalctl` 并给出明确的手工处理指引，服务保持运行而不是停在半升级状态。
+
+检查与演练（都不修改任何状态）：
+
+```bash
+scripts/deploy.sh --check      # 只做第 1 步；不可部署时退出码 1，可部署时 0
+scripts/deploy.sh --dry-run    # 打印第 2–7 步会执行的命令，一条都不执行
+scripts/deploy.sh --no-pull    # 已经用 git bundle 手工更新过代码时使用
+scripts/deploy.sh --skip-tests # 跳过第 6 步（不推荐）
+```
+
+`--check` 可在 systemd timer 或监控里定期运行：它不会创建数据库文件，也不做任何写操作。
+
+手工等价操作：
 
 ```bash
 cd ~/ielts-reading-studio
+python -m app.cli snapshot --target backups/manual.db   # 先留一份可回滚的数据
 git pull --ff-only
+uv sync --frozen --extra dev
+python -m app.cli migrate
+python -m pytest -q
 sudo systemctl restart ielts-reading-studio
+curl -fsS http://127.0.0.1:8766/healthz
 ```
+
+### systemd 加固
+
+`deploy/ielts-reading-studio.service` 在重启策略之外还开了 `NoNewPrivileges`、`PrivateTmp`、`PrivateDevices`、`ProtectSystem=strict`、`ProtectHome=read-only`、`RestrictAddressFamilies`、`MemoryDenyWriteExecute` 等开关，并用 `ReadWritePaths=/home/ubuntu/ielts-reading-studio` 保留应用真正需要写入的目录（`output/`、`input/`、`backups/`）。日志统一进 journal（`SyslogIdentifier=ielts-web`），没有需要轮转的日志文件。
+
+修改 unit 后执行：
+
+```bash
+sudo cp deploy/ielts-reading-studio.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl restart ielts-reading-studio
+systemctl show ielts-reading-studio -p ProtectSystem -p NoNewPrivileges
+```
+
+如果 `ReadWritePaths` 覆盖不到你的数据目录（例如 `config.yaml` 把 `output_dir` 指到别处），服务会因为只读文件系统而启动失败——按路径把目录加进 `ReadWritePaths`，不要为此关掉 `ProtectSystem`。
 
 ### 首次在一台新服务器上做 git 检出
 

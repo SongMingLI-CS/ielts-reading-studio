@@ -28,6 +28,14 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# `alembic.ini` uses %(here)s for both script_location and prepend_sys_path, so the
+# repository root is on sys.path by the time this module imports `app`.
+REPO_ROOT = (
+    Path(config.config_file_name).resolve().parent
+    if config.config_file_name
+    else Path(__file__).resolve().parents[1]
+)
+
 
 def _resolve_url() -> str:
     override = os.environ.get("IELTS_DATABASE_URL")
@@ -35,10 +43,10 @@ def _resolve_url() -> str:
         return override
     from app.config import AppConfig
 
-    config_path = Path("config.yaml")
+    config_path = REPO_ROOT / "config.yaml"
     if config_path.exists():
         return f"sqlite+pysqlite:///{AppConfig.load(config_path).database_path}"
-    return "sqlite+pysqlite:///output/state.db"
+    return f"sqlite+pysqlite:///{REPO_ROOT / 'output' / 'state.db'}"
 
 
 def run_migrations_offline() -> None:

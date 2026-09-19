@@ -1,5 +1,6 @@
 [Unit]
-Description=IELTS Reading Studio
+Description=IELTS Reading Studio (web)
+Documentation=file:/home/ubuntu/ielts-reading-studio/docs/operator-guide.md
 After=network-online.target
 Wants=network-online.target
 
@@ -11,8 +12,36 @@ WorkingDirectory=/home/ubuntu/ielts-reading-studio
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=/home/ubuntu/ielts-reading-studio/.env.web
 ExecStart=/home/ubuntu/ielts-reading-studio/.venv/bin/python -m app.cli serve --host 0.0.0.0 --port 8766
+
+# Restart policy: keep the site up, but back off so a crash loop cannot spin.
 Restart=on-failure
 RestartSec=5
+StartLimitIntervalSec=120
+StartLimitBurst=5
+TimeoutStopSec=20
+KillSignal=SIGTERM
+
+# Logging: everything goes to the journal, no application log files to rotate.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ielts-web
+
+# Hardening. The application only writes to its own directory (output/, input/,
+# backups/), so the rest of the filesystem stays read-only.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+ReadWritePaths=/home/ubuntu/ielts-reading-studio
 UMask=0077
 
 [Install]
