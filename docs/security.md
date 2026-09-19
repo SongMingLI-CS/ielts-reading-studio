@@ -25,7 +25,10 @@ worker 进程 ──> 同一个 SQLite（认领作业）──> Provider
 
 - **单用户系统**：没有多用户模型、没有"他人资源"的概念。所有数据属于同一个操作者；
   访问控制是"能否进入网站"，而不是"能看哪一条记录"。见第 6 节。
-- 反向代理（nginx 等）是唯一的网络入口；应用只信任显式配置的代理地址。
+- 反向代理（nginx / Caddy 等）是唯一的网络入口；应用只信任显式配置的代理地址。
+- 仓库随附的生产单元把应用绑在 `127.0.0.1:8768`，由 `ielts-reading-studio-tls`（Caddy，自签内部 CA，
+  按 IP 访问）在公网端口 `8766` 终止 TLS。应用不监听公网地址，因此外部无法绕过入口直连；
+  代价是 `serve` 的启动闸门（第 4.8 节）不再触发，改由 `scripts/deploy.sh --check` 用同一套规则强制检查。
 - Provider 返回的一切内容都是**不可信输入**：必须通过 Pydantic/Schema 校验并转义后才渲染。
 
 ## 3. 主要攻击面
@@ -123,6 +126,11 @@ worker 进程 ──> 同一个 SQLite（认领作业）──> Provider
 
 `IELTS_WEB_FORCE_HTTPS=1` 时，非 HTTPS 请求（`/healthz` 除外）返回 403 `https_required`。
 
+闸门只在绑定**非回环**地址时求值。随附单元把应用绑在回环（TLS 入口之后），所以同一套规则由
+`scripts/deploy.sh --check` 在部署前强制执行，并在重启后用「带 `X-Forwarded-Proto: https` 请求 `/`」
+验证最后一跳：否则一个缺失的 `IELTS_WEB_SESSION_SECRET` 会静默退化成开发密钥，而
+`/healthz`（公开路径）仍会返回 200，让人误判部署成功。
+
 ## 5. 明确未解决的剩余风险
 
 1. **CSRF 依赖 JavaScript**：多部分上传表单由 `static/security.js` 改为 fetch 提交；
@@ -156,6 +164,10 @@ worker 进程 ──> 同一个 SQLite（认领作业）──> Provider
 ## 7. 生产部署要求（清单）
 
 - [ ] 反向代理终止 TLS，并转发 `Host`、`X-Forwarded-For`、`X-Forwarded-Proto`。
+- [ ] 应用只监听回环地址（随附单元即 `127.0.0.1:8768`），公网端口由 TLS 入口独占；
+      明文请求得不到 HTTP 响应，也没有可绕过的第二个监听端口。
+- [ ] 自签入口用内部 CA 签发 SAN=IP 证书；换成已备案域名后应改为受信任证书。
+- [ ] 部署前 `scripts/deploy.sh --check` 通过（它复刻了 `serve` 的启动闸门）。
 - [ ] `IELTS_WEB_FORCE_HTTPS=1`；`IELTS_WEB_TRUSTED_PROXIES` 只写代理地址/CIDR。
 - [ ] `IELTS_WEB_SESSION_SECRET` ≥ 32 字符随机值（例如 `openssl rand -hex 32`），单独保管。
 - [ ] `IELTS_WEB_USERNAME` / `IELTS_WEB_PASSWORD` 使用强口令（≥12 字符，无示例值）。

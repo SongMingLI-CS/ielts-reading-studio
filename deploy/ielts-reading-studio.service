@@ -11,7 +11,13 @@ Group=ubuntu
 WorkingDirectory=/home/ubuntu/ielts-reading-studio
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=/home/ubuntu/ielts-reading-studio/.env.web
-ExecStart=/home/ubuntu/ielts-reading-studio/.venv/bin/python -m app.cli serve --host 0.0.0.0 --port 8766
+# Loopback only: the companion unit ielts-reading-studio-tls runs Caddy on the public
+# port 8766 and terminates TLS there. Binding 0.0.0.0 here would publish plaintext HTTP
+# next to the HTTPS entry point and let anyone bypass the proxy.
+# A loopback bind also means `serve` never runs its public-deployment gate, so
+# scripts/deploy.sh --check enforces the same rules (credentials, session secret,
+# HTTPS declaration, trusted proxies) before anything is restarted.
+ExecStart=/home/ubuntu/ielts-reading-studio/.venv/bin/python -m app.cli serve --host 127.0.0.1 --port 8768
 
 # Restart policy: keep the site up, but back off so a crash loop cannot spin.
 Restart=on-failure

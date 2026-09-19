@@ -85,7 +85,7 @@ IELTS_WEB_USERNAME=reader
 IELTS_WEB_PASSWORD=请使用独立的强密码
 ```
 
-然后运行 `ielts-reading serve --host 0.0.0.0 --port 8766`。远程监听但未配置完整凭据时，程序会拒绝启动；网站密码也不会从 YAML 读取。公网生产环境必须在反向代理上配置 HTTPS：HTTP Basic Auth 不加密流量，而且浏览器在非安全上下文（非 https、非 localhost）不提供 `crypto.randomUUID()` 等 Web API。`serve` 已开启 `proxy_headers`，反代请转发 `Host`、`X-Forwarded-For`、`X-Forwarded-Proto`；完整 nginx 示例、资源缓存与单用户限制见[运维指南](docs/operator-guide.md)第 9 节。网页提供：
+然后运行 `ielts-reading serve --host 0.0.0.0 --port 8766`。远程监听但未配置完整凭据时，程序会拒绝启动；网站密码也不会从 YAML 读取。公网生产环境必须在反向代理上配置 HTTPS：HTTP Basic Auth 不加密流量，而且浏览器在非安全上下文（非 https、非 localhost）不提供 `crypto.randomUUID()` 等 Web API。`serve` 已开启 `proxy_headers`，反代请转发 `Host`、`X-Forwarded-For`、`X-Forwarded-Proto`；完整 nginx 示例、资源缓存与单用户限制见[运维指南](docs/operator-guide.md)第 9 节。随附的 systemd 单元则把应用绑在 `127.0.0.1:8768`，由 Caddy 单元在公网端口 8766 上终止 TLS（自签、按 IP 访问）：这种情况下 `serve` 的启动闸门不触发，改由 `scripts/deploy.sh --check` 用同一套规则强制检查。网页提供：
 
 - 安全上传、章节边界预览和独立修正记录；
 - 生成范围、难度、三种题型、批次和并发配置；

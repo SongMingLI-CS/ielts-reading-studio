@@ -26,19 +26,103 @@ def _checkout(root: Path, env_file: str | None) -> Path:
     (root / "scripts").mkdir(parents=True)
     (root / "deploy").mkdir(parents=True)
     shutil.copy(SETUP_SCRIPT, root / "scripts" / "server-setup.sh")
-    shutil.copy(
-        REPO_ROOT / "deploy" / "ielts-reading-studio-worker.service",
-        root / "deploy" / "ielts-reading-studio-worker.service",
-    )
+    for name in (
+        "ielts-reading-studio-worker.service",
+        "ielts-reading-studio.service",
+        "ielts-reading-studio-tls.service",
+        "Caddyfile",
+    ):
+        shutil.copy(REPO_ROOT / "deploy" / name, root / "deploy" / name)
     if env_file is not None:
         (root / ".env.web").write_text(env_file, encoding="utf-8")
     return root
 
 
-def _run(checkout: Path, *args: str, systemd_dir: Path) -> subprocess.CompletedProcess[str]:
+def _complete_env() -> str:
+    return (
+        "IELTS_WEB_USERNAME=reader\n"
+        "IELTS_WEB_PASSWORD=super-secret-password\n"
+        "IELTS_WEB_SESSION_SECRET=" + "a" * 64 + "\n"
+        "IELTS_WEB_FORCE_HTTPS=1\n"
+        "IELTS_WEB_TRUSTED_PROXIES=127.0.0.1\n"
+    )
+
+
+def _sudo_shim(root: Path) -> Path:
+    """A ``sudo`` that runs real commands and no-ops the ones this host lacks.
+
+    ``--apply`` shells out to ``sudo install`` / ``sudo systemctl``; neither systemd nor a
+    ``caddy`` user exists on a developer machine, so the shim keeps the apply path testable
+    without pretending the host is a server.
+    """
+
+    shim_dir = root / "shim"
+    shim_dir.mkdir(exist_ok=True)
+    shim = shim_dir / "sudo"
+    shim.write_text(
+        "#!/bin/sh\n"
+        "while [ \"$#\" -gt 0 ] && [ \"${1#-}\" != \"$1\" ]; do shift; done\n"
+        "[ \"$#\" -gt 0 ] || exit 0\n"
+        "if command -v \"$1\" >/dev/null 2>&1; then exec \"$@\"; fi\n"
+        "exit 0\n",
+        encoding="utf-8",
+    )
+    shim.chmod(0o755)
+    return shim_dir
+
+
+_SUDO_SHIM = """#!/bin/sh
+# Test stand-in for sudo: runs real commands, no-ops the ones a laptop does not have.
+while [ "$#" -gt 0 ] && [ "${1#-}" != "$1" ]; do shift; done
+[ "$#" -gt 0 ] || exit 0
+if command -v "$1" >/dev/null 2>&1; then exec "$@"; fi
+exit 0
+"""
+
+_CADDY_SHIM = """#!/bin/sh
+# Test stand-in for the caddy binary: only its presence is checked.
+if [ "${1:-}" = "version" ]; then echo "v2.11.4 (test stub)"; fi
+exit 0
+"""
+
+
+def _shim_dir(checkout: Path) -> Path:
+    """A PATH directory holding the ``sudo`` and ``caddy`` stand-ins.
+
+    ``--apply`` shells out to ``sudo install`` / ``sudo systemctl``, and the script refuses
+    to prepare an HTTPS front when ``caddy`` is absent. Neither systemd nor caddy exists on
+    a developer machine, so the shims keep the apply path testable without pretending this
+    host is a server.
+    """
+
+    shim_dir = checkout / "shim"
+    shim_dir.mkdir(exist_ok=True)
+    for name, body in (("sudo", _SUDO_SHIM), ("caddy", _CADDY_SHIM)):
+        path = shim_dir / name
+        path.write_text(body, encoding="utf-8")
+        path.chmod(0o755)
+    return shim_dir
+
+
+def _run(checkout: Path, *args: str, systemd_dir: Path | None = None,
+         extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    target_dir = systemd_dir or (checkout / "systemd")
+    # /etc/systemd/system always exists on a real host; --apply writes units into it.
+    target_dir.mkdir(parents=True, exist_ok=True)
+    shim_dir = _shim_dir(checkout)
     environment = dict(os.environ)
-    environment["IELTS_SYSTEMD_DIR"] = str(systemd_dir)
-    environment["IELTS_SUDO"] = "sudo-should-not-run"
+    environment.update(
+        {
+            "PATH": f"{shim_dir}:{environment.get('PATH', '')}",
+            "IELTS_SYSTEMD_DIR": str(target_dir),
+            # Never let a test touch /etc/caddy on the machine running it.
+            "IELTS_CADDY_CONFIG_DIR": str(checkout / "caddy"),
+            "IELTS_CADDY_DATA_DIR": str(checkout / "caddy-data"),
+            "IELTS_SUDO": "sudo" if "--apply" in args else "sudo-should-not-run",
+        }
+    )
+    if extra_env:
+        environment.update(extra_env)
     return subprocess.run(
         ["bash", str(checkout / "scripts" / "server-setup.sh"), *args],
         capture_output=True,
@@ -63,6 +147,7 @@ def test_help_lists_both_modes(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
     assert "--apply" in result.stdout
     assert "--no-worker" in result.stdout
+    assert "--no-tls" in result.stdout
 
 
 def test_unknown_option_fails_fast(tmp_path: Path) -> None:
@@ -197,4 +282,104 @@ def test_scripts_survive_a_non_utf8_locale(tmp_path: Path) -> None:
             check=False,
         )
         assert syntax.returncode == 0, syntax.stderr
+
+
+def test_dry_run_reports_the_https_entry_without_writing(tmp_path: Path) -> None:
+    checkout = _checkout(tmp_path, _complete_env())
+
+    result = _run(checkout, "--no-worker")
+
+    assert result.returncode == 0, result.stderr
+    assert "HTTPS 入口" in result.stdout
+    assert "未安装" in result.stdout
+    assert "站点地址" in result.stdout
+    assert not (tmp_path / "caddy").exists(), "dry-run 不得写入 Caddy 配置"
+
+
+def test_apply_renders_the_caddyfile_with_the_configured_site(tmp_path: Path) -> None:
+    checkout = _checkout(tmp_path, _complete_env())
+
+    result = _run(
+        checkout,
+        "--apply",
+        "--no-worker",
+        extra_env={"IELTS_TLS_SITE": "https://203.0.113.9:9443"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    rendered = (tmp_path / "caddy" / "ielts-reading-studio.caddyfile").read_text(encoding="utf-8")
+    assert "{{SITE_ADDRESS}}" not in rendered, "占位符必须被替换"
+    assert "https://203.0.113.9:9443 {" in rendered
+    assert "tls internal" in rendered
+    assert "reverse_proxy 127.0.0.1:8768" in rendered
+    assert "auto_https disable_redirects" in rendered, "80 端口属于别的服务，不能绑定"
+
+
+def test_apply_installs_the_https_unit(tmp_path: Path) -> None:
+    checkout = _checkout(tmp_path, _complete_env())
+    systemd_dir = tmp_path / "systemd"
+    systemd_dir.mkdir()
+
+    result = _run(checkout, "--apply", "--no-worker")
+
+    assert result.returncode == 0, result.stderr
+    assert (systemd_dir / "ielts-reading-studio-tls.service").exists()
+    assert "caddy run" in (systemd_dir / "ielts-reading-studio-tls.service").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_apply_replaces_an_outdated_web_unit(tmp_path: Path) -> None:
+    """The deployed unit used to bind 0.0.0.0:8766, which the TLS front now owns."""
+
+    checkout = _checkout(tmp_path, _complete_env())
+    systemd_dir = tmp_path / "systemd"
+    systemd_dir.mkdir()
+    installed = systemd_dir / "ielts-reading-studio.service"
+    installed.write_text(
+        "[Service]\nExecStart=/bin/true serve --host 0.0.0.0 --port 8766\n", encoding="utf-8"
+    )
+
+    result = _run(checkout, "--apply", "--no-worker", "--no-tls")
+
+    assert result.returncode == 0, result.stderr
+    assert "与本仓库版本不同" in result.stdout
+    assert "--host 127.0.0.1 --port 8768" in installed.read_text(encoding="utf-8")
+
+
+def test_upstream_port_drift_is_reported(tmp_path: Path) -> None:
+    checkout = _checkout(tmp_path, _complete_env())
+    unit = checkout / "deploy" / "ielts-reading-studio.service"
+    unit.write_text(unit.read_text(encoding="utf-8").replace("--port 8768", "--port 9999"))
+
+    result = _run(checkout, "--no-worker")
+
+    assert result.returncode == 1
+    assert "不一致" in result.stderr
+
+
+def test_tls_handling_can_be_skipped(tmp_path: Path) -> None:
+    checkout = _checkout(tmp_path, _complete_env())
+
+    result = _run(checkout, "--no-worker", "--no-tls")
+
+    assert result.returncode == 0, result.stderr
+    assert "跳过 HTTPS 入口" in result.stdout or "HTTPS 入口" not in result.stdout
+
+
+def test_repository_web_unit_port_matches_the_caddy_upstream() -> None:
+    """Drift here means Caddy answers 502 while the application looks healthy."""
+
+    upstream = re.search(
+        r"reverse_proxy\s+127\.0\.0\.1:(\d+)",
+        (REPO_ROOT / "deploy" / "Caddyfile").read_text(encoding="utf-8"),
+    )
+    unit = re.search(
+        r"--port (\d+)",
+        (REPO_ROOT / "deploy" / "ielts-reading-studio.service").read_text(encoding="utf-8"),
+    )
+
+    assert upstream is not None, "Caddyfile 必须包含反代目标"
+    assert unit is not None, "web 单元必须声明 --port"
+    assert upstream.group(1) == unit.group(1)
 

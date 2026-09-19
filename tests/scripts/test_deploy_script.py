@@ -49,8 +49,14 @@ def _prepared_checkout(root: Path) -> Path:
     (root / "config.yaml").write_text(
         "output_dir: output\ndatabase_path: output/state.db\n", encoding="utf-8"
     )
+    # A publicly deployable EnvironmentFile: the preflight re-runs the application's own
+    # gate, so a missing session secret or a missing HTTPS declaration fails the check.
     (root / ".env.web").write_text(
-        "IELTS_WEB_USERNAME=reader\nIELTS_WEB_PASSWORD=placeholder-not-a-real-secret\n",
+        "IELTS_WEB_USERNAME=reader\n"
+        "IELTS_WEB_PASSWORD=placeholder-not-a-real-secret\n"
+        "IELTS_WEB_SESSION_SECRET=" + "b" * 64 + "\n"
+        "IELTS_WEB_FORCE_HTTPS=1\n"
+        "IELTS_WEB_TRUSTED_PROXIES=127.0.0.1\n",
         encoding="utf-8",
     )
     (root / ".gitignore").write_text("output/\ninput/\nbackups/\n", encoding="utf-8")
@@ -135,3 +141,42 @@ def test_dry_run_prints_every_step_and_changes_nothing(tmp_path: Path) -> None:
     assert not (checkout / "output" / "state.db").exists()
     assert "同步依赖" in result.stdout
     assert "执行数据库迁移" in result.stdout
+
+
+def test_check_refuses_a_configuration_that_fails_the_public_gate(tmp_path: Path) -> None:
+    """Behind the TLS front the app binds loopback, so `serve` never runs its own gate.
+
+    Without this check a missing IELTS_WEB_SESSION_SECRET would deploy silently and every
+    session would be signed with the development key.
+    """
+
+    checkout = _bare_checkout(tmp_path)
+    (checkout / "config.yaml").write_text(
+        "output_dir: output\ndatabase_path: output/state.db\n", encoding="utf-8"
+    )
+    (checkout / ".env.web").write_text(
+        "IELTS_WEB_USERNAME=reader\nIELTS_WEB_PASSWORD=placeholder-not-a-real-secret\n",
+        encoding="utf-8",
+    )
+
+    result = _script(checkout, "--check")
+
+    assert result.returncode == 1
+    assert "安全配置不满足公网部署要求" in result.stderr
+    assert "IELTS_WEB_SESSION_SECRET" in result.stderr
+    assert "IELTS_WEB_FORCE_HTTPS" in result.stderr
+
+
+def test_prepared_checkout_passes_the_public_gate(tmp_path: Path) -> None:
+    result = _script(_prepared_checkout(tmp_path), "--check")
+
+    assert result.returncode == 0, result.stderr
+    assert "满足公网闸门" in result.stdout
+
+
+def test_dry_run_documents_both_health_checks(tmp_path: Path) -> None:
+    result = _script(_prepared_checkout(tmp_path), "--dry-run", "--no-pull")
+
+    assert result.returncode == 0, result.stderr
+    assert "健康检查" in result.stdout
+    assert "代理语义检查" in result.stdout, "/healthz 是公开路径，不足以证明站点可用"

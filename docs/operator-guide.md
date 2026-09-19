@@ -114,6 +114,40 @@ curl -fsS http://127.0.0.1:8766/healthz
 
 ## 9. 远程部署（服务器）
 
+### 9.1 本服务器的实际拓扑（按 IP + 自签 HTTPS）
+
+生产机（192.144.160.196）不直接暴露 uvicorn，前面有一层自签 HTTPS 入口：
+
+```text
+浏览器 ──https(自签, SAN=IP)──> Caddy 0.0.0.0:8766 ──http──> uvicorn 127.0.0.1:8768 ──> SQLite
+                                        └── 转发 Host / X-Forwarded-For / X-Forwarded-Proto: https
+```
+
+这样安排的原因（都是本机实测结论）：
+
+- **80 端口被别的服务占用**（容器），无法用 ACME 的 http-01 校验；
+- **443 端口留给同机的另一个项目**（Novel Agent 的 Caddy 配置），不抢用；
+- **未备案域名在大陆机房会被按 SNI 拦截**，而浏览器访问 IP 时按 RFC 不发 SNI，
+  因此站点地址直接用「公网 IP:8766」+ 内部 CA 签发的 SAN=IP 证书：浏览器只会提示
+  「证书不受信任」，不会出现域名不匹配；
+- 8766 早已在云安全组放行，换成 https 不需要改安全组。
+
+安装与更新用一条命令（写入 `.env.web` 缺失项，并安装/更新 web、worker、HTTPS 入口三个单元）：
+
+```bash
+scripts/server-setup.sh          # 只报告：缺哪些变量、哪些单元没装、端口是否一致
+scripts/server-setup.sh --apply  # 落地；会话密钥在本机生成，且从不打印
+```
+
+用户访问 `https://192.144.160.196:8766`，首次需要点一次「继续前往」（自签证书）。
+应用自身**只监听 127.0.0.1**：明文请求打到 8766 会因是 TLS 端口而得不到 HTTP 响应，
+8768 又不对外监听，外部无法绕过入口。
+
+以后有了**已备案域名**：把 `IELTS_TLS_SITE` 改成 `https://你的域名`、去掉 `deploy/Caddyfile`
+里的 `tls internal`，并让 80 端口或 DNS 能完成 ACME 校验，即可换成受信任证书。
+
+### 9.2 配置闸门（不使用随附单元时）
+
 服务默认只监听本机。对外提供服务时必须显式指定 host，并满足[安全说明](security.md)第 4.8 节的配置闸门；
 任一条件不满足会**拒绝启动**并打印具体原因：
 
@@ -137,8 +171,11 @@ ielts-reading serve --host 0.0.0.0 --port 8766
   所有状态变更请求还需要 CSRF 令牌（见[安全说明](security.md)第 4.2 节）。
 - **务必放在 HTTPS 反向代理之后。** 明文 HTTP 有两个后果：Basic 口令可被窃听；浏览器在非安全上下文（既不是 https、也不是 localhost）不提供 `crypto.randomUUID()` 等 Web API。练习页已对这类 API 做兜底，但不要把明文 HTTP 当作可接受的长期方案。
 - 反代需转发 `Host`、`X-Forwarded-For`、`X-Forwarded-Proto`；`serve` 已开启 `proxy_headers`，且只信任来自本机的转发头（uvicorn 的 `forwarded_allow_ips` 默认 `127.0.0.1`）。
+- 闸门只在绑定**非回环**地址时触发。随附的 web 单元绑 `127.0.0.1`（回环在 TLS 入口之后），
+  因此同样的规则由 `scripts/deploy.sh --check` 强制执行：缺少会话密钥、未声明 HTTPS 或未配置
+  可信代理时**直接拒绝部署**，避免静默退化成开发密钥。
 
-nginx 片段：
+### 9.3 nginx 片段（域名 + 受信任证书）
 
 ```nginx
 server {
@@ -174,7 +211,9 @@ server {
 
 它按顺序执行：
 
-1. **部署前检查**（只读）：工作树是否干净、当前 commit、`.venv` 是否存在、`config.yaml` 与 `.env.web` 是否可读、`input/`/`output/` 是否可读写、磁盘空间、当前 schema 版本与待迁移状态。
+1. **部署前检查**（只读）：工作树是否干净、当前 commit、`.venv` 是否存在、`config.yaml` 与 `.env.web` 是否可读、
+   **公网闸门**（凭据、会话密钥、HTTPS 声明、可信代理——与 `serve` 启动时的规则完全一致）、`input/`/`output/`
+   是否可读写、磁盘空间、当前 schema 版本与待迁移状态。
 2. **一致性快照**：用 SQLite online backup 把 `state.db` 写到 `backups/deploy-<UTC时间>.db`，只保留最近 10 份（`IELTS_KEEP_SNAPSHOTS` 可调）。快照失败会直接中止部署。
 3. `git pull --ff-only`。
 4. `uv sync --frozen` 按 `uv.lock` 同步依赖（存在 uv 时优先；没有 uv 或 `uv.lock` 时回退到 `pip install -e`，
@@ -183,14 +222,18 @@ server {
    服务器上不想要测试工具时用 `IELTS_EXTRAS=`（显式空值）只装运行时依赖；不设置该变量则默认安装 `dev` extra。
 5. `ielts-reading migrate` 执行数据库迁移，失败即中止。
 6. 离线验证：`python -m pytest -q`（无网络、无 API Key）。
-7. `sudo systemctl restart ielts-reading-studio`，然后**真正请求** `http://127.0.0.1:8766/healthz`（最多 20 次 × 1 秒）。`systemctl is-active` 只能说明进程活着，不能说明网站可用。
+7. `sudo systemctl restart ielts-reading-studio`，然后**真正请求**两件事：
+   (a) 应用自身的 `http://127.0.0.1:8768/healthz`（最多 20 次 × 1 秒；端口从 systemd 单元里读取，
+   可用 `IELTS_HEALTH_URL` 覆盖）；(b) 带 `X-Forwarded-Proto: https` 请求 `/`，确认它不是 403
+   `https_required`。`systemctl is-active` 只能说明进程活着，不能说明网站可用；而 `/healthz` 属于公开
+   路径，在「全站 403」时仍然是 200，所以 (b) 不能省——它验证的正是 TLS 入口到应用的最后一跳。
 
 任何一步失败都会走**回滚**：停止服务 → 把代码切回部署前的 commit（`git switch --detach`，不使用破坏性重置）→ 如果已经执行过迁移就恢复快照并删除 `-wal`/`-shm` → 重启旧版本并再次做健康检查。回滚后仍不健康时，脚本打印脱敏后的 `journalctl` 并给出明确的手工处理指引，服务保持运行而不是停在半升级状态。
 
 检查与演练（都不修改任何状态）：
 
 ```bash
-scripts/deploy.sh --check      # 只做第 1 步；不可部署时退出码 1，可部署时 0
+scripts/deploy.sh --check      # 只做第 1 步（含公网闸门）；不可部署时退出码 1，可部署时 0
 scripts/deploy.sh --dry-run    # 打印第 2–7 步会执行的命令，一条都不执行
 scripts/deploy.sh --no-pull    # 已经用 git bundle 手工更新过代码时使用
 scripts/deploy.sh --skip-tests # 跳过第 6 步（不推荐）

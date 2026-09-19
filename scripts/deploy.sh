@@ -8,16 +8,28 @@
 # The script never prints secrets: configuration files are only tested for existence,
 # and the service log tail is passed through a redaction filter.
 #
+# Two checks exist because this topology can hide failures:
+#   * the preflight re-runs the application's own public-deployment gate (credentials,
+#     session secret, HTTPS declaration, trusted proxies). The shipped unit binds
+#     127.0.0.1 behind the Caddy TLS front, so `serve` never evaluates that gate, and a
+#     missing IELTS_WEB_SESSION_SECRET would silently fall back to the development key;
+#   * the post-restart check requests "/" with the proxy's semantics
+#     (X-Forwarded-Proto from a trusted address), because /healthz is public and still
+#     answers 200 when every other request is rejected with 403 https_required.
+#
 # Overridable environment:
-#   IELTS_SERVICE, IELTS_HEALTH_URL, IELTS_BRANCH, IELTS_CONFIG, IELTS_ENV_FILE,
-#   IELTS_BACKUP_DIR, IELTS_SUDO, IELTS_PYTHON, IELTS_EXTRAS, IELTS_KEEP_SNAPSHOTS,
-#   IELTS_SKIP_PULL, IELTS_SKIP_TESTS
+#   IELTS_SERVICE, IELTS_WORKER_SERVICE, IELTS_HEALTH_URL, IELTS_BRANCH, IELTS_CONFIG,
+#   IELTS_ENV_FILE, IELTS_BACKUP_DIR, IELTS_SUDO, IELTS_PYTHON, IELTS_EXTRAS,
+#   IELTS_KEEP_SNAPSHOTS, IELTS_SKIP_PULL, IELTS_SKIP_TESTS
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SERVICE="${IELTS_SERVICE:-ielts-reading-studio}"
 WORKER_SERVICE="${IELTS_WORKER_SERVICE:-ielts-reading-studio-worker}"
-HEALTH_URL="${IELTS_HEALTH_URL:-http://127.0.0.1:8766/healthz}"
+HEALTH_URL="${IELTS_HEALTH_URL:-}"
+#: Used when the service unit cannot be inspected (no systemd, or a hand-run server).
+#: Matches deploy/ielts-reading-studio.service: loopback behind the Caddy TLS front.
+APP_PORT_FALLBACK="${IELTS_APP_PORT:-8768}"
 BRANCH="${IELTS_BRANCH:-main}"
 CONFIG_FILE="${IELTS_CONFIG:-config.yaml}"
 ENV_FILE="${IELTS_ENV_FILE:-.env.web}"
@@ -109,6 +121,52 @@ PY
   ) 2>/dev/null || printf 'none\t\n'
 }
 
+# The address the post-restart checks talk to. Derived from the installed unit so a port
+# change cannot silently leave the check pointing at the wrong port, unless overridden.
+resolve_health_url() {
+  if [[ -n "$HEALTH_URL" ]]; then
+    return 0
+  fi
+  local port=""
+  if command -v systemctl >/dev/null 2>&1; then
+    port="$(systemctl cat "$SERVICE" 2>/dev/null | grep -oE -- '--port [0-9]+' | head -1 | grep -oE '[0-9]+$')" || port=""
+  fi
+  HEALTH_URL="http://127.0.0.1:${port:-$APP_PORT_FALLBACK}/healthz"
+}
+
+# Run the application's own public-deployment gate. `serve` only evaluates it for a
+# non-loopback bind; behind the TLS front the bind is loopback, so the same rules have to
+# be enforced here or a weak/missing secret would go unnoticed. Values come from the
+# EnvironmentFile that systemd passes to the service, never from the caller's shell.
+public_config_issues() {
+  if [[ ! -x "$VENV_PY" || ! -f "$APP_DIR/$CONFIG_FILE" || ! -f "$APP_DIR/$ENV_FILE" ]]; then
+    printf '缺少 %s 或 %s，无法评估公网配置\n' "$CONFIG_FILE" "$ENV_FILE"
+    return 1
+  fi
+  (
+    cd "$APP_DIR" || exit 1
+    set -a
+    # shellcheck disable=SC1090
+    . "$APP_DIR/$ENV_FILE" >/dev/null 2>&1 || true
+    set +a
+    # Issue messages only name variables; production_issues never returns a value.
+    "$VENV_PY" - "$CONFIG_FILE" <<'PY'
+import sys
+from pathlib import Path
+
+from app.config import AppConfig
+
+try:
+    settings = AppConfig.load(Path(sys.argv[1]))
+except Exception as exc:  # noqa: BLE001 - the message is shown to the operator
+    print(f"无法读取配置: {exc}")
+    raise SystemExit(1)
+for issue in settings.production_issues(host="0.0.0.0"):
+    print(issue)
+PY
+  ) 2>/dev/null
+}
+
 # Strip anything that looks like a credential before printing service logs.
 redact() {
   sed -E \
@@ -161,7 +219,28 @@ preflight() {
   if [[ ! -f "$APP_DIR/$ENV_FILE" ]]; then
     warn "EnvironmentFile 缺失: $APP_DIR/${ENV_FILE}（systemd 依赖它提供网站凭据）"
     failures=1
+  else
+    # The helper exits 0 with an empty stdout when the configuration is safe, so an
+    # empty result - not the exit status - is what "passes" here.
+    local issues="" evaluated=1
+    if ! issues="$(public_config_issues)"; then
+      evaluated=0
+    fi
+    if ((evaluated == 0)); then
+      warn "无法评估公网配置：${issues:-未知错误}"
+      failures=1
+    elif [[ -n "$issues" ]]; then
+      warn '安全配置不满足公网部署要求（与 serve 的启动闸门一致）:'
+      printf '%s\n' "$issues" | while IFS= read -r line; do
+        [[ -n "$line" ]] && printf '!!   - %s\n' "$line" >&2
+      done
+      failures=1
+    else
+      printf '安全配置:   满足公网闸门（凭据、会话密钥、HTTPS、可信代理）\n'
+    fi
   fi
+
+  printf 'health:     %s\n' "$HEALTH_URL"
 
   local dir
   for dir in input output; do
@@ -325,21 +404,48 @@ restart_worker_service() {
 }
 
 # A real HTTP request, not `systemctl is-active`: the process can be alive and broken.
+# /healthz alone is not enough - it is exempt from the HTTPS rule, so it keeps answering
+# 200 while every other request is rejected - hence the second, proxy-shaped check.
 wait_for_health() {
   if ((DRY_RUN)); then
     printf '[dry-run] 健康检查 %s（最多 %s 次）\n' "$HEALTH_URL" "$HEALTH_ATTEMPTS"
+    printf '[dry-run] 代理语义检查 %s（带 X-Forwarded-Proto: https，要求非 403）\n' "${HEALTH_URL%/healthz}"
     return 0
   fi
-  local attempt
+  local attempt healthy=0
   for ((attempt = 1; attempt <= HEALTH_ATTEMPTS; attempt++)); do
     if curl -fsS --max-time 5 "$HEALTH_URL" >/dev/null 2>&1; then
       log "健康检查通过（第 $attempt 次）: $HEALTH_URL"
-      return 0
+      healthy=1
+      break
     fi
     sleep "$HEALTH_DELAY"
   done
-  warn "健康检查失败（已尝试 $HEALTH_ATTEMPTS 次）: $HEALTH_URL"
-  return 1
+  if ((healthy == 0)); then
+    warn "健康检查失败（已尝试 $HEALTH_ATTEMPTS 次）: $HEALTH_URL"
+    return 1
+  fi
+  proxied_root_check
+}
+
+# Ask for the root page the way the TLS front does: a loopback peer (which must be in
+# IELTS_WEB_TRUSTED_PROXIES) plus X-Forwarded-Proto: https. A 403 here means the app does
+# not consider proxied traffic secure - every page would be unreachable even though
+# /healthz says the service is up.
+proxied_root_check() {
+  local root="${HEALTH_URL%/healthz}" code
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+    -H 'X-Forwarded-Proto: https' "$root" 2>/dev/null || true)"
+  if [[ "$code" == "403" ]]; then
+    warn "$root 返回 403：HTTPS 判定失败，请确认 IELTS_WEB_TRUSTED_PROXIES 包含代理地址（127.0.0.1）"
+    return 1
+  fi
+  if [[ ! "$code" =~ ^[1-5][0-9][0-9]$ || "$code" == "000" ]]; then
+    warn "代理语义检查失败：$root 无有效响应（curl 状态 ${code:-无}）"
+    return 1
+  fi
+  log "代理语义检查通过: $root -> HTTP $code"
+  return 0
 }
 
 diagnose() {
@@ -383,6 +489,7 @@ rollback() {
 main() {
   parse_args "$@"
   cd "$APP_DIR"
+  resolve_health_url
   if ! preflight; then
     exit 1
   fi
