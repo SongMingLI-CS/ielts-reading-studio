@@ -77,3 +77,31 @@ def test_revision_limits_cannot_exceed_two(tmp_path):
         path.write_text(f"{field}: 3\n", encoding="utf-8")
         with pytest.raises(ConfigurationError, match=field):
             AppConfig.load(path)
+
+
+def test_programmatic_config_anchors_data_paths_on_base_dir(tmp_path):
+    """A hand-built config must not fall back to the process working directory.
+
+    ``AppConfig(base_dir=tmp_path)`` used to keep the bare relative defaults, so a
+    fixture that then opened ``config.database_path`` wrote its data into the
+    directory the test process happened to run in — for the project checkout that
+    is the real ``output/state.db``. Anchor on base_dir instead.
+    """
+    config = AppConfig(base_dir=tmp_path)
+
+    assert config.input_dir == tmp_path / "input"
+    assert config.output_dir == tmp_path / "output"
+    assert config.database_path == tmp_path / "output" / "state.db"
+
+
+def test_absolute_data_paths_are_not_re_anchored(tmp_path):
+    config = AppConfig(
+        base_dir=tmp_path / "base",
+        input_dir=tmp_path / "in",
+        output_dir=tmp_path / "out",
+        database_path=tmp_path / "db" / "state.db",
+    )
+
+    assert config.input_dir == tmp_path / "in"
+    assert config.output_dir == tmp_path / "out"
+    assert config.database_path == tmp_path / "db" / "state.db"

@@ -14,7 +14,15 @@ from app.storage.repositories import Repository
 
 @pytest.fixture
 def service(tmp_path):
-    config = AppConfig(base_dir=tmp_path)
+    # Keep every data path explicit: with the bare relative defaults this import
+    # fixture wrote its corpora into the repository's own output/ directory,
+    # which on a deployment is the live data directory.
+    config = AppConfig(
+        base_dir=tmp_path,
+        input_dir=tmp_path / "input",
+        output_dir=tmp_path / "output",
+        database_path=tmp_path / "output" / "state.db",
+    )
     database = Database(config.database_path)
     database.create_schema()
     return CorpusImporter(
