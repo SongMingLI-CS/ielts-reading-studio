@@ -132,7 +132,7 @@ server {
 
 脚本会先确认没有本地改动（`output/`、`input/`、`.env`、`.env.web`、`.venv` 都在 `.gitignore` 里，git 不会碰它们），再执行 `git pull --ff-only`，然后用服务器的 `.venv` 重新安装依赖（`pip install -e ".[dev]"`，没有变化时是空操作），最后重启 systemd 服务并打印状态。
 
-**依赖必须跟着代码走**：新版本可能新增运行时包（例如 `python-multipart`、`openpyxl`）或包路径（`ielts_novel` 来自仓库内的 `components/context-novel/src`），只拉代码不装依赖会让服务起不来。服务器上不想要测试工具时，可以用 `IELTS_EXTRAS=` 让这一步只装运行时依赖。
+**依赖必须跟着代码走**：新版本可能新增运行时包（例如 `python-multipart`、`openpyxl`）或包路径（`ielts_novel` 来自仓库内的 `components/context-novel/src`），只拉代码不装依赖会让服务起不来。服务器上不想要测试工具时，可以用 `IELTS_EXTRAS=`（显式空值）让这一步只装运行时依赖；不设置该变量则默认安装 `.[dev]`。
 
 手工等价操作（顺序不能颠倒：先拉代码，再装依赖，最后重启）：
 

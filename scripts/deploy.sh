@@ -33,9 +33,16 @@ if [ -x "$APP_DIR/.venv/bin/python" ]; then
 else
   PYTHON="${PYTHON:-python3}"
 fi
-EXTRAS="${IELTS_EXTRAS:-dev}"
-echo "==> deps:    $PYTHON -m pip install -e .[$EXTRAS]"
-"$PYTHON" -m pip install --quiet -e "${APP_DIR}[${EXTRAS}]"
+# IELTS_EXTRAS: unset -> dev (default), empty -> runtime packages only, "dev"
+# or any other extra -> that extra. An empty list must not become "path[]",
+# because pip rejects that outright.
+EXTRAS="${IELTS_EXTRAS-dev}"
+TARGET="${APP_DIR}"
+if [ -n "$EXTRAS" ]; then
+  TARGET="${APP_DIR}[${EXTRAS}]"
+fi
+echo "==> deps:    $PYTHON -m pip install -e $TARGET"
+"$PYTHON" -m pip install --quiet -e "$TARGET"
 
 echo "==> after:   $(git rev-parse --short HEAD) $(git log -1 --pretty=%s)"
 sudo systemctl restart "$SERVICE"
