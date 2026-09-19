@@ -50,7 +50,7 @@
     <div class="vocab-actions">
       {% if row.status == 'saved' %}<span class="vocab-state saved">已收藏</span>
       {% elif row.status == 'known' %}<span class="vocab-state known">已掌握</span>{% endif %}
-      <form method="post" action="/practice/vocabulary/mark">
+      <form method="post" action="/practice/vocabulary/mark">{{ csrf_field() }}
         <input type="hidden" name="word" value="{{ row.word }}">
         <input type="hidden" name="scope" value="{{ selected_scope or '' }}">
         <button type="submit" name="action" value="save" class="button small {% if row.status != 'saved' %}secondary{% endif %}">{% if row.status == 'saved' %}已收藏{% else %}收藏{% endif %}</button>

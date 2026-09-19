@@ -123,22 +123,24 @@ def looks_like_legacy_database(engine: Engine | Connection) -> bool:
     return bool(tables & LEGACY_TABLES)
 
 
-#: Schemas a pre-Alembic database may already have, newest first, with a column that
-#: proves the shape. Detection matters because stamping the wrong revision makes the next
-#: migration try to add columns that already exist.
-LEGACY_SCHEMA_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("0002", ("worker_id", "idempotency_key", "attempts")),
+#: Schemas a pre-Alembic database may already have, newest first, with markers that prove
+#: the shape (extra columns on ``jobs`` and/or extra tables). Detection matters because
+#: stamping the wrong revision makes the next migration re-add existing objects.
+LEGACY_SCHEMA_HINTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    ("0003", (), ("web_sessions", "rate_limit_hits")),
+    ("0002", ("worker_id", "idempotency_key", "attempts"), ()),
 )
 
 
 def detect_legacy_revision(engine: Engine | Connection) -> str:
     """Pick the revision that matches the schema of a pre-Alembic database."""
 
-    if _VERSION_TABLE in _table_names(engine):
+    tables = _table_names(engine)
+    if _VERSION_TABLE in tables:
         return BASELINE_REVISION
     columns = _column_names(engine, "jobs")
-    for revision, markers in LEGACY_SCHEMA_HINTS:
-        if columns and set(markers) <= columns:
+    for revision, required_columns, required_tables in LEGACY_SCHEMA_HINTS:
+        if set(required_columns) <= columns and set(required_tables) <= tables:
             return revision
     return BASELINE_REVISION
 

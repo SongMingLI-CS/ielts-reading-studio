@@ -271,8 +271,15 @@ def serve(
     service = _service(config)
     local_hosts = {"127.0.0.1", "localhost", "::1"}
     remote = host not in local_hosts
-    if remote and not (service.config.web_username and service.config.web_password):
-        _abort("Remote serving requires IELTS_WEB_USERNAME and IELTS_WEB_PASSWORD")
+    if remote:
+        # Refuse to expose an unsafe configuration: credentials, HTTPS declaration,
+        # proxy trust and a real session secret are all verified before binding.
+        issues = service.config.production_issues(host=host)
+        if issues:
+            _abort(
+                "拒绝以不安全的配置公开监听（详见 docs/security.md）:\n- "
+                + "\n- ".join(issues)
+            )
     typer.echo(f"http://{host}:{port}")
     if remote:
         typer.echo(

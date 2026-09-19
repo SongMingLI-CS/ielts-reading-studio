@@ -32,7 +32,7 @@ DeepSeek 适配器与双智能体已接入应用，但真实样篇门禁尚未�
 
 | 检查项 | 命令 | 结果 |
 |---|---|---|
-| 单元 + 集成测试（两个套件） | `python -m pytest -q` | **520 passed**（主项目 401 + 情境小说组件 119） |
+| 单元 + 集成测试（两个套件） | `python -m pytest -q` | **625 passed**（主项目 506 + 情境小说组件 119） |
 | 静态检查（全仓） | `python -m ruff check app tests migrations components/context-novel/src components/context-novel/tests` | **All checks passed!** |
 | 语法编译 | `python -m compileall -q app components/context-novel/src` | 通过 |
 | CLI 烟雾检查 | `python -m app.cli --help` | 通过，列出 13 个命令（含 `migrate`/`snapshot`/`worker`） |
@@ -41,6 +41,8 @@ DeepSeek 适配器与双智能体已接入应用，但真实样篇门禁尚未�
 | 部署脚本 | `tests/scripts/test_deploy_script.py` | 语法、`--check` 只读、`--dry-run` 不变更 |
 | 数据库迁移 | `tests/storage/test_migrations.py` | 全新建库、旧库标记、幂等、未知版本拒绝、模型漂移 |
 | 持久任务队列 | `tests/pipeline/test_queue.py`、`tests/pipeline/test_worker.py` | 竞争认领、租约过期重认领、pause/resume/cancel、幂等键、真实假 Provider 批任务 |
+| 安全（阶段五） | `tests/security/` | CSRF、会话与 Cookie、限速与可信代理、Provider 预算、安全头与缓存、上传/路径、脱敏与错误面，共 103 项 |
+| 手工安全验收 | `/tmp/p5_manual_acceptance.py`（TestClient 等价脚本） | 12/12 PASS |
 | 2,000 章导入（离线） | 见第 4.4 节 | 2,000 章 / 1,000 单元 / 0.07 秒 / 无网络访问 |
 | 假 Provider 端到端 | `tests/integration/test_end_to_end.py` | 三种难度 + 样篇审批 + 批量 + 三格式导出 |
 | 失败矩阵与密钥扫描 | `test_failure_matrix.py` / `test_secret_redaction.py` | 通过 |

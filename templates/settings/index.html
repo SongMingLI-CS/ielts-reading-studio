@@ -13,7 +13,7 @@
   </div>
   <aside class="library-totals">
     <p class="eyebrow">连接状态</p>
-    <form class="probe-form" action="/settings/test-provider" method="post">
+    <form class="probe-form" action="/settings/test-provider" method="post">{{ csrf_field() }}
       <p class="probe-hint">向 {{ groups[0].rows[0].value }} 发一次极小的真实请求（约几十 token），确认密钥、余额和模型名都可用。</p>
       <button type="submit">测试模型连接</button>
     </form>

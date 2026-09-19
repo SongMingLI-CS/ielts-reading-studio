@@ -13,18 +13,19 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
 from app.models import Corpus, GenerationUnit, UnitStatus
 from app.pipeline.service import ReadingStudioService
 from app.planning.boundaries import BoundaryEdit
 from app.planning.importer import MANIFEST_REBUILT_DIAGNOSTIC, corpus_id_for
+from app.security.uploads import check_magic, validate_extension
 
 from .dependencies import get_service
+from .templating import templates
 
 router = APIRouter()
-TEMPLATES = Jinja2Templates(directory=Path(__file__).parents[2] / "templates")
+TEMPLATES = templates()
 ALLOWED_EXTENSIONS = {".txt", ".docx", ".epub", ".md", ".markdown"}
 MAX_UPLOAD_BYTES = 250 * 1024 * 1024
 METADATA_JUNK = re.compile(
@@ -85,9 +86,11 @@ async def import_upload(
     source: Annotated[UploadFile, File()],
     service: Annotated[ReadingStudioService, Depends(get_service)],
 ):
-    extension = Path(source.filename or "").suffix.casefold()
-    if extension not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=415, detail="Unsupported source format")
+    try:
+        extension = validate_extension(source.filename, ALLOWED_EXTENSIONS)
+    except ValueError as exc:
+        raise HTTPException(status_code=415, detail=str(exc)) from exc
+    limit = service.config.web_max_upload_bytes
     temporary_dir = service.config.input_dir / ".uploads"
     temporary_dir.mkdir(parents=True, exist_ok=True)
     temporary = temporary_dir / f"{uuid4().hex}.upload"
@@ -96,10 +99,20 @@ async def import_upload(
     digest = sha256()
     try:
         with temporary.open("wb") as handle:
+            first = True
             while chunk := await source.read(1024 * 1024):
+                if first and not check_magic(extension, chunk[:8]):
+                    raise HTTPException(
+                        status_code=415,
+                        detail=f"文件内容与扩展名 {extension} 不符，已拒绝",
+                    )
+                first = False
                 written += len(chunk)
-                if written > MAX_UPLOAD_BYTES:
-                    raise HTTPException(status_code=413, detail="Upload exceeds 250 MB")
+                if written > limit:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"文件不能超过 {limit // (1024 * 1024)} MB",
+                    )
                 digest.update(chunk)
                 handle.write(chunk)
         upload_dir = service.config.input_dir / corpus_id_for(digest.hexdigest())
@@ -132,9 +145,11 @@ async def rebind_source(
     corpus = service.repository.get_corpus(corpus_id)
     if corpus is None:
         raise HTTPException(status_code=404, detail="Corpus not found")
-    extension = Path(source.filename or "").suffix.casefold()
-    if extension not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=415, detail="Unsupported source format")
+    try:
+        extension = validate_extension(source.filename, ALLOWED_EXTENSIONS)
+    except ValueError as exc:
+        raise HTTPException(status_code=415, detail=str(exc)) from exc
+    limit = service.config.web_max_upload_bytes
     temporary_dir = service.config.input_dir / ".uploads"
     temporary_dir.mkdir(parents=True, exist_ok=True)
     temporary = temporary_dir / f"{uuid4().hex}.upload"
@@ -142,10 +157,20 @@ async def rebind_source(
     digest = sha256()
     try:
         with temporary.open("wb") as handle:
+            first = True
             while chunk := await source.read(1024 * 1024):
+                if first and not check_magic(extension, chunk[:8]):
+                    raise HTTPException(
+                        status_code=415,
+                        detail=f"文件内容与扩展名 {extension} 不符，已拒绝",
+                    )
+                first = False
                 written += len(chunk)
-                if written > MAX_UPLOAD_BYTES:
-                    raise HTTPException(status_code=413, detail="Upload exceeds 250 MB")
+                if written > limit:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"文件不能超过 {limit // (1024 * 1024)} MB",
+                    )
                 digest.update(chunk)
                 handle.write(chunk)
         if digest.hexdigest() != corpus.source_hash:

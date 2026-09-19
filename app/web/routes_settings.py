@@ -9,7 +9,6 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
 from app.agents.base import ModelRequest, ProviderError
@@ -17,9 +16,10 @@ from app.agents.deepseek import DeepSeekProvider
 from app.pipeline.service import ReadingStudioService
 
 from .dependencies import get_service
+from .templating import templates
 
 router = APIRouter()
-TEMPLATES = Jinja2Templates(directory=Path(__file__).parents[2] / "templates")
+TEMPLATES = templates()
 
 
 def _human_bytes(size: int) -> str:

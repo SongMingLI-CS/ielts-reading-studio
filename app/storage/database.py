@@ -199,6 +199,34 @@ writing_evaluations = Table(
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 
+# Server-side browser sessions. The cookie only carries a 256-bit random id; the table
+# stores an HMAC of it, so a database leak alone cannot be replayed as a session.
+web_sessions = Table(
+    "web_sessions",
+    metadata,
+    Column("id_hash", String, primary_key=True),
+    Column("csrf_token", String, nullable=False),
+    Column("authenticated", Integer, nullable=False, server_default="0"),
+    Column("username", String),
+    Column("client_ip", String),
+    # 会话过期：空闲窗口与绝对上限，两者都到期即失效。
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("last_seen_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("idle_expires_at", DateTime(timezone=True), nullable=False),
+    Column("absolute_expires_at", DateTime(timezone=True), nullable=False),
+)
+
+# Fixed-window counters. One row per (bucket, window start); increments are a single
+# upsert so concurrent requests cannot lose hits.
+rate_limit_hits = Table(
+    "rate_limit_hits",
+    metadata,
+    Column("bucket", String, primary_key=True),
+    Column("window_started_at", DateTime(timezone=True), primary_key=True),
+    Column("hits", Integer, nullable=False, server_default="0"),
+    Column("expires_at", DateTime(timezone=True), nullable=False, index=True),
+)
+
 
 class Database:
     """SQLite database owner with a schema shared by all repository instances."""

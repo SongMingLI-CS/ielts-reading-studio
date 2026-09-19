@@ -50,7 +50,7 @@
   <p>这份材料还有正在运行的单元或任务（{{ impact.active_jobs|length }} 个活动任务）。请先到任务页暂停或取消，再回来删除。</p>
 </section>
 {% else %}
-<form class="panel danger-form" action="/corpora/{{ impact.corpus.id }}/delete" method="post">
+<form class="panel danger-form" action="/corpora/{{ impact.corpus.id }}/delete" method="post">{{ csrf_field() }}
   <label>请输入「{{ confirmation_word }}」或该语料 ID 前 8 位（<code>{{ impact.corpus.id[:8] }}</code>）以确认
     <input name="confirm" autocomplete="off" placeholder="{{ confirmation_word }}" required>
   </label>

@@ -9,6 +9,7 @@ from app.agents.base import ModelResult, ProviderAuthError
 from app.config import AppConfig
 from app.pipeline.service import ReadingStudioService
 from app.web.app import create_app
+from tests.web.conftest import bootstrap_csrf
 
 
 @pytest.fixture
@@ -26,6 +27,7 @@ def keyed_config(tmp_path):
 def keyed_client(keyed_config):
     service = ReadingStudioService(keyed_config)
     with TestClient(create_app(config=keyed_config, service=service)) as value:
+        bootstrap_csrf(value)
         yield value
 
 

@@ -1,21 +1,21 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
 from app.agents.base import AgentSchemaError, ProviderError
 from app.config import redact_secrets
 from app.pipeline.service import ReadingStudioService
+from app.security.budget import BudgetError
 from app.writing.models import WritingEvaluationRequest, WritingEvaluationResponse
 
 from .dependencies import get_service
+from .templating import templates
 
 router = APIRouter(tags=["writing"])
-TEMPLATES = Jinja2Templates(directory=Path(__file__).parents[2] / "templates")
+TEMPLATES = templates()
 
 
 @router.get("/writing", include_in_schema=False)
@@ -30,6 +30,11 @@ def evaluate_writing(
 ) -> WritingEvaluationResponse:
     try:
         return service.evaluate_writing(submission)
+    except BudgetError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
     except ProviderError as exc:
         raise HTTPException(
             status_code=502,

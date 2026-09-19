@@ -11,7 +11,7 @@
     <h1>抽样审阅</h1>
     <p class="lead">机器质检只能挡住规则内的错误。一批生成完会自动抽出少量篇目（默认 {{ (review_sample_rate * 100)|round|int }}%，至少 {{ review_sample_min }} 篇）放进这里，<b>由你实际读一遍文章和答案</b>再决定通过或返工。</p>
     <div class="library-actions">
-      <form action="/review/sample" method="post">
+      <form action="/review/sample" method="post">{{ csrf_field() }}
         <button type="submit">再抽一批样本</button>
       </form>
       <a class="button ghost" href="/review/similarity">查看相似题目（{{ duplicate_count }}）</a>
@@ -58,7 +58,7 @@
         </div>
         <a class="button ghost small" href="/practice/{{ row.unit.id }}/analysis">打开文章与答案</a>
       </header>
-      <form class="review-actions" action="/review/{{ row.unit.id }}/decide" method="post">
+      <form class="review-actions" action="/review/{{ row.unit.id }}/decide" method="post">{{ csrf_field() }}
         <label>批注（可选）
           <input type="text" name="note" placeholder="例如：第 7 题证据句太弱" maxlength="200">
         </label>

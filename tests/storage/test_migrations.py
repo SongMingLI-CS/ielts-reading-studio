@@ -283,7 +283,7 @@ def test_database_created_by_metadata_is_stamped_at_its_matching_revision(
             connection.execute(text(statement))
 
     assert looks_like_legacy_database(database.engine) is True
-    assert detect_legacy_revision(database.engine) == "0002"
+    assert detect_legacy_revision(database.engine) == "0003"
 
     result = database.migrate()
 

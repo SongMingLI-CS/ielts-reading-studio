@@ -2,12 +2,10 @@ from __future__ import annotations
 
 import json
 from hashlib import sha256
-from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
 from app.cli import parse_range
@@ -16,12 +14,14 @@ from app.pipeline.queue import QueueLimitError
 from app.pipeline.service import ReadingStudioService
 from app.pipeline.tasks import queue_sample, queue_status_for, sample_status_path
 from app.planning.units import DEFAULT_QUESTION_TYPES, default_question_types
+from app.security.budget import BudgetError
 
 from .dependencies import get_service
 from .glossary import difficulty_rows, type_rows
+from .templating import templates
 
 router = APIRouter()
-TEMPLATES = Jinja2Templates(directory=Path(__file__).parents[2] / "templates")
+TEMPLATES = templates()
 RANGE_EXAMPLES = "1-20 · 1,3,8-12 · all"
 
 
@@ -219,6 +219,11 @@ def start_job(
         )
     except QueueLimitError as exc:
         raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except BudgetError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
     except PermissionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (KeyError, ValueError) as exc:
@@ -305,6 +310,11 @@ def retry_job(
         job = service.retry_job(job_id, failed_only=True)
     except QueueLimitError as exc:
         raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except BudgetError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
     except (KeyError, PermissionError, ValueError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return RedirectResponse(f"/jobs/{job['id']}", status_code=303)

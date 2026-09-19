@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -34,9 +35,35 @@ def web_service(tmp_path):
     return ReadingStudioService(config)
 
 
+def bootstrap_csrf(client: TestClient) -> str:
+    """Establish a session and register its CSRF token as a default header.
+
+    The application behaviour under test is not the browser's token plumbing, so the
+    shared fixture sets it once. Rejection paths (missing/invalid/foreign tokens) have
+    their own tests that use a client without this header.
+    """
+
+    page = client.get("/")
+    match = re.search(r'name="csrf-token" content="([^"]*)"', page.text)
+    token = match.group(1) if match else ""
+    assert token, "页面没有渲染 CSRF meta 标签"
+    client.headers["X-CSRF-Token"] = token
+    return token
+
+
 @pytest.fixture
 def client(web_service):
     with TestClient(create_app(config=web_service.config, service=web_service)) as value:
+        bootstrap_csrf(value)
+        yield value
+
+
+@pytest.fixture
+def raw_client(web_service):
+    """A client with a session but no CSRF header, for security tests."""
+
+    with TestClient(create_app(config=web_service.config, service=web_service)) as value:
+        value.get("/")
         yield value
 
 

@@ -30,7 +30,7 @@
   <div class="flow-step"><span>4</span><div><strong>下载</strong><p>单文件或整批 zip 一键取走</p></div></div>
 </section>
 
-<form class="export-form" action="/exports" method="post">
+<form class="export-form" action="/exports" method="post">{{ csrf_field() }}
   <section class="config-block">
     <header class="config-head">
       <div><h2>第 1 步 · 选要导出的练习</h2><p>只有「已完成」且质检通过的篇目能导出；其他篇目会在材料库标为待审阅。</p></div>
@@ -134,7 +134,7 @@
   </ul>
 </section>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
   document.querySelectorAll('[data-pick]').forEach(function (button) {
     button.addEventListener('click', function () {
       var check = button.dataset.pick === 'all';

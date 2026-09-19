@@ -30,6 +30,7 @@ from app.planning.units import (
     plan_units,
     unit_source_text,
 )
+from app.security.budget import check_batch_cost, enforce
 from app.storage.artifacts import ArtifactStore
 from app.storage.database import Database
 from app.storage.repositories import RUNNING_RECOVERY_STATUSES, Repository
@@ -430,6 +431,20 @@ class ReadingStudioService:
             )
             if unit.status != UnitStatus.COMPLETED
         ]
+        # Refuse a batch whose offline estimate already exceeds the run budget: a job that
+        # cannot finish within the configured cost must not occupy the queue.
+        estimate = estimate_run(
+            units,
+            self.config.author_revision_limit,
+            self.config.examiner_revision_limit,
+        )
+        enforce(
+            check_batch_cost(
+                estimated_tokens=estimate.maximum_tokens,
+                limit=self.config.max_estimated_tokens_per_run,
+                units=len(units),
+            )
+        )
         job_id = str(uuid4())
         selected_batch_size = batch_size or self.config.batch_size
         selected_concurrency = concurrency or self.config.concurrency

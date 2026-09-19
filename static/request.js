@@ -17,8 +17,21 @@
     return '';
   };
 
+  const csrfToken = () => {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') || '' : '';
+  };
+
+  const withCsrfHeader = (method, headers) => {
+    const merged = new Headers(headers || {});
+    const unsafe = ['POST', 'PUT', 'PATCH', 'DELETE'].includes((method || 'GET').toUpperCase());
+    if (unsafe && !merged.has('X-CSRF-Token')) merged.set('X-CSRF-Token', csrfToken());
+    return merged;
+  };
+
   const requestJson = async (url, options = {}) => {
     const { timeout = 15000, signal, ...fetchOptions } = options;
+    fetchOptions.headers = withCsrfHeader(fetchOptions.method, fetchOptions.headers);
     const controller = new AbortController();
     let timedOut = false;
     const abort = () => controller.abort();
@@ -36,8 +49,8 @@
       try { body = await response.json(); } catch (_) { /* converted to a useful error below */ }
       if (!response.ok) {
         const message = detailMessage(body) || `服务器返回错误（${response.status}）`;
-        const code = body && body.detail && body.detail.code;
-        throw new RequestError(message, { status: response.status, code: code || 'http_error', body });
+        const code = (body && (body.code || (body.detail && body.detail.code))) || 'http_error';
+        throw new RequestError(message, { status: response.status, code, body });
       }
       if (body === null) throw new RequestError('服务器返回了无法读取的数据。', { status: response.status, code: 'invalid_json' });
       return body;

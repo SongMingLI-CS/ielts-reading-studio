@@ -13,7 +13,7 @@
 </header>
 
 <div class="import-layout">
-  <form class="import-drop" action="/corpora/import" method="post" enctype="multipart/form-data" id="import-form">
+  <form class="import-drop" action="/corpora/import" method="post" enctype="multipart/form-data" id="import-form">{{ csrf_field() }}
     <label class="drop-zone" id="drop-zone">
       <input type="file" name="source" id="import-file" accept=".txt,.docx,.epub,.md,.markdown" required>
       <span class="drop-icon" aria-hidden="true">⬆</span>
@@ -38,7 +38,7 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce() }}">
   (() => {
     const input = document.getElementById('import-file');
     const zone = document.getElementById('drop-zone');

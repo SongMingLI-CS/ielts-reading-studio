@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Response
-from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
 from app.knowledge import VIEWS, build_digest, highlight
@@ -13,9 +11,10 @@ from app.knowledge.export import to_markdown
 from app.pipeline.service import ReadingStudioService
 
 from .dependencies import get_service
+from .templating import templates
 
 router = APIRouter()
-TEMPLATES = Jinja2Templates(directory=Path(__file__).parents[2] / "templates")
+TEMPLATES = templates()
 MAX_PRINT_ROWS = 200
 
 

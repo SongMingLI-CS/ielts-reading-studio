@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}IELTS Reading Studio{% endblock %}</title>
   <meta name="theme-color" content="#123c35">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <script src="/static/security.js?v=1" defer></script>
   <link rel="stylesheet" href="/static/app.css?v=6">
   <link rel="stylesheet" href="/static/practice-center.css?v=6">
   <link rel="stylesheet" href="/static/studio.css?v=1">
@@ -27,6 +29,7 @@
       <a href="/exports"{% if request.url.path.startswith('/exports') %} aria-current="page"{% endif %}>导出</a>
       <a href="/backup"{% if request.url.path.startswith('/backup') %} aria-current="page"{% endif %}>备份</a>
       <a href="/settings"{% if request.url.path.startswith('/settings') %} aria-current="page"{% endif %}>设置</a>
+      <form class="logout-form" action="/logout" method="post">{{ csrf_field() }}<button type="submit">退出</button></form>
     </nav>
   </header>
   <main>{% block content %}{% endblock %}</main>

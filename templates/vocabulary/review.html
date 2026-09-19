@@ -23,7 +23,7 @@
   <p class="word-meta">{{ card.part_of_speech or '词性未标注' }}{% if card.passage_count > 1 %} · 复现 {{ card.passage_count }} 篇{% endif %} · 第 {{ card.review_box }} 盒 · 已复习 {{ card.seen }} 次</p>
 
   {% if options %}
-  <form class="option-list" action="/vocabulary/review/answer" method="post">
+  <form class="option-list" action="/vocabulary/review/answer" method="post">{{ csrf_field() }}
     <input type="hidden" name="word" value="{{ card.word }}">
     <input type="hidden" name="mode" value="{{ mode }}">
     <p class="option-hint">选一个最接近的中文释义：</p>
@@ -38,7 +38,7 @@
   {% else %}
   <p class="inline-note plain">词库里还没有足够的其它释义来出选择题——先自己想，再对照下面的释义自评。</p>
   <p class="word-meaning">{{ card.chinese_meaning or '（暂无释义）' }}</p>
-  <form class="grade-row" action="/vocabulary/review/grade" method="post">
+  <form class="grade-row" action="/vocabulary/review/grade" method="post">{{ csrf_field() }}
     <input type="hidden" name="word" value="{{ card.word }}">
     <input type="hidden" name="mode" value="{{ mode }}">
     <button type="submit" name="outcome" value="again" class="danger">不认识</button>
@@ -57,7 +57,7 @@
   <div class="export-actions">
     <a class="button ghost" href="/vocabulary/review?mode={{ 'all' if mode == 'due' else 'due' }}">切到{% if mode == 'due' %}复习全部{% else %}只看今天到期{% endif %}</a>
     <a class="button ghost" href="/vocabulary?focus={{ card.key }}">看这个词的详情</a>
-    <form action="/vocabulary/review/reset" method="post">
+    <form action="/vocabulary/review/reset" method="post">{{ csrf_field() }}
       <input type="hidden" name="word" value="{{ card.word }}">
       <button type="submit" class="ghost">清空该词进度</button>
     </form>

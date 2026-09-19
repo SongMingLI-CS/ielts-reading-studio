@@ -199,6 +199,45 @@ HTML 是不依赖网络的单文件，交卷前界面不暴露答案。DOCX 单�
 
 认证失败或余额不足会阻断队列；限流、超时和服务端错误最多按约 1、2、4 秒加抖动重试。文章返工和题目返工分别最多两轮，超过后进入 `needs_review`，不继续收费。
 
+## 安全与公开部署
+
+完整威胁模型、控制清单与剩余风险见 [docs/security.md](docs/security.md)。要点：
+
+- **会话**：服务端会话表 + `HttpOnly` / `SameSite=Lax` Cookie，登录后轮换会话 ID，退出即时失效，
+  空闲 120 分钟 / 绝对 24 小时过期；数据库只保存会话 ID 的 HMAC。
+- **CSRF**：所有 POST/PUT/PATCH/DELETE 都要求 CSRF 令牌（HTML 表单隐藏字段或 `X-CSRF-Token` 头），
+  令牌与会话绑定并用常量时间比较；`Origin`/`Referer` 同源校验作为纵深防御。
+- **限速**：登录失败（同时按身份与来源地址）与付费/敏感接口使用 SQLite 持久化固定窗口计数，
+  超限返回 429 与 `Retry-After`；只有配置了可信代理才会解析 `X-Forwarded-For`。
+- **预算**：请求体、上传大小、Prompt 长度、输出 Token、重试次数、超时与批次预估成本全部由服务端强制裁剪。
+- **响应头**：CSP（脚本使用每响应 nonce，无 `unsafe-inline`/`unsafe-eval`）、`nosniff`、
+  `frame-ancestors 'none'`、`Referrer-Policy`、`Permissions-Policy`；私人页面 `no-store`，静态资源可缓存。
+- **文件**：上传按扩展名白名单 + 容器格式校验，服务端生成文件名；下载路径经 `resolve()` 限定在导出/产物目录内。
+
+公网部署必须在环境变量（systemd 的 `.env.web`）中提供：
+
+```dotenv
+IELTS_WEB_USERNAME=reader
+IELTS_WEB_PASSWORD=至少12字符的强口令
+IELTS_WEB_SESSION_SECRET=openssl rand -hex 32 生成的随机值
+IELTS_WEB_FORCE_HTTPS=1
+IELTS_WEB_TRUSTED_PROXIES=127.0.0.1
+```
+
+配置不完整时 `ielts-reading serve --host 0.0.0.0` 会**拒绝启动**并列出原因。
+
+程序化调用需要两步（JSON API 也要 CSRF）：
+
+```bash
+# 1. 取得会话 Cookie 与令牌
+curl -s -u reader:password -c cookies.txt http://127.0.0.1:8000/api/csrf-token
+# {"token":"..."}
+# 2. 带上 Cookie 与令牌调用
+curl -s -b cookies.txt -H "X-CSRF-Token: <token>" -H 'Content-Type: application/json' \
+  -d '{"task_type":"task_2","question":"...","essay":"..."}' \
+  http://127.0.0.1:8000/api/writing/evaluate
+```
+
 ## 后台任务与 worker
 
 网页不再自己跑生成任务：提交请求只是**入队**，由独立的 worker 进程认领并执行。这样重启网页、部署新版本或机器重启都不会丢掉一个跑了 40 分钟的批任务。

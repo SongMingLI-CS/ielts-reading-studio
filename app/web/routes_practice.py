@@ -5,14 +5,12 @@ import io
 import re
 import unicodedata
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import quote
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Form, HTTPException
 from fastapi.responses import RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
 from app.models import (
@@ -29,9 +27,10 @@ from .schemas import (
     PracticeSaveResult,
     PracticeSubmission,
 )
+from .templating import templates
 
 router = APIRouter()
-TEMPLATES = Jinja2Templates(directory=Path(__file__).parents[2] / "templates")
+TEMPLATES = templates()
 
 QUESTION_TYPE_LABELS: dict[QuestionType, str] = {
     QuestionType.MATCHING_HEADINGS: "Matching headings",

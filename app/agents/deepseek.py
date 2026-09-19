@@ -7,6 +7,7 @@ from collections.abc import Callable
 from typing import Any
 
 from app.config import AppConfig, redact_secrets
+from app.security.budget import check_prompt, clamp_max_tokens, enforce
 
 from .base import (
     EmptyResponseError,
@@ -32,10 +33,12 @@ class DeepSeekProvider:
         client: Any | None = None,
         sleep: Callable[[float], None] = time.sleep,
         jitter: Callable[[], float] = random.random,
-        max_retries: int = 3,
+        max_retries: int | None = None,
     ) -> None:
-        if max_retries < 0:
+        selected_retries = config.provider_max_retries if max_retries is None else max_retries
+        if selected_retries < 0:
             raise ValueError("max_retries cannot be negative")
+        self.config = config
         if client is None:
             if config.deepseek_api_key is None:
                 raise ProviderAuthError("DEEPSEEK_API_KEY is required for API work")
@@ -44,16 +47,28 @@ class DeepSeekProvider:
             client = OpenAI(
                 api_key=config.deepseek_api_key.get_secret_value(),
                 base_url=config.deepseek_base_url,
+                # Server-side timeouts: a hung provider must not pin a worker forever.
+                timeout=config.provider_timeout_seconds,
+                # This adapter owns the bounded retry loop below; SDK retries would
+                # multiply the two limits.
+                max_retries=0,
             )
         self.client = client
         self.sleep = sleep
         self.jitter = jitter
-        self.max_retries = max_retries
+        self.max_retries = selected_retries
 
     def complete_json(self, request: ModelRequest) -> ModelResult:
         combined_prompt = f"{request.system}\n{request.user}"
         if "json" not in combined_prompt.casefold():
             raise ValueError("JSON mode requests must explicitly mention JSON")
+        enforce(
+            check_prompt(
+                request.system, request.user, max_chars=self.config.max_prompt_chars
+            )
+        )
+        # Callers cannot raise the output-token budget above the configured ceiling.
+        max_tokens = clamp_max_tokens(request.max_tokens, cap=self.config.max_output_tokens)
 
         started = time.perf_counter()
         retries = 0
@@ -66,7 +81,7 @@ class DeepSeekProvider:
                         {"role": "user", "content": request.user},
                     ],
                     response_format={"type": "json_object"},
-                    max_tokens=request.max_tokens,
+                    max_tokens=max_tokens,
                     temperature=request.temperature,
                     # DeepSeek V4 enables high-effort thinking by default. These
                     # schema-bound stages need the token budget for the JSON

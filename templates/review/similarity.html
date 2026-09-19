@@ -12,7 +12,7 @@
   <p class="lead">把已完成篇目里的题干两两比对，列出实词重合度高的组合。生成时的硬门禁在 <b>{{ (blocking_threshold * 100)|round|int }}%</b> 以上（会直接触发返工），这一页用更宽松的 <b>{{ (threshold * 100)|round|int }}%</b> 列出来给你人工判断——毕竟"同一篇文章问了两次同一件事"和"两篇文章用词相近"是两回事。</p>
 </header>
 
-<form class="filter-row" action="/review/similarity" method="get">
+<form class="filter-row" action="/review/similarity" method="get">{{ csrf_field() }}
   <label>相似度阈值
     <input type="number" name="threshold" step="0.05" min="0.2" max="1" value="{{ threshold }}">
   </label>

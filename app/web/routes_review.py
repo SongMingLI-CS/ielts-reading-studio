@@ -1,20 +1,19 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
 from app.pipeline.service import ReadingStudioService
 
 from .dependencies import get_service
 from .routes_practice import QUESTION_TYPE_LABELS
+from .templating import templates
 
 router = APIRouter()
-TEMPLATES = Jinja2Templates(directory=Path(__file__).parents[2] / "templates")
+TEMPLATES = templates()
 
 
 def _latest_job_id(service: ReadingStudioService) -> str | None:

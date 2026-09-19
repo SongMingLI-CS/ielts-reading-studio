@@ -26,7 +26,9 @@ from app.storage.database import metadata as target_metadata
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Keep application loggers alive: fileConfig() would otherwise disable every logger
+    # that already exists in this process (the web app logs crashes through them).
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # `alembic.ini` uses %(here)s for both script_location and prepend_sys_path, so the
 # repository root is on sys.path by the time this module imports `app`.

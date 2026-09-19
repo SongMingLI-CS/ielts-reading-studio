@@ -45,7 +45,7 @@
   {% endfor %}
 </nav>
 
-<form class="kn-filter" method="get" action="/knowledge" data-autosubmit>
+<form class="kn-filter" method="get" action="/knowledge" data-autosubmit>{{ csrf_field() }}
   <input type="hidden" name="view" value="{{ digest.view }}">
   <label class="kn-search">
     <span>搜索</span>

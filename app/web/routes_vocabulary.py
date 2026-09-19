@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import datetime as dt
 import random
-from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
 from app.pipeline.service import ReadingStudioService
@@ -22,9 +20,10 @@ from app.vocabulary import (
 from app.vocabulary.srs import MAX_BOX, OUTCOME_LABELS
 
 from .dependencies import get_service
+from .templating import templates
 
 router = APIRouter()
-TEMPLATES = Jinja2Templates(directory=Path(__file__).parents[2] / "templates")
+TEMPLATES = templates()
 
 GROUPS = ("pos", "frequency", "source", "level", "family")
 

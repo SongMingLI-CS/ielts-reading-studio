@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+import pytest
 from sqlalchemy import create_engine, inspect
 from typer.testing import CliRunner
 
@@ -123,7 +124,10 @@ def test_remote_serve_requires_web_credentials(tmp_path, monkeypatch):
 
 def test_remote_serve_runs_when_web_credentials_exist(tmp_path, monkeypatch):
     monkeypatch.setenv("IELTS_WEB_USERNAME", "reader")
-    monkeypatch.setenv("IELTS_WEB_PASSWORD", "secret")
+    monkeypatch.setenv("IELTS_WEB_PASSWORD", "a-long-enough-password")
+    monkeypatch.setenv("IELTS_WEB_SESSION_SECRET", "s" * 48)
+    monkeypatch.setenv("IELTS_WEB_FORCE_HTTPS", "1")
+    monkeypatch.setenv("IELTS_WEB_TRUSTED_PROXIES", "127.0.0.1")
     called = {}
     monkeypatch.setattr("uvicorn.run", lambda *args, **kwargs: called.update(kwargs))
 
@@ -134,7 +138,42 @@ def test_remote_serve_runs_when_web_credentials_exist(tmp_path, monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert called == {"host": "0.0.0.0", "port": 8766, "proxy_headers": True}
-    assert "HTTPS" in result.output
+
+
+def test_remote_serve_refuses_an_incomplete_public_configuration(tmp_path, monkeypatch):
+    """Credentials alone are not enough any more: HTTPS, proxy trust and a session key."""
+
+    monkeypatch.setenv("IELTS_WEB_USERNAME", "reader")
+    monkeypatch.setenv("IELTS_WEB_PASSWORD", "a-long-enough-password")
+    monkeypatch.setattr("uvicorn.run", lambda *args, **kwargs: pytest.fail("不应启动 uvicorn"))
+
+    result = runner.invoke(
+        app,
+        ["serve", "--host", "0.0.0.0", "--port", "8766", "--config", str(make_config(tmp_path))],
+    )
+
+    assert result.exit_code == 2, result.output
+    assert "IELTS_WEB_SESSION_SECRET" in result.output
+    assert "IELTS_WEB_FORCE_HTTPS" in result.output
+    # The trusted-proxy requirement only applies once HTTPS is declared; it is covered by
+    # tests/security/test_sessions.py::test_production_requires_a_strong_session_secret.
+
+
+def test_remote_serve_refuses_a_weak_password(tmp_path, monkeypatch):
+    monkeypatch.setenv("IELTS_WEB_USERNAME", "reader")
+    monkeypatch.setenv("IELTS_WEB_PASSWORD", "secret")
+    monkeypatch.setenv("IELTS_WEB_SESSION_SECRET", "s" * 48)
+    monkeypatch.setenv("IELTS_WEB_FORCE_HTTPS", "1")
+    monkeypatch.setenv("IELTS_WEB_TRUSTED_PROXIES", "127.0.0.1")
+    monkeypatch.setattr("uvicorn.run", lambda *args, **kwargs: pytest.fail("不应启动 uvicorn"))
+
+    result = runner.invoke(
+        app,
+        ["serve", "--host", "0.0.0.0", "--port", "8766", "--config", str(make_config(tmp_path))],
+    )
+
+    assert result.exit_code == 2, result.output
+    assert "12 个字符" in result.output
 
 
 def test_local_serve_does_not_warn_about_https(tmp_path, monkeypatch):

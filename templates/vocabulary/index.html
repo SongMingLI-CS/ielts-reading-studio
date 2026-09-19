@@ -76,7 +76,7 @@
       <p class="word-meta">出自：{{ focus.passages|join('、') }}</p>
       <p class="word-meta">复习状态：{% if focus.review_box %}第 {{ focus.review_box }} 盒 · 已复习 {{ focus.seen }} 次 · 忘记 {{ focus.lapses }} 次{% else %}尚未加入复习{% endif %}</p>
       <div class="word-actions">
-        <form action="/vocabulary/track" method="post">
+        <form action="/vocabulary/track" method="post">{{ csrf_field() }}
           <input type="hidden" name="word" value="{{ focus.word }}">
           <input type="hidden" name="scope" value="{{ scope }}">
           {% if focus.review_box %}
@@ -122,7 +122,7 @@
       </header>
       <p class="word-tile-meaning">{{ row.chinese_meaning or '（无释义·早期生成）' }}</p>
       <p class="word-meta">{{ row.part_of_speech or row.pos_label }}{% if row.pos_inferred %}（按词形推断）{% endif %}{% if row.passage_count > 1 %} · 复现 {{ row.passage_count }} 篇{% endif %}{% if row.review_box %} · 第 {{ row.review_box }} 盒{% endif %}</p>
-      <form action="/vocabulary/track" method="post">
+      <form action="/vocabulary/track" method="post">{{ csrf_field() }}
         <input type="hidden" name="word" value="{{ row.word }}">
         <input type="hidden" name="scope" value="{{ scope }}">
         {% if row.review_box %}

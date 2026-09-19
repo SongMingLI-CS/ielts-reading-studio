@@ -114,17 +114,27 @@ curl -fsS http://127.0.0.1:8766/healthz
 
 ## 9. 远程部署（服务器）
 
-服务默认只监听本机。对外提供服务时必须显式指定 host 并提供访问口令：
+服务默认只监听本机。对外提供服务时必须显式指定 host，并满足[安全说明](security.md)第 4.8 节的配置闸门；
+任一条件不满足会**拒绝启动**并打印具体原因：
 
 ```bash
 export IELTS_WEB_USERNAME=reader
-export IELTS_WEB_PASSWORD='一个足够长的口令'
-ielts-reading serve --host 0.0.0.0 --port 8000
+export IELTS_WEB_PASSWORD='一个至少 12 字符的强口令'
+export IELTS_WEB_SESSION_SECRET="$(openssl rand -hex 32)"
+export IELTS_WEB_FORCE_HTTPS=1
+export IELTS_WEB_TRUSTED_PROXIES=127.0.0.1
+ielts-reading serve --host 0.0.0.0 --port 8766
 ```
 
-- 未设置 `IELTS_WEB_USERNAME` / `IELTS_WEB_PASSWORD` 时，非本机 host 会直接拒绝启动。
-- 口令只从环境变量或项目旁 `.env` 读取；YAML 中出现的口令被忽略。
-- Basic 认证覆盖所有页面与静态资源，仅 `/healthz` 免认证，便于探活。
+生产环境建议把这些写进 systemd 的 `EnvironmentFile`（`.env.web`），不要写在明文 shell 历史里。
+
+- 未设置 `IELTS_WEB_USERNAME` / `IELTS_WEB_PASSWORD` 时，非本机 host 会直接拒绝启动；
+  口令少于 12 字符或属于示例弱口令同样会被拒绝。
+- **必须同时设置** `IELTS_WEB_SESSION_SECRET`（≥32 字符）与 `IELTS_WEB_FORCE_HTTPS=1`
+  以及 `IELTS_WEB_TRUSTED_PROXIES`（代理地址/CIDR）。缺少任一项都会拒绝启动。
+- 口令与会话密钥只从环境变量或项目旁 `.env` 读取；YAML 中出现的口令被忽略。
+- Basic 认证覆盖所有页面与静态资源，仅 `/healthz` 免认证，便于探活；登录后会建立服务端会话，
+  所有状态变更请求还需要 CSRF 令牌（见[安全说明](security.md)第 4.2 节）。
 - **务必放在 HTTPS 反向代理之后。** 明文 HTTP 有两个后果：Basic 口令可被窃听；浏览器在非安全上下文（既不是 https、也不是 localhost）不提供 `crypto.randomUUID()` 等 Web API。练习页已对这类 API 做兜底，但不要把明文 HTTP 当作可接受的长期方案。
 - 反代需转发 `Host`、`X-Forwarded-For`、`X-Forwarded-Proto`；`serve` 已开启 `proxy_headers`，且只信任来自本机的转发头（uvicorn 的 `forwarded_allow_ips` 默认 `127.0.0.1`）。
 
@@ -298,4 +308,43 @@ sudo systemctl restart ielts-reading-studio
 - 到期判断用 UTC；SQLite 取回的时间缺时区时按 UTC 补齐。
 - 间隔是 1/2/4/8/32 天。日更场景下"今天到期"通常只有个位数，属于正常现象。
 - 词汇全部来自已完成 Package 的 `passage.vocabulary`，因此**没有生成的篇目不会贡献词汇**；分类与联想都是纯本地计算，不产生任何 API 调用。
+
+## 13. 安全运维（阶段五新增）
+
+完整威胁模型见 [安全说明](security.md)。日常运维需要知道的几点：
+
+### 升级到含安全加固的版本
+
+```bash
+cd ~/ielts-reading-studio
+scripts/deploy.sh --check          # 只读预检
+scripts/deploy.sh                  # 快照 → 拉取 → 依赖 → 迁移 0003 → 测试 → 重启 web+worker → /healthz
+```
+
+`0003` 迁移创建两张表：`web_sessions`（服务端会话）与 `rate_limit_hits`（限速计数）。
+过期会话在请求路径上按批清理；限速窗口在写入时顺带清理过期行，两者都不需要额外的定时任务。
+
+### 新增/变更的环境变量（`.env.web`）
+
+| 变量 | 开发默认 | 生产建议 | 说明 |
+|---|---|---|---|
+| `IELTS_WEB_SESSION_SECRET` | 空（用固定占位值） | `openssl rand -hex 32` | 会话 ID 的 HMAC 密钥；**公网必填**，更换会让所有人重新登录 |
+| `IELTS_WEB_FORCE_HTTPS` | 空 | `1` | 声明 HTTPS；同时让 Cookie 带 `Secure`、启用 HSTS，并拒绝明文请求（`/healthz` 除外） |
+| `IELTS_WEB_TRUSTED_PROXIES` | 空（不信任任何转发头） | 代理地址/CIDR | 决定是否解析 `X-Forwarded-For` / `X-Forwarded-Proto` |
+| `IELTS_WEB_COOKIE_SECURE` | 由上面推导 | 一般不用设 | 仅特殊代理拓扑下强制 `Secure` |
+
+限速与预算阈值可在 `config.yaml` 调整（`web_login_rate_limit`、`web_task_rate_limit`、
+`web_sensitive_rate_limit`、`web_max_json_body_bytes`、`web_max_upload_bytes`、`max_prompt_chars`、
+`max_output_tokens`、`provider_timeout_seconds`、`provider_max_retries`、`max_writing_chars`），
+改完需要重启 `ielts-reading-studio`。
+
+### 常见现象
+
+- **任务一直"等待 worker"**：worker 服务没在跑（`systemctl status ielts-reading-studio-worker`），
+  或提交被限速拒绝（journal 里会有 `rate_limited_*`）。
+- **表单提交 403 且提示 CSRF**：页面在会话过期后停留太久，或用了旧标签页；刷新即可。
+  程序化调用先 `GET /api/csrf-token` 并保留返回的 `ielts_session` Cookie。
+- **多部分上传在禁用 JavaScript 的浏览器失败**：设计取舍，见安全说明第 5 节第 1 条。
+- **登录返回 429**：触发登录限速（默认 10 次 / 5 分钟，按身份与来源地址同时计数）。
+- **`serve` 拒绝启动**：输出逐条列出缺少的配置，按提示补齐 `IELTS_WEB_*` 变量即可。
 

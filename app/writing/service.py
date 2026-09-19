@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from app.agents.base import AgentSchemaError, JsonProvider, ModelRequest
 from app.config import AppConfig, redact_secrets
+from app.security.budget import check_text_length, enforce
 from app.storage.repositories import Repository
 
 from .models import (
@@ -44,6 +45,15 @@ class WritingEvaluationService:
         self.repository = repository
 
     def evaluate(self, submission: WritingEvaluationRequest) -> WritingEvaluationResponse:
+        # Length cap is enforced here, not in the browser: an oversized submission must
+        # never reach the provider.
+        enforce(
+            check_text_length(
+                f"{submission.question}\n{submission.essay}",
+                limit=self.config.max_writing_chars,
+                label="作文与题目",
+            )
+        )
         result = self.provider.complete_json(
             ModelRequest(
                 stage="writing_evaluation",

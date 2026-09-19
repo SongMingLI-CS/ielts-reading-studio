@@ -41,7 +41,7 @@
 <section class="preview-banner frozen">
   <strong>源文件不在原路径</strong>
   <p>索引存在数据库里，所以<b>解析、校准边界、继续生成、做题都不受影响</b>；只有「重新导入」需要原文件。要修复绑定，上传一份<b>完全相同</b>的副本即可（按内容哈希校验，索引与修正记录都会保留）。</p>
-  <form class="rebind-form" action="/corpora/{{ corpus.id }}/rebind" method="post" enctype="multipart/form-data">
+  <form class="rebind-form" action="/corpora/{{ corpus.id }}/rebind" method="post" enctype="multipart/form-data">{{ csrf_field() }}
     <label>原始文件：<code title="{{ card.corpus.source_path }}">{{ card.source_name }}</code> · 格式 {{ card.corpus.format|upper }} · SHA-256 {{ card.corpus.source_hash[:12] }}…</label>
     <input type="file" name="source" accept=".txt,.docx,.epub,.md,.markdown" required>
     <button type="submit" class="button small">重新绑定源文件</button>
@@ -70,7 +70,7 @@
 {% endif %}
   <div class="chapter-tools">
 {% if total_chapters %}
-    <form class="page-size" method="get" action="/corpora/{{ corpus.id }}/preview">
+    <form class="page-size" method="get" action="/corpora/{{ corpus.id }}/preview">{{ csrf_field() }}
       <label>每页
         <select name="page_size" onchange="this.form.submit()">
           {% for size in [25, 50, 100] %}<option value="{{ size }}" {% if size == page_size %}selected{% endif %}>{{ size }}</option>{% endfor %}
@@ -78,7 +78,7 @@
       </label>
       <input type="hidden" name="page" value="1">
     </form>
-    <form class="page-jump" method="get" action="/corpora/{{ corpus.id }}/preview">
+    <form class="page-jump" method="get" action="/corpora/{{ corpus.id }}/preview">{{ csrf_field() }}
       <label>跳到 <input type="number" name="page" min="1" max="{{ page_count }}" value="{{ page }}"></label>
       <input type="hidden" name="page_size" value="{{ page_size }}">
       <button type="submit" class="button ghost small">跳页</button>
@@ -127,7 +127,7 @@
     <details class="chapter-fix">
       <summary>校准</summary>
       <div class="chapter-fix-body">
-        <form method="post" action="/corpora/{{ corpus.id }}/boundaries/edit">
+        <form method="post" action="/corpora/{{ corpus.id }}/boundaries/edit">{{ csrf_field() }}
           <input type="hidden" name="action" value="rename">
           <input type="hidden" name="chapter_id" value="{{ item.chapter.id }}">
           <input type="hidden" name="page" value="{{ page }}">
@@ -135,7 +135,7 @@
           <button type="submit" class="button small">保存标题</button>
         </form>
         <form method="post" action="/corpora/{{ corpus.id }}/boundaries/edit"
-              onsubmit="return confirm('把第 {{ item.chapter.ordinal }} 章与第 {{ item.chapter.ordinal + 1 }} 章合并？');">
+              onsubmit="return confirm('把第 {{ item.chapter.ordinal }} 章与第 {{ item.chapter.ordinal + 1 }} 章合并？');">{{ csrf_field() }}
           <input type="hidden" name="action" value="merge_next">
           <input type="hidden" name="chapter_id" value="{{ item.chapter.id }}">
           <input type="hidden" name="page" value="{{ page }}">
@@ -143,7 +143,7 @@
           <button type="submit" class="button small secondary">与下一章合并</button>
         </form>
         <form method="post" action="/corpora/{{ corpus.id }}/boundaries/edit"
-              onsubmit="return confirm('在第 {{ item.chapter.ordinal }} 章的指定段前拆成两章？');">
+              onsubmit="return confirm('在第 {{ item.chapter.ordinal }} 章的指定段前拆成两章？');">{{ csrf_field() }}
           <input type="hidden" name="action" value="split_before_paragraph">
           <input type="hidden" name="chapter_id" value="{{ item.chapter.id }}">
           <input type="hidden" name="page" value="{{ page }}">
@@ -181,7 +181,7 @@
 {% if not frozen_reason %}
 <details class="advanced-panel">
   <summary>高级：直接编辑修正记录（JSON）</summary>
-  <form class="panel" action="/corpora/{{ corpus.id }}/boundaries" method="post">
+  <form class="panel" action="/corpora/{{ corpus.id }}/boundaries" method="post">{{ csrf_field() }}
     <label>结构化边界修正（JSON 数组）
       <textarea name="overrides" rows="6" placeholder='[{"action":"merge_next","chapter_id":"上面的章节 ID"},{"action":"rename","chapter_id":"...","title":"新标题"}]'></textarea>
     </label>

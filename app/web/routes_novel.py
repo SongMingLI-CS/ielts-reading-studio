@@ -20,7 +20,6 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.responses import FileResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from ielts_novel.orchestrator import estimate_dry_run
 from ielts_novel.processors.chapter_parser import (
     ChapterDetectionError,
@@ -31,11 +30,13 @@ from starlette.requests import Request
 
 from app.pipeline.queue import NOVEL_KIND
 from app.pipeline.service import ReadingStudioService
+from app.security.uploads import check_magic, validate_extension
 
 from .dependencies import get_service
+from .templating import templates
 
 router = APIRouter(prefix="/novel")
-TEMPLATES = Jinja2Templates(directory=Path(__file__).parents[2] / "templates")
+TEMPLATES = templates()
 COMPONENT_ROOT = Path(__file__).parents[2] / "components" / "context-novel"
 ALLOWED_EXTENSIONS = {".txt", ".docx", ".epub"}
 MAX_UPLOAD_BYTES = 250 * 1024 * 1024
@@ -173,20 +174,32 @@ async def import_novel(
     source: Annotated[UploadFile, File()],
     service: Annotated[ReadingStudioService, Depends(get_service)],
 ):
-    extension = Path(source.filename or "").suffix.casefold()
-    if extension not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=415, detail="仅支持 TXT、DOCX 或 EPUB")
+    try:
+        extension = validate_extension(source.filename, ALLOWED_EXTENSIONS)
+    except ValueError as exc:
+        raise HTTPException(status_code=415, detail="仅支持 TXT、DOCX 或 EPUB") from exc
     paths = _paths(service)
     paths["uploads"].mkdir(parents=True, exist_ok=True)
     temporary = paths["uploads"] / f".{os.urandom(8).hex()}.upload"
     digest = sha256()
     written = 0
+    limit = service.config.web_max_upload_bytes
     try:
         with temporary.open("wb") as handle:
+            first = True
             while chunk := await source.read(1024 * 1024):
+                if first and not check_magic(extension, chunk[:8]):
+                    raise HTTPException(
+                        status_code=415,
+                        detail=f"文件内容与扩展名 {extension} 不符，已拒绝",
+                    )
+                first = False
                 written += len(chunk)
-                if written > MAX_UPLOAD_BYTES:
-                    raise HTTPException(status_code=413, detail="文件不能超过 250 MB")
+                if written > limit:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"文件不能超过 {limit // (1024 * 1024)} MB",
+                    )
                 digest.update(chunk)
                 handle.write(chunk)
         archive = paths["uploads"] / digest.hexdigest() / f"source{extension}"
