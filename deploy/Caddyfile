@@ -51,7 +51,9 @@
 	import ielts_site
 }
 
-# 兜底站点：无 SNI 的握手（浏览器访问 https://IP 就是这种情况）需要它才有证书
+# 兜底站点：无 SNI 的握手（浏览器访问 https://IP 就是这种情况）需要它才有证书。
+# 注意必须写成带 `https://` 的「无主机地址」形式：无 scheme 的 `:8766` 会被当成
+# HTTP 站点，Caddy 会报 "cannot natively multiplex HTTP and HTTPS" 而拒绝加载。
 {{CATCH_ALL_ADDRESS}} {
 	tls internal
 	import ielts_site

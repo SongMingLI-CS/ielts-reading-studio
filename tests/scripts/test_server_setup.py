@@ -119,12 +119,20 @@ raise SystemExit(subprocess.call([command, *cleaned]))
 '''
 
 _CADDY_SHIM = '''#!{python}
-"""Test stand-in for the caddy binary: only its presence is probed."""
+"""Test stand-in for the caddy binary: presence, `version` and `validate` only.
 
+Set ``IELTS_CADDY_SHIM_FAIL=1`` to make ``validate`` report an invalid config.
+"""
+
+import os
 import sys
 
 if len(sys.argv) > 1 and sys.argv[1] == "version":
     print("v2.11.4 (test stub)")
+if len(sys.argv) > 1 and sys.argv[1] == "validate":
+    if os.environ.get("IELTS_CADDY_SHIM_FAIL") == "1":
+        print("Error: adapting config using caddyfile: boom", file=sys.stderr)
+        raise SystemExit(1)
 raise SystemExit(0)
 '''
 
@@ -357,7 +365,7 @@ def test_apply_renders_the_caddyfile_with_the_configured_site(tmp_path: Path) ->
     assert "tls internal" in rendered
     assert "reverse_proxy 127.0.0.1:8768" in rendered
     assert rendered.count("import ielts_site") == 2, "主站点与兜底站点共用同一段配置"
-    assert "\n:9443 {" in rendered, "无 SNI 的握手需要同端口兜底站点"
+    assert "\nhttps://:9443 {" in rendered, "无 SNI 的握手需要同端口兜底站点（必须带 https://）"
     assert "auto_https disable_redirects" in rendered, "80 端口属于别的服务，不能绑定"
 
 
@@ -374,7 +382,7 @@ def test_catch_all_falls_back_to_443_without_an_explicit_port(tmp_path: Path) ->
     assert result.returncode == 0, result.stderr
     rendered = (tmp_path / "caddy" / "ielts-reading-studio.caddyfile").read_text(encoding="utf-8")
     assert "https://ielts.example.com {" in rendered
-    assert "\n:443 {" in rendered
+    assert "\nhttps://:443 {" in rendered
 
 
 def test_apply_installs_the_https_unit(tmp_path: Path) -> None:
@@ -425,6 +433,50 @@ def test_apply_refreshes_a_stale_https_unit_and_config(tmp_path: Path) -> None:
     rendered = (caddy_dir / "ielts-reading-studio.caddyfile").read_text(encoding="utf-8")
     assert "旧配置" not in rendered
     assert f"systemctl restart {TLS_UNIT}" in shim_log.read_text(encoding="utf-8")
+
+
+def test_apply_path_survives_a_non_utf8_locale(tmp_path: Path) -> None:
+    """Regression: ``"$var（"`` is read as one name under LC_ALL=C and dies with ``set -u``.
+
+    This walks the whole --apply path (env file, units, Caddyfile, validate) rather than
+    just --help, because that is where the variable-expansion bug actually lived.
+    """
+
+    checkout = _checkout(tmp_path, _complete_env())
+    systemd_dir = tmp_path / "systemd"
+    systemd_dir.mkdir()
+
+    result = _run(
+        checkout,
+        "--apply",
+        "--no-worker",
+        extra_env={"LC_ALL": "C", "LANG": "C", "IELTS_CADDY_SHIM_FAIL": "1"},
+    )
+
+    combined = result.stdout + result.stderr
+    assert "unbound variable" not in combined
+    assert result.returncode == 1, combined
+    assert "validate 未通过" in result.stderr
+
+
+def test_apply_refuses_to_restart_on_an_invalid_caddyfile(tmp_path: Path) -> None:
+    """A bad config must not take the public port down with it."""
+
+    checkout = _checkout(tmp_path, _complete_env())
+    systemd_dir = tmp_path / "systemd"
+    systemd_dir.mkdir()
+    shim_log = tmp_path / "shim.log"
+
+    result = _run(
+        checkout,
+        "--apply",
+        "--no-worker",
+        extra_env={"IELTS_SHIM_LOG": str(shim_log), "IELTS_CADDY_SHIM_FAIL": "1"},
+    )
+
+    assert result.returncode == 1
+    assert "validate 未通过" in result.stderr
+    assert f"systemctl restart {TLS_UNIT}" not in shim_log.read_text(encoding="utf-8")
 
 
 def test_second_apply_leaves_the_https_entry_alone(tmp_path: Path) -> None:

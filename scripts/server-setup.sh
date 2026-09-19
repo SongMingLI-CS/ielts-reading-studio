@@ -387,10 +387,12 @@ tls_site_port() {
   printf '%s' "${port:-443}"
 }
 
-# Render the shipped template into $1 (site address + catch-all address).
+# Render the shipped template into $1 (site address + catch-all address). The catch-all
+# carries an explicit https:// scheme: a bare ":8766" is an HTTP site, and Caddy refuses to
+# multiplex HTTP and HTTPS on one port.
 render_caddyfile_into() {
   sed -e "s|{{SITE_ADDRESS}}|${TLS_SITE}|g" \
-    -e "s|{{CATCH_ALL_ADDRESS}}|:$(tls_site_port)|g" \
+    -e "s|{{CATCH_ALL_ADDRESS}}|https://:$(tls_site_port)|g" \
     "$CADDYFILE_SOURCE" >"$1"
 }
 
@@ -436,6 +438,19 @@ install_tls_unit() {
   rm -f "$rendered"
   install_file "$TLS_UNIT_SOURCE" "$SYSTEMD_DIR/${TLS_UNIT}.service"
   "$SUDO" systemctl daemon-reload
+  # Validate before restarting: Caddy refuses to load some plausible-looking configs, and a
+  # failed start takes the public port down. Keep the running instance if it is invalid.
+  local caddy_bin="${IELTS_CADDY_BIN:-caddy}"
+  if command -v "$caddy_bin" >/dev/null 2>&1; then
+    if "$caddy_bin" validate --config "$config_path" --adapter caddyfile >/dev/null 2>&1; then
+      printf '配置校验:   %s validate 通过\n' "$caddy_bin"
+    else
+      warn "${caddy_bin} validate 未通过，未重启 ${TLS_UNIT}（当前配置请手工检查: ${config_path}）"
+      warn "$caddy_bin validate --config $config_path --adapter caddyfile"
+      FAILURES=1
+      return 0
+    fi
+  fi
   "$SUDO" systemctl enable "$TLS_UNIT"
   # restart (not just start): an already running instance must pick up the new config.
   "$SUDO" systemctl restart "$TLS_UNIT"
