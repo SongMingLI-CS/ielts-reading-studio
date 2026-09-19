@@ -10,7 +10,8 @@
 #
 # Overridable environment:
 #   IELTS_SERVICE, IELTS_HEALTH_URL, IELTS_BRANCH, IELTS_CONFIG, IELTS_ENV_FILE,
-#   IELTS_BACKUP_DIR, IELTS_SUDO, IELTS_PYTHON, IELTS_SKIP_PULL, IELTS_SKIP_TESTS
+#   IELTS_BACKUP_DIR, IELTS_SUDO, IELTS_PYTHON, IELTS_EXTRAS, IELTS_KEEP_SNAPSHOTS,
+#   IELTS_SKIP_PULL, IELTS_SKIP_TESTS
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -258,12 +259,23 @@ pull_step() {
 # Install exactly the locked dependencies; fall back to pip when uv is unavailable.
 sync_dependencies() {
   log '同步依赖'
+  # IELTS_EXTRAS: unset -> dev tools, explicitly empty -> runtime packages only,
+  # any other value -> that extra. Locked installs go through uv when available.
+  local extras="${IELTS_EXTRAS-dev}" target
   if [[ -f "$APP_DIR/uv.lock" ]] && command -v uv >/dev/null 2>&1; then
-    run uv sync --frozen --extra dev --directory "$APP_DIR"
+    if [[ -n "$extras" ]]; then
+      run uv sync --frozen --extra "$extras" --directory "$APP_DIR"
+    else
+      run uv sync --frozen --directory "$APP_DIR"
+    fi
     return $?
   fi
-  warn 'uv 或 uv.lock 缺失，回退到 pip install -e .（版本不做精确锁定）'
-  run "$VENV_PY" -m pip install -e "$APP_DIR"
+  target="$APP_DIR"
+  if [[ -n "$extras" ]]; then
+    target="${APP_DIR}[${extras}]"
+  fi
+  warn "uv 或 uv.lock 缺失，回退到 pip install -e（版本不做精确锁定）: $target"
+  run "$VENV_PY" -m pip install -e "$target"
   return $?
 }
 

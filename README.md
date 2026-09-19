@@ -297,14 +297,21 @@ IELTS_DATABASE_URL="sqlite+pysqlite:///$PWD/output/state.db" .venv/bin/alembic d
 `app/` 与组件源码的字节编译、四处 Ruff 检查、CLI 帮助烟雾测试。不需要 API Key，
 也不会访问网络——`tests/conftest.py` 会直接拦截任何非回环连接与 DNS 解析。
 
+Windows：
+
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\verify.ps1   # Windows
+powershell -ExecutionPolicy Bypass -File scripts\verify.ps1
 ```
+
+Linux / macOS（服务器上用这个）：
 
 ```bash
-bash scripts/verify.sh                                        # macOS / Linux
+scripts/verify.sh
 ```
 
-当前基线：**480 passed**（主项目 361 + 情境小说组件 119）、Ruff 全仓零告警。CI
+两个脚本执行同样的检查。`verify.sh` 默认使用项目里的 `.venv/bin/python`（也就是 systemd 启动服务用的同一个解释器），
+可用 `PYTHON=/path/to/python` 或 `IELTS_VERIFY_PYTHON=` 覆盖。
+
+当前基线：**625 passed**（主项目 506 + 情境小说组件 119）、Ruff 全仓零告警。CI
 （`.github/workflows/ci.yml`）在 Python 3.12 与 3.13 上执行同一条命令，并且不配置任何密钥。
 更详细的恢复、备份和状态说明见 [运维指南](docs/operator-guide.md)。

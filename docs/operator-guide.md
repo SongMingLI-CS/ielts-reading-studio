@@ -110,7 +110,7 @@ curl -fsS http://127.0.0.1:8766/healthz
 - `agent_schema_error`：模型 JSON 不符合 Pydantic 契约，错误会脱敏并保存。
 - `needs_review`：达到返工上限；先检查 `failed/` 与 `reports/`，不要盲目重跑。
 
-运行 `scripts/verify.sh`（macOS / Linux）或 `scripts/verify.ps1`（Windows）可确认本地代码、依赖和离线路径完整：两个测试套件、`app/` 与组件源码的字节编译、四处 Ruff 检查与 CLI 帮助烟雾测试。真实样篇之前还应核对 DeepSeek 官方当前模型名与价格，并保持模型名由配置提供。
+运行 `scripts/verify.sh`（Linux / macOS，服务器上用这个）或 `scripts/verify.ps1`（Windows）可确认本地代码、依赖和离线路径完整：两个测试套件、`app/` 与组件源码的字节编译、四处 Ruff 检查与 CLI 帮助烟雾测试。`verify.sh` 默认使用项目里的 `.venv/bin/python`（systemd 启动服务的同一个解释器），可用 `PYTHON=` 覆盖。真实样篇之前还应核对 DeepSeek 官方当前模型名与价格，并保持模型名由配置提供。
 
 ## 9. 远程部署（服务器）
 
@@ -177,7 +177,10 @@ server {
 1. **部署前检查**（只读）：工作树是否干净、当前 commit、`.venv` 是否存在、`config.yaml` 与 `.env.web` 是否可读、`input/`/`output/` 是否可读写、磁盘空间、当前 schema 版本与待迁移状态。
 2. **一致性快照**：用 SQLite online backup 把 `state.db` 写到 `backups/deploy-<UTC时间>.db`，只保留最近 10 份（`IELTS_KEEP_SNAPSHOTS` 可调）。快照失败会直接中止部署。
 3. `git pull --ff-only`。
-4. `uv sync --frozen --extra dev` 按 `uv.lock` 同步依赖（没有 uv 时回退到 `pip install -e .`）。
+4. `uv sync --frozen` 按 `uv.lock` 同步依赖（存在 uv 时优先；没有 uv 或 `uv.lock` 时回退到 `pip install -e`，
+   版本不做精确锁定）。**依赖必须跟着代码走**：新版本可能新增运行时包（例如 `python-multipart`、`openpyxl`）
+   或包路径（`ielts_novel` 来自仓库内的 `components/context-novel/src`），只拉代码不装依赖会让服务起不来。
+   服务器上不想要测试工具时用 `IELTS_EXTRAS=`（显式空值）只装运行时依赖；不设置该变量则默认安装 `dev` extra。
 5. `ielts-reading migrate` 执行数据库迁移，失败即中止。
 6. 离线验证：`python -m pytest -q`（无网络、无 API Key）。
 7. `sudo systemctl restart ielts-reading-studio`，然后**真正请求** `http://127.0.0.1:8766/healthz`（最多 20 次 × 1 秒）。`systemctl is-active` 只能说明进程活着，不能说明网站可用。
@@ -195,7 +198,7 @@ scripts/deploy.sh --skip-tests # 跳过第 6 步（不推荐）
 
 `--check` 可在 systemd timer 或监控里定期运行：它不会创建数据库文件，也不做任何写操作。
 
-手工等价操作：
+手工等价操作（顺序不能颠倒：先拉代码，再装依赖，最后重启）：
 
 ```bash
 cd ~/ielts-reading-studio
@@ -206,6 +209,12 @@ python -m app.cli migrate
 python -m pytest -q
 sudo systemctl restart ielts-reading-studio
 curl -fsS http://127.0.0.1:8766/healthz
+```
+
+更新完成后也可以只跑一次自检：
+
+```bash
+cd ~/ielts-reading-studio && scripts/verify.sh
 ```
 
 ### systemd 加固

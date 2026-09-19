@@ -28,10 +28,16 @@ def test_backup_cleans_stale_export_archives(tmp_path, monkeypatch):
 def test_backup_cleans_stale_temp_archives(client, web_service, sample_txt, tmp_path, monkeypatch):
     web_service.import_source(sample_txt)
     scratch = Path(tempfile.gettempdir())
-    stale = Path(tempfile.mkstemp(prefix="ielts-backup-", suffix=".zip")[1])
+    # mkstemp hands back a raw file descriptor; on Windows a leaked descriptor
+    # keeps the file undeletable, so close it before exercising the cleanup.
+    stale_handle, stale_name = tempfile.mkstemp(prefix="ielts-backup-", suffix=".zip")
+    os.close(stale_handle)
+    stale = Path(stale_name)
     old = dt.datetime.now(dt.UTC).timestamp() - 7200
     os.utime(stale, (old, old))
-    fresh = Path(tempfile.mkstemp(prefix="ielts-backup-", suffix=".zip")[1])
+    fresh_handle, fresh_name = tempfile.mkstemp(prefix="ielts-backup-", suffix=".zip")
+    os.close(fresh_handle)
+    fresh = Path(fresh_name)
 
     response = client.get("/backup/download")
     assert response.status_code == 200

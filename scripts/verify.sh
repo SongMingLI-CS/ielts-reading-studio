@@ -20,11 +20,16 @@ export PYTHONDONTWRITEBYTECODE=1
 
 if [[ -n "${IELTS_VERIFY_PYTHON:-}" ]]; then
   PYTHON="$IELTS_VERIFY_PYTHON"
+elif [[ -n "${PYTHON:-}" ]]; then
+  : # an explicit PYTHON= wins, so the server runs the same interpreter systemd uses
 elif [[ -x "$REPO_DIR/.venv/bin/python" ]]; then
   PYTHON="$REPO_DIR/.venv/bin/python"
 else
   PYTHON="python3"
 fi
+
+printf 'app:    %s\n' "$REPO_DIR"
+printf 'python: %s (%s)\n' "$PYTHON" "$("$PYTHON" --version 2>&1)"
 
 if [[ -x "$REPO_DIR/.venv/bin/ruff" ]]; then
   RUFF="$REPO_DIR/.venv/bin/ruff"
