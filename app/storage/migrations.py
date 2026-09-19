@@ -123,6 +123,33 @@ def looks_like_legacy_database(engine: Engine | Connection) -> bool:
     return bool(tables & LEGACY_TABLES)
 
 
+#: Schemas a pre-Alembic database may already have, newest first, with a column that
+#: proves the shape. Detection matters because stamping the wrong revision makes the next
+#: migration try to add columns that already exist.
+LEGACY_SCHEMA_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("0002", ("worker_id", "idempotency_key", "attempts")),
+)
+
+
+def detect_legacy_revision(engine: Engine | Connection) -> str:
+    """Pick the revision that matches the schema of a pre-Alembic database."""
+
+    if _VERSION_TABLE in _table_names(engine):
+        return BASELINE_REVISION
+    columns = _column_names(engine, "jobs")
+    for revision, markers in LEGACY_SCHEMA_HINTS:
+        if columns and set(markers) <= columns:
+            return revision
+    return BASELINE_REVISION
+
+
+def _column_names(engine: Engine | Connection, table: str) -> set[str]:
+    if isinstance(engine, Connection):
+        return {column["name"] for column in inspect(engine).get_columns(table)}
+    with engine.connect() as connection:
+        return {column["name"] for column in inspect(connection).get_columns(table)}
+
+
 def read_schema_revision(path: str | Path) -> str | None:
     """Read the recorded revision straight from the file, creating nothing.
 
@@ -163,10 +190,11 @@ def migrate_engine(engine: Engine, *, stamp_legacy: bool = True) -> MigrationRes
         before = original
         stamped = False
         if before is None and stamp_legacy and looks_like_legacy_database(connection):
-            # Pre-Alembic database: record the baseline without touching any data.
-            _run_alembic(config, connection, lambda: command.stamp(config, BASELINE_REVISION))
+            # Pre-Alembic database: record the revision its schema already matches.
+            detected = detect_legacy_revision(connection)
+            _run_alembic(config, connection, lambda: command.stamp(config, detected))
             stamped = True
-            before = BASELINE_REVISION
+            before = detected
 
     if before == head:
         return MigrationResult(

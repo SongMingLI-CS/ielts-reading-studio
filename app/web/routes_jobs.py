@@ -1,19 +1,20 @@
 from __future__ import annotations
 
-import datetime as dt
 import json
+from hashlib import sha256
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query
+from fastapi import APIRouter, Depends, Form, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
 from app.cli import parse_range
-from app.config import redact_secrets
 from app.models import Difficulty, QuestionType, UnitStatus
+from app.pipeline.queue import QueueLimitError
 from app.pipeline.service import ReadingStudioService
+from app.pipeline.tasks import queue_sample, queue_status_for, sample_status_path
 from app.planning.units import DEFAULT_QUESTION_TYPES, default_question_types
 
 from .dependencies import get_service
@@ -24,12 +25,8 @@ TEMPLATES = Jinja2Templates(directory=Path(__file__).parents[2] / "templates")
 RANGE_EXAMPLES = "1-20 · 1,3,8-12 · all"
 
 
-def _sample_status_path(corpus_id: str) -> Path:
-    return Path("reports") / f"sample-{corpus_id[:8]}.json"
-
-
 def _sample_status(service: ReadingStudioService, corpus_id: str) -> dict[str, Any] | None:
-    path = service.store.root / _sample_status_path(corpus_id)
+    path = sample_status_path(service, corpus_id)
     if not path.is_file():
         return None
     try:
@@ -38,34 +35,28 @@ def _sample_status(service: ReadingStudioService, corpus_id: str) -> dict[str, A
         return None
 
 
-def _run_sample(
-    service: ReadingStudioService,
+def _batch_idempotency_key(
     corpus_id: str,
+    ordinals: list[int] | None,
     difficulty: Difficulty,
-    question_types: list[QuestionType],
-) -> None:
-    """Generate one sample in the background, recording the outcome for the page."""
-    record = {
-        "difficulty": difficulty.value,
-        "question_types": [value.value for value in question_types],
-    }
+    question_types: list[str],
+    batch_size: int,
+    concurrency: int,
+) -> str:
+    """One key per identical batch request, so a double-click cannot buy two runs."""
 
-    def write(payload: dict[str, Any]) -> None:
-        service.store.write_json(_sample_status_path(corpus_id), {**record, **payload})
-
-    write({"status": "running", "started_at": dt.datetime.now(dt.UTC).isoformat()})
-    try:
-        service.generate_sample(corpus_id, difficulty, question_types)
-    except Exception as exc:  # noqa: BLE001 - the operator needs to see what happened
-        write(
-            {
-                "status": "failed",
-                "finished_at": dt.datetime.now(dt.UTC).isoformat(),
-                "error": redact_secrets(str(exc)),
-            }
-        )
-        return
-    write({"status": "completed", "finished_at": dt.datetime.now(dt.UTC).isoformat()})
+    fingerprint = json.dumps(
+        {
+            "ordinals": sorted(ordinals) if ordinals else "all",
+            "difficulty": difficulty.value,
+            "question_types": sorted(question_types),
+            "batch_size": batch_size,
+            "concurrency": concurrency,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+    return f"batch:{corpus_id}:{sha256(fingerprint.encode('utf-8')).hexdigest()[:32]}"
 
 
 def _completed_unit_row(service: ReadingStudioService, unit: Any) -> dict[str, Any]:
@@ -148,12 +139,11 @@ def configure_job(
 @router.post("/corpora/{corpus_id}/sample")
 def start_sample(
     corpus_id: str,
-    background: BackgroundTasks,
     service: Annotated[ReadingStudioService, Depends(get_service)],
     difficulty: Annotated[Difficulty, Form()] = Difficulty.STANDARD,
     question_types: Annotated[list[str] | None, Form()] = None,
 ):
-    """Generate exactly one sample of the chosen shape; approval stays manual."""
+    """Queue exactly one sample of the chosen shape; approval stays manual."""
     if service.repository.get_corpus(corpus_id) is None:
         raise HTTPException(status_code=404, detail="Corpus not found")
     if service.config.deepseek_api_key is None:
@@ -171,7 +161,10 @@ def start_sample(
         return RedirectResponse(
             f"/corpora/{corpus_id}/configure?sample=bad-types", status_code=303
         )
-    background.add_task(_run_sample, service, corpus_id, difficulty, selected)
+    try:
+        queue_sample(service, corpus_id, difficulty, selected)
+    except QueueLimitError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
     return RedirectResponse(
         f"/corpora/{corpus_id}/configure?sample=started", status_code=303
     )
@@ -193,7 +186,6 @@ def approve_sample(
 @router.post("/corpora/{corpus_id}/jobs")
 def start_job(
     corpus_id: str,
-    background: BackgroundTasks,
     service: Annotated[ReadingStudioService, Depends(get_service)],
     difficulty: Annotated[Difficulty, Form()] = Difficulty.STANDARD,
     range_spec: Annotated[str, Form()] = "all",
@@ -201,6 +193,7 @@ def start_job(
     batch_size: Annotated[int, Form(ge=1, le=100)] = 20,
     concurrency: Annotated[int, Form(ge=1, le=8)] = 2,
 ):
+    """Queue a batch. The worker runs it; this request never starts a model call."""
     try:
         if not service.is_corpus_approved(corpus_id):
             raise PermissionError("A completed sample must be explicitly approved before batch generation")
@@ -215,12 +208,21 @@ def start_job(
             concurrency=concurrency,
             difficulty=difficulty,
             question_types=selected_types,
+            idempotency_key=_batch_idempotency_key(
+                corpus_id,
+                ordinals,
+                difficulty,
+                [value.value for value in selected_types],
+                batch_size,
+                concurrency,
+            ),
         )
+    except QueueLimitError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
     except PermissionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (KeyError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    background.add_task(service.run_job, job["id"])
     return RedirectResponse(f"/jobs/{job['id']}", status_code=303)
 
 
@@ -236,7 +238,11 @@ def job_detail(
     return TEMPLATES.TemplateResponse(
         request,
         "jobs/detail.html",
-        {"job": job, "units": service.repository.list_job_units(job_id)},
+        {
+            "job": job,
+            "units": service.repository.list_job_units(job_id),
+            "queue_state": queue_status_for(service, job_id),
+        },
     )
 
 
@@ -265,34 +271,42 @@ def pause_job(
     job_id: str,
     service: Annotated[ReadingStudioService, Depends(get_service)],
 ):
+    """Stop claiming new units; the in-flight stage still saves its result."""
     job = service.repository.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
-    service.repository.update_job(job_id, status="paused", payload=job["payload"])
+    if not service.queue.request_pause(job_id):
+        raise HTTPException(status_code=409, detail="当前状态不能暂停")
     return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
 
 @router.post("/jobs/{job_id}/resume")
 def resume_job(
     job_id: str,
-    background: BackgroundTasks,
     service: Annotated[ReadingStudioService, Depends(get_service)],
 ):
-    background.add_task(service.resume_job, job_id)
+    """Requeue a paused job and release any unit a dead worker left running."""
+    job = service.repository.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if not service.queue.resume(job_id):
+        raise HTTPException(status_code=409, detail="当前状态不能继续")
+    service.repository.recover_interrupted_units()
     return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
 
 @router.post("/jobs/{job_id}/retry")
 def retry_job(
     job_id: str,
-    background: BackgroundTasks,
     service: Annotated[ReadingStudioService, Depends(get_service)],
 ):
+    """Create a fresh job for the failed units; nothing runs inside this request."""
     try:
         job = service.retry_job(job_id, failed_only=True)
+    except QueueLimitError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
     except (KeyError, PermissionError, ValueError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    background.add_task(service.run_job, job["id"])
     return RedirectResponse(f"/jobs/{job['id']}", status_code=303)
 
 
@@ -301,8 +315,10 @@ def cancel_job(
     job_id: str,
     service: Annotated[ReadingStudioService, Depends(get_service)],
 ):
+    """Terminal state; the runner stops at the next unit boundary."""
     job = service.repository.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
-    service.repository.update_job(job_id, status="cancelled", payload=job["payload"])
+    if not service.queue.cancel(job_id):
+        raise HTTPException(status_code=409, detail="任务已结束，无法取消")
     return RedirectResponse(f"/jobs/{job_id}", status_code=303)

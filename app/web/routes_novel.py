@@ -5,8 +5,6 @@ import os
 import re
 import shutil
 import sqlite3
-import subprocess
-import sys
 from hashlib import sha256
 from pathlib import Path
 from typing import Annotated, Any
@@ -14,7 +12,6 @@ from typing import Annotated, Any
 import yaml
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -32,6 +29,7 @@ from ielts_novel.processors.chapter_parser import (
 )
 from starlette.requests import Request
 
+from app.pipeline.queue import NOVEL_KIND
 from app.pipeline.service import ReadingStudioService
 
 from .dependencies import get_service
@@ -248,40 +246,6 @@ def estimate_novel(
     )
 
 
-def _run_component(
-    config_path: Path,
-    arguments: list[str],
-    status_path: Path,
-    description: str,
-) -> None:
-    _write_json(status_path, {"status": "running", "description": description})
-    log_path = status_path.parent / "reports" / "web-generation.log"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    with log_path.open("a", encoding="utf-8") as log:
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "ielts_novel.cli",
-                *arguments,
-                "--config",
-                str(config_path),
-            ],
-            cwd=COMPONENT_ROOT,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            check=False,
-        )
-    _write_json(
-        status_path,
-        {
-            "status": "completed" if result.returncode == 0 else "failed",
-            "description": description,
-            "return_code": result.returncode,
-        },
-    )
-
-
 def _write_runtime_config(
     service: ReadingStudioService,
     paths: dict[str, Path],
@@ -318,14 +282,38 @@ def _require_generation_ready(
     if not source or not source.get("confident"):
         raise HTTPException(status_code=409, detail="请先导入并成功识别小说章节")
     run = _read_json(paths["run"], {})
-    if run.get("status") == "running":
-        raise HTTPException(status_code=409, detail="已有生成任务正在运行")
+    if run.get("status") in {"queued", "running"}:
+        raise HTTPException(status_code=409, detail="已有生成任务正在排队或运行")
     return source
+
+
+def _queue_novel_batch(
+    service: ReadingStudioService,
+    paths: dict[str, Path],
+    *,
+    arguments: list[str],
+    description: str,
+    idempotency_key: str,
+) -> None:
+    """Hand the component CLI run to the durable worker instead of a request task."""
+
+    from app.pipeline.novel_runner import ensure_system_corpus
+
+    service.queue.enqueue(
+        corpus_id=ensure_system_corpus(service),
+        kind=NOVEL_KIND,
+        payload={
+            "arguments": arguments,
+            "config_path": str(paths["config"]),
+            "status_path": str(paths["run"]),
+            "description": description,
+        },
+        idempotency_key=idempotency_key,
+    )
 
 
 @router.post("/generate-sample")
 def generate_sample(
-    background: BackgroundTasks,
     service: Annotated[ReadingStudioService, Depends(get_service)],
     chapter: Annotated[int, Form(ge=1)] = 1,
     confirmation: Annotated[str, Form()] = "",
@@ -339,19 +327,18 @@ def generate_sample(
     _write_runtime_config(service, paths, batch_confirmed=False, max_chapters=1)
     description = f"第 {chapter} 章样章"
     _write_json(paths["run"], {"status": "queued", "description": description})
-    background.add_task(
-        _run_component,
-        paths["config"],
-        ["--chapter", str(chapter)],
-        paths["run"],
-        description,
+    _queue_novel_batch(
+        service,
+        paths,
+        arguments=["--chapter", str(chapter)],
+        description=description,
+        idempotency_key=f"novel-sample:{chapter}",
     )
     return RedirectResponse("/novel", status_code=303)
 
 
 @router.post("/generate-batch")
 def generate_batch(
-    background: BackgroundTasks,
     service: Annotated[ReadingStudioService, Depends(get_service)],
     start: Annotated[int, Form(ge=1)],
     end: Annotated[int, Form(ge=1)],
@@ -368,12 +355,12 @@ def generate_batch(
     _write_runtime_config(service, paths, batch_confirmed=True, max_chapters=20)
     description = f"第 {start}–{end} 章批量任务"
     _write_json(paths["run"], {"status": "queued", "description": description})
-    background.add_task(
-        _run_component,
-        paths["config"],
-        ["--start", str(start), "--end", str(end)],
-        paths["run"],
-        description,
+    _queue_novel_batch(
+        service,
+        paths,
+        arguments=["--start", str(start), "--end", str(end)],
+        description=description,
+        idempotency_key=f"novel-batch:{start}-{end}",
     )
     return RedirectResponse("/novel", status_code=303)
 
@@ -381,7 +368,6 @@ def generate_batch(
 @router.post("/recover/{action}")
 def recover_batch(
     action: str,
-    background: BackgroundTasks,
     service: Annotated[ReadingStudioService, Depends(get_service)],
     confirmation: Annotated[str, Form()] = "",
 ):
@@ -394,12 +380,12 @@ def recover_batch(
     _write_runtime_config(service, paths, batch_confirmed=True, max_chapters=20)
     label = "断点继续" if action == "resume" else "失败章节重试"
     _write_json(paths["run"], {"status": "queued", "description": label})
-    background.add_task(
-        _run_component,
-        paths["config"],
-        [f"--{action}"],
-        paths["run"],
-        label,
+    _queue_novel_batch(
+        service,
+        paths,
+        arguments=[f"--{action}"],
+        description=label,
+        idempotency_key=f"novel-recover:{action}",
     )
     return RedirectResponse("/novel", status_code=303)
 

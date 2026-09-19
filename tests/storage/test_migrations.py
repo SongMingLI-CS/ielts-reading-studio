@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from alembic import command
 from alembic.util.exc import CommandError
 from sqlalchemy import create_engine, inspect, text
 
@@ -15,8 +16,11 @@ from app.config import AppConfig
 from app.pipeline.service import ReadingStudioService
 from app.storage.database import Database, metadata
 from app.storage.migrations import (
+    BASELINE_REVISION,
     LEGACY_TABLES,
     MigrationError,
+    alembic_config,
+    detect_legacy_revision,
     looks_like_legacy_database,
     migrate_path,
     read_schema_revision,
@@ -65,10 +69,22 @@ TRACKED_TABLES = (
 
 
 def make_legacy_database(path: Path) -> Database:
-    """Rebuild the schema the way the pre-migration code did, then fill it with data."""
+    """Rebuild the schema exactly as the pre-Alembic release left it, then fill it.
 
+    The old release created its tables with ``metadata.create_all`` and had no version
+    table at all, so the schema is built here through the baseline migration and the
+    version table is removed again.
+    """
+
+    url = f"sqlite+pysqlite:///{path}"
+    command.upgrade(alembic_config(url), BASELINE_REVISION)
+    engine = create_engine(url, future=True)
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("DROP TABLE alembic_version"))
+    finally:
+        engine.dispose()
     database = Database(path)
-    metadata.create_all(database.engine)
     with database.engine.begin() as connection:
         for statement in LEGACY_ROWS:
             connection.execute(text(statement))
@@ -247,3 +263,31 @@ def test_migration_works_from_any_working_directory(
     assert result.to_revision == result.head_revision
     assert read_schema_revision(tmp_path / "state.db") == result.head_revision
     assert not (elsewhere / "migrations").exists()
+
+
+def test_database_created_by_metadata_is_stamped_at_its_matching_revision(
+    tmp_path: Path,
+) -> None:
+    """A checkout that ran create_all after a schema change must not be re-migrated.
+
+    ``metadata.create_all`` was the pre-Alembic way to build the schema, and it always
+    produced the schema of the running code. Stamping such a file with the baseline
+    revision would make the next migration re-add existing columns and fail.
+    """
+
+    path = tmp_path / "state.db"
+    database = Database(path)
+    metadata.create_all(database.engine)
+    with database.engine.begin() as connection:
+        for statement in LEGACY_ROWS:
+            connection.execute(text(statement))
+
+    assert looks_like_legacy_database(database.engine) is True
+    assert detect_legacy_revision(database.engine) == "0002"
+
+    result = database.migrate()
+
+    assert result.stamped_baseline is True
+    assert result.to_revision == result.head_revision
+    assert row_counts(database.engine) == dict.fromkeys(TRACKED_TABLES, 1)
+    assert database.schema_revision() == result.head_revision

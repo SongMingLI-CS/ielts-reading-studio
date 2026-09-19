@@ -55,6 +55,9 @@ class AppConfig(BaseModel):
     # 抽样审阅：一批完成后自动抽取的比例与下限。
     review_sample_rate: float = Field(0.1, ge=0.0, le=1.0)
     review_sample_min: int = Field(1, ge=0, le=50)
+    # 持久任务队列：worker 认领作业后持有租约，崩溃后由其它 worker 安全接管。
+    job_lease_seconds: int = Field(300, ge=30, le=3600)
+    max_active_jobs: int = Field(2, ge=1, le=8)
 
     @model_validator(mode="after")
     def validate_web_credentials(self) -> AppConfig:

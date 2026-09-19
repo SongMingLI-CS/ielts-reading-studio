@@ -68,6 +68,11 @@ def test_sample_endpoint_rejects_a_bad_type_combination(client, web_service, sam
 def test_sample_endpoint_queues_work_and_records_the_outcome(
     client, web_service, sample_txt, monkeypatch
 ):
+    """The web request only queues; a worker runs the sample and records the outcome."""
+
+    from app.pipeline.tasks import sample_status_path
+    from app.pipeline.worker import JobWorker
+
     web_service.config.deepseek_api_key = SecretStr("sk-test-key")
     manifest = web_service.import_source(sample_txt)
     calls: list[tuple] = []
@@ -75,9 +80,7 @@ def test_sample_endpoint_queues_work_and_records_the_outcome(
     def fake_generate_sample(self, corpus_id, difficulty, question_types):
         calls.append((corpus_id, difficulty.value, [value.value for value in question_types]))
 
-    monkeypatch.setattr(
-        type(web_service), "generate_sample", fake_generate_sample
-    )
+    monkeypatch.setattr(type(web_service), "generate_sample", fake_generate_sample)
     response = client.post(
         f"/corpora/{manifest.corpus.id}/sample",
         data={"difficulty": "foundation"},
@@ -86,19 +89,54 @@ def test_sample_endpoint_queues_work_and_records_the_outcome(
     assert response.status_code == 303
     assert response.headers["location"].endswith("sample=started")
 
-    assert calls and calls[0][0] == manifest.corpus.id
-    assert calls[0][1] == "foundation"
-    assert calls[0][2] == [
+    # Nothing was generated inside the request: it is a queued job now.
+    assert calls == []
+    queued = web_service.queue.list_jobs()
+    assert len(queued) == 1
+    assert queued[0].kind == "reading_sample"
+    assert queued[0].status == "queued"
+    assert queued[0].payload["question_types"] == [
         "matching_headings",
         "true_false_not_given",
         "sentence_completion",
     ]
 
-    status_file = web_service.store.root / "reports" / f"sample-{manifest.corpus.id[:8]}.json"
+    finished = JobWorker(web_service).run_once()
+
+    assert finished is not None and finished.status == "completed"
+    assert calls == [
+        (
+            manifest.corpus.id,
+            "foundation",
+            ["matching_headings", "true_false_not_given", "sentence_completion"],
+        )
+    ]
+    status_file = sample_status_path(web_service, manifest.corpus.id)
     assert status_file.is_file()
     assert "completed" in status_file.read_text(encoding="utf-8")
     page = client.get(f"/corpora/{manifest.corpus.id}/configure")
     assert "最近一次样篇：completed" in page.text
+
+
+def test_sample_endpoint_is_idempotent_for_a_repeated_request(
+    client, web_service, sample_txt
+):
+    """A double-clicked sample must not create a second paid job."""
+
+    web_service.config.deepseek_api_key = SecretStr("sk-test-key")
+    manifest = web_service.import_source(sample_txt)
+
+    for _ in range(2):
+        response = client.post(
+            f"/corpora/{manifest.corpus.id}/sample",
+            data={"difficulty": "standard"},
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+
+    jobs = web_service.queue.list_jobs()
+    assert len(jobs) == 1
+    assert jobs[0].kind == "reading_sample"
 
 
 def test_configuration_page_shows_estimate_and_approval_gate(client, web_service, sample_txt):

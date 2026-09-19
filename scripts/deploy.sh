@@ -15,6 +15,7 @@ set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SERVICE="${IELTS_SERVICE:-ielts-reading-studio}"
+WORKER_SERVICE="${IELTS_WORKER_SERVICE:-ielts-reading-studio-worker}"
 HEALTH_URL="${IELTS_HEALTH_URL:-http://127.0.0.1:8766/healthz}"
 BRANCH="${IELTS_BRANCH:-main}"
 CONFIG_FILE="${IELTS_CONFIG:-config.yaml}"
@@ -296,6 +297,21 @@ restart_service() {
   run "$SUDO" systemctl restart "$SERVICE"
 }
 
+# The worker owns the long generations; a deploy that only restarts the web tier would
+# leave stale code running the queue.
+restart_worker_service() {
+  if ((DRY_RUN)); then
+    printf '[dry-run] %s systemctl restart %s\n' "$SUDO" "$WORKER_SERVICE"
+    return 0
+  fi
+  if ! "$SUDO" systemctl cat "$WORKER_SERVICE" >/dev/null 2>&1; then
+    log "未安装 worker 服务（$WORKER_SERVICE），跳过重启"
+    return 0
+  fi
+  log "重启 worker 服务 $WORKER_SERVICE"
+  run "$SUDO" systemctl restart "$WORKER_SERVICE"
+}
+
 # A real HTTP request, not `systemctl is-active`: the process can be alive and broken.
 wait_for_health() {
   if ((DRY_RUN)); then
@@ -342,6 +358,7 @@ rollback() {
     fi
   fi
   "$SUDO" systemctl restart "$SERVICE" || warn '重启旧版本失败'
+  restart_worker_service
   if wait_for_health; then
     log "回滚完成：服务已回到 ${BEFORE_COMMIT:0:7}"
   else
@@ -370,6 +387,7 @@ main() {
   apply_migrations || rollback '数据库迁移失败' || exit 2
   quick_verification || rollback '部署后测试失败' || exit 2
   restart_service
+  restart_worker_service
   if ! wait_for_health; then
     diagnose
     rollback '健康检查未通过' || exit 2

@@ -49,11 +49,17 @@ output/
 
 ## 5. 中断恢复
 
+网页提交的生成任务由独立 worker 执行，不再依赖网页进程存活：网页只负责入队，worker 认领后持有租约并定时续租。
+
 1. 不要删除 `state.db`、`stage_payloads`、`packages` 或源文件。
-2. 重新激活同一虚拟环境，运行 `ielts-reading resume <job-id>`。
-3. 启动时运行中的单元会退回最近安全阶段。
-4. 缓存键一致的已完成阶段直接复用；不会重复收费。
-5. 只处理普通失败时，运行 `ielts-reading retry <job-id> --failed-only`。
+2. 确认 worker 在运行：`systemctl status ielts-reading-studio-worker`、`journalctl -u ielts-reading-studio-worker -n 50`。
+3. 手工驱动一次：`ielts-reading worker --once`（处理当前队列中的作业后退出）。
+4. 重新激活同一虚拟环境，运行 `ielts-reading resume <job-id>`（CLI 会同步执行一遍，适合单机排查）。
+5. 启动时运行中的单元会退回最近安全阶段；worker 崩溃后租约过期，其它 worker 会自动重新认领（任务页显示「中断待恢复」）。
+6. 缓存键一致的已完成阶段直接复用；不会重复收费。
+7. 只处理普通失败时，运行 `ielts-reading retry <job-id> --failed-only`。
+
+队列语义（`jobs.status`）：`queued` → `running` → `completed` / `completed_with_errors` / `failed` / `cancelled`，`paused` 与 `blocked` 是可逆的等待状态。作业行另外记录 `worker_id`、`lease_expires_at`、`heartbeat_at`、`attempts`、`error_code`，用于判断「等待 worker / worker 处理中 / 中断待恢复」。同一个作业连续 3 次因租约过期而中断会被标记为 `failed`（`error_code=worker_lease_expired`），避免无限重试。
 
 若任务 `blocked`，先修复密钥、余额或账户问题，再恢复。不要通过直接编辑 SQLite 跳过样篇审批或状态门禁。
 

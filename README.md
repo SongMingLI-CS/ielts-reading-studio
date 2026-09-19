@@ -199,6 +199,37 @@ HTML 是不依赖网络的单文件，交卷前界面不暴露答案。DOCX 单�
 
 认证失败或余额不足会阻断队列；限流、超时和服务端错误最多按约 1、2、4 秒加抖动重试。文章返工和题目返工分别最多两轮，超过后进入 `needs_review`，不继续收费。
 
+## 后台任务与 worker
+
+网页不再自己跑生成任务：提交请求只是**入队**，由独立的 worker 进程认领并执行。这样重启网页、部署新版本或机器重启都不会丢掉一个跑了 40 分钟的批任务。
+
+```bash
+ielts-reading worker              # 常驻：轮询队列、持有租约、按单元边界恢复
+ielts-reading worker --once       # 只处理当前队列里的作业（适合调试与测试）
+ielts-reading worker --max-jobs 1 --poll-interval 1
+```
+
+工作机制：
+
+- **认领是原子的**：`UPDATE jobs SET status='running' WHERE id=? AND status='queued'` 这样的 compare-and-set 保证一个作业只能被一个 worker 拿到；并发认领时只有一个成功。
+- **租约与心跳**：认领时写入 `lease_expires_at`，worker 在后台线程按租约的 1/4 间隔续租。worker 崩溃后租约过期，另一个 worker 会把它安全地重新排队（`attempts` 递增），连续 3 次失败才标记为 `failed`，`error_code=worker_lease_expired`。
+- **不重复付费**：单元状态、阶段尝试与缓存键都在 SQLite 里，重新认领只会继续没做完的阶段；已完成且缓存键一致的阶段不会再次调用模型。恢复流程与 `ielts-reading resume` 完全相同。
+- **暂停 / 继续 / 取消**：`请求暂停` 让 runner 在下一个单元边界停下（在途阶段先落盘），`继续` 把作业重新入队并释放中断的单元，`取消` 是终态。
+- **重复提交保护**：网页提交带幂等键（批任务由语料 + 范围 + 难度 + 题型 + 批次/并发算出）。同一个请求在作业仍在排队或运行时只会复用同一个作业；上一个作业结束后键会被释放，所以重新生成仍然可以正常提交。
+- **全局上限**：`max_active_jobs`（默认 2）限制排队中与运行中的作业总数，超出时提交返回 429 并说明原因；单个 worker 进程同一时刻只跑一个作业，配合 `concurrency` 形成全局模型调用上限。
+- **任务页**会显示队列状态：`等待 worker`、`worker 处理中`、`中断待恢复`（租约已过期）、`已暂停`、`已阻塞`、失败原因与错误码。
+
+生产环境用 `deploy/ielts-reading-studio-worker.service` 常驻运行 worker（已经和网页服务一样开了 `NoNewPrivileges`、`PrivateTmp`、`ProtectSystem=strict` 与 `ReadWritePaths` 加固）：
+
+```bash
+sudo cp deploy/ielts-reading-studio-worker.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now ielts-reading-studio-worker
+journalctl -u ielts-reading-studio-worker -f
+```
+
+`scripts/deploy.sh` 会在部署与回滚时一并重启 worker（未安装则跳过）。没有 worker 在跑时，提交的作业会一直停在「等待 worker」——这是最容易排查的现象。
+
 ## 数据库迁移
 
 `output/state.db` 的 schema 由 Alembic 管理，迁移脚本在 `migrations/versions/`：

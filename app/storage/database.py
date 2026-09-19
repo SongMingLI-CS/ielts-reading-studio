@@ -51,12 +51,33 @@ jobs = Table(
     "jobs",
     metadata,
     Column("id", String, primary_key=True),
+    # Every job hangs off a corpus row: reading jobs use theirs, and non-reading work
+    # (the context-novel component) uses a single system row the corpus list hides.
     Column("corpus_id", String, ForeignKey("corpora.id"), nullable=False, index=True),
     Column("status", String, nullable=False, index=True),
+    # Queue metadata: what the job is, which worker owns it and until when.
+    Column("kind", String, nullable=False, server_default="reading_generation"),
+    Column("worker_id", String, index=True),
+    Column("lease_expires_at", DateTime(timezone=True)),
+    Column("heartbeat_at", DateTime(timezone=True)),
+    Column("attempts", Integer, nullable=False, server_default="0"),
+    Column("error_code", String),
+    Column("idempotency_key", String),
     Column("payload", Text, nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
+
+# One job per idempotency key: a double-clicked "start generation" cannot buy two runs.
+Index(
+    "uq_jobs_idempotency_key",
+    jobs.c.idempotency_key,
+    unique=True,
+    sqlite_where=jobs.c.idempotency_key.is_not(None),
+)
+
+# Claiming scans the oldest queued job first.
+Index("ix_jobs_status_created_at", jobs.c.status, jobs.c.created_at)
 
 generation_units = Table(
     "generation_units",

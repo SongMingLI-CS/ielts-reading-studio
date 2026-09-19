@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from sqlalchemy.exc import IntegrityError
+
 from app.agents.author import AuthorAgent
 from app.agents.deepseek import DeepSeekProvider
 from app.agents.examiner import ExaminerAgent
@@ -36,6 +38,7 @@ from app.writing.models import WritingEvaluationRequest, WritingEvaluationRespon
 from app.writing.service import WritingEvaluationService
 
 from .batch_runner import BatchRunner
+from .queue import JobQueue, QueueLimitError
 from .unit_runner import UnitRunner
 
 
@@ -54,6 +57,8 @@ class ReadingStudioService:
         # is not something the rest of the application can reason about.
         self.migration = self.database.migrate()
         self.repository = Repository(self.database)
+        # Shared with the worker process: the web side only enqueues, the worker claims.
+        self.queue = JobQueue(self.database, lease_seconds=config.job_lease_seconds)
         self.store = ArtifactStore(config.output_dir)
         self.importer = CorpusImporter(config, repository=self.repository, store=self.store)
         self.exporter = ExportService()
@@ -393,7 +398,19 @@ class ReadingStudioService:
         concurrency: int | None = None,
         difficulty: Difficulty | None = None,
         question_types: list[QuestionType] | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
+        if idempotency_key:
+            # A double-clicked "start" must not buy two batches of model calls.
+            existing = self.queue.find_active_by_key(idempotency_key)
+            if existing is not None:
+                return self.repository.get_job(existing.id)
+        running = self.queue.running_count()
+        if running >= self.config.max_active_jobs:
+            raise QueueLimitError(
+                f"已有 {running} 个排队或运行中的任务（上限 {self.config.max_active_jobs}）；"
+                "请等待完成，或先暂停/取消旧任务再提交"
+            )
         approval = self.repository.get_latest_corpus_approval(corpus_id)
         if approval is None or approval["status"] != "approved":
             raise PermissionError("A completed sample must be explicitly approved before batch generation")
@@ -428,10 +445,24 @@ class ReadingStudioService:
             "difficulty": selected_difficulty.value,
             "question_types": [value.value for value in selected_types],
         }
-        self.repository.create_job(job_id, corpus_id, "queued", payload)
+        try:
+            self.repository.create_job(
+                job_id,
+                corpus_id,
+                "queued",
+                payload,
+                idempotency_key=idempotency_key,
+            )
+        except IntegrityError:
+            # Another request with the same key won the race; reuse its job.
+            if not idempotency_key:
+                raise
+            existing = self.queue.find_by_idempotency_key(idempotency_key)
+            if existing is None:  # pragma: no cover - the winner is committed
+                raise
+            return self.repository.get_job(existing.id)
         self.repository.assign_units_to_job(payload["unit_ids"], job_id)
         return self.repository.get_job(job_id)
-
     def run_job(self, job_id: str, *, question_index: QuestionIndex | None = None):
         summary = BatchRunner(
             self.config,

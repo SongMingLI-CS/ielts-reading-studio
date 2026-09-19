@@ -58,8 +58,9 @@ ruff_run check \
   components/context-novel/src \
   components/context-novel/tests
 
-step "CLI smoke: app.cli --help and migrate --help"
+step "CLI smoke: app.cli --help, migrate --help, worker --help"
 "$PYTHON" -m app.cli --help >/dev/null
 "$PYTHON" -m app.cli migrate --help >/dev/null
+"$PYTHON" -m app.cli worker --help >/dev/null
 
 printf '\nIELTS Reading Studio offline verification passed.\n'

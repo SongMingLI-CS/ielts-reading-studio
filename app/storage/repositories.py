@@ -14,6 +14,10 @@ from sqlalchemy.exc import IntegrityError
 
 from app.models import Corpus, GenerationUnit, SourceChapter, UnitStatus, UsageRecord
 
+#: Corpus row that exists only to satisfy the `jobs.corpus_id` foreign key for
+#: non-reading work (the context-novel component). It never appears in corpus lists.
+SYSTEM_CORPUS_ID = "system-context-novel"
+
 if TYPE_CHECKING:
     from app.writing.models import WritingEvaluationRecord
 
@@ -155,7 +159,11 @@ class Repository:
 
     def list_corpora(self) -> list[Corpus]:
         with self.database.engine.connect() as connection:
-            rows = connection.execute(select(corpora).order_by(corpora.c.created_at.desc())).mappings()
+            rows = connection.execute(
+                select(corpora)
+                .where(corpora.c.id != SYSTEM_CORPUS_ID)
+                .order_by(corpora.c.created_at.desc())
+            ).mappings()
             return [_model(row, Corpus) for row in rows]
 
     def add_source_chapter(self, corpus_id: str, chapter: SourceChapter) -> None:
@@ -633,10 +641,20 @@ class Repository:
             rows = connection.execute(statement).mappings()
             return [_practice_attempt(row) for row in rows]
 
-    def create_job(self, job_id: str, corpus_id: str, status: str, payload: dict[str, Any] | None = None) -> None:
+    def create_job(
+        self,
+        job_id: str,
+        corpus_id: str,
+        status: str,
+        payload: dict[str, Any] | None = None,
+        *,
+        kind: str = "reading_generation",
+        idempotency_key: str | None = None,
+    ) -> None:
         with self.database.engine.begin() as connection:
             connection.execute(insert(jobs).values(
                 id=job_id, corpus_id=corpus_id, status=status, payload=_payload(payload or {}),
+                kind=kind, idempotency_key=idempotency_key,
             ))
 
     def get_job(self, job_id: str) -> dict[str, Any] | None:

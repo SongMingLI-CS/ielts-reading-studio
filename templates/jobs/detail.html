@@ -2,6 +2,7 @@
 {% block title %}任务 {{ job.id }}{% endblock %}
 {% block content %}
 <p class="eyebrow">任务监控</p><h1>{{ job.id }}</h1><p>状态：<strong id="job-status">{{ job.status }}</strong> <span id="job-connection" role="status" aria-live="polite">正在自动更新</span></p>
+{% if queue_state %}<p class="queue-state">队列：<strong>{{ queue_state.label }}</strong>{% if queue_state.worker_id %} · worker {{ queue_state.worker_id }}{% endif %}{% if queue_state.attempts and queue_state.attempts > 1 %} · 第 {{ queue_state.attempts }} 次尝试{% endif %}{% if queue_state.error_code %} · 错误码 {{ queue_state.error_code }}{% endif %}{% if queue_state.queued %} · 队列中还有 {{ queue_state.queued }} 个任务{% endif %}</p>{% endif %}
 <div class="actions"><form action="/jobs/{{ job.id }}/pause" method="post"><button>暂停</button></form><form action="/jobs/{{ job.id }}/resume" method="post"><button>继续</button></form><form action="/jobs/{{ job.id }}/retry" method="post"><button>仅重试失败</button></form><form action="/jobs/{{ job.id }}/cancel" method="post"><button class="danger">取消</button></form></div>
 <table><thead><tr><th>序号</th><th>单元</th><th>状态</th></tr></thead><tbody id="unit-rows">{% include "partials/unit_rows.html" %}</tbody></table>
 <script>window.JOB_ID={{ job.id|tojson }};window.JOB_STATUS={{ job.status|tojson }};</script>

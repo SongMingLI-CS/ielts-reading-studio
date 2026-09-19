@@ -221,6 +221,43 @@ def migrate(
 
 
 @app.command()
+def worker(
+    config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
+    once: Annotated[bool, typer.Option("--once", help="只处理队列中的作业，然后退出")] = False,
+    poll_interval: Annotated[float, typer.Option("--poll-interval", min=0.2)] = 2.0,
+    lease_seconds: Annotated[int, typer.Option("--lease-seconds", min=30, max=3600)] = 300,
+    max_jobs: Annotated[int | None, typer.Option("--max-jobs", min=1)] = None,
+) -> None:
+    """Run the durable job worker so long generations survive restarts."""
+    import signal
+    import threading
+
+    from app.pipeline.worker import JobWorker
+
+    service = _service(config)
+    jobs = JobWorker(service, lease_seconds=lease_seconds, poll_interval=poll_interval)
+    if once:
+        finished = jobs.run_once()
+        if finished is None:
+            typer.echo("队列为空，没有可认领的作业。")
+            return
+        typer.echo(f"已处理: {finished.id} ({finished.status})")
+        return
+
+    stop = threading.Event()
+
+    def handle_signal(signum, _frame) -> None:
+        typer.echo(f"收到信号 {signum}，完成当前作业后退出。", err=True)
+        stop.set()
+
+    for name in ("SIGTERM", "SIGINT"):
+        if hasattr(signal, name):
+            signal.signal(getattr(signal, name), handle_signal)
+    processed = jobs.run_forever(stop_event=stop, max_jobs=max_jobs)
+    typer.echo(f"worker 退出，处理作业数: {processed}")
+
+
+@app.command()
 def serve(
     host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8000,
