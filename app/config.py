@@ -56,6 +56,32 @@ class AppConfig(BaseModel):
     review_sample_rate: float = Field(0.1, ge=0.0, le=1.0)
     review_sample_min: int = Field(1, ge=0, le=50)
 
+    @model_validator(mode="before")
+    @classmethod
+    def anchor_relative_paths_on_base_dir(cls, data: Any) -> Any:
+        """Keep relative data paths inside base_dir instead of the process CWD.
+
+        AppConfig.load() already resolves input/output/database against the YAML
+        file, so configs read from disk arrive here absolute and untouched. A
+        programmatically built config (tests, scripts, a library user) keeps the
+        bare "output/..." defaults, and those used to resolve against whatever
+        directory the process happened to run in: a test run could therefore
+        write corpora and units into a real data directory. base_dir is required
+        for YAML-free construction, so it is always a safe anchor.
+        """
+        if not isinstance(data, dict):
+            return data
+        base = data.get("base_dir")
+        if base is None:
+            return data
+        base_path = Path(base)
+        anchored = dict(data)
+        for field in ("input_dir", "output_dir", "database_path"):
+            candidate = Path(anchored.get(field, cls.model_fields[field].default))
+            if not candidate.is_absolute():
+                anchored[field] = base_path / candidate
+        return anchored
+
     @model_validator(mode="after")
     def validate_web_credentials(self) -> AppConfig:
         if bool(self.web_username) != bool(self.web_password):
