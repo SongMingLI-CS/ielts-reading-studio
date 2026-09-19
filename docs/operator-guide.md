@@ -78,7 +78,7 @@ SQLite WAL 模式下备份时应同时复制可能存在的 `state.db-wal` 和 `
 - `agent_schema_error`：模型 JSON 不符合 Pydantic 契约，错误会脱敏并保存。
 - `needs_review`：达到返工上限；先检查 `failed/` 与 `reports/`，不要盲目重跑。
 
-运行 `scripts/verify.ps1` 可确认本地代码、依赖和离线路径完整。真实样篇之前还应核对 DeepSeek 官方当前模型名与价格，并保持模型名由配置提供。
+运行 `scripts/verify.sh`（Linux / macOS，服务器上用这个）或 `scripts/verify.ps1`（Windows）可确认本地代码、依赖和离线路径完整。真实样篇之前还应核对 DeepSeek 官方当前模型名与价格，并保持模型名由配置提供。
 
 ## 9. 远程部署（服务器）
 
@@ -130,12 +130,23 @@ server {
 ~/ielts-reading-studio/scripts/deploy.sh
 ```
 
-脚本会先确认没有本地改动（`output/`、`input/`、`.env`、`.env.web`、`.venv` 都在 `.gitignore` 里，git 不会碰它们），再执行 `git pull --ff-only`，随后重启 systemd 服务并打印状态。手工等价操作：
+脚本会先确认没有本地改动（`output/`、`input/`、`.env`、`.env.web`、`.venv` 都在 `.gitignore` 里，git 不会碰它们），再执行 `git pull --ff-only`，然后用服务器的 `.venv` 重新安装依赖（`pip install -e ".[dev]"`，没有变化时是空操作），最后重启 systemd 服务并打印状态。
+
+**依赖必须跟着代码走**：新版本可能新增运行时包（例如 `python-multipart`、`openpyxl`）或包路径（`ielts_novel` 来自仓库内的 `components/context-novel/src`），只拉代码不装依赖会让服务起不来。服务器上不想要测试工具时，可以用 `IELTS_EXTRAS=` 让这一步只装运行时依赖。
+
+手工等价操作（顺序不能颠倒：先拉代码，再装依赖，最后重启）：
 
 ```bash
 cd ~/ielts-reading-studio
 git pull --ff-only
+.venv/bin/python -m pip install -e ".[dev]"
 sudo systemctl restart ielts-reading-studio
+```
+
+更新完成后自检：
+
+```bash
+cd ~/ielts-reading-studio && scripts/verify.sh
 ```
 
 ### 首次在一台新服务器上做 git 检出

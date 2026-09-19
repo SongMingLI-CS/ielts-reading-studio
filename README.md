@@ -192,8 +192,16 @@ HTML 是不依赖网络的单文件，交卷前界面不暴露答案。DOCX 单�
 
 ## 验证
 
+Windows：
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\verify.ps1
 ```
 
-该脚本运行完整测试、语法编译、Ruff 和 CLI 帮助烟雾测试，不需要 API Key。更详细的恢复、备份和状态说明见 [运维指南](docs/operator-guide.md)。
+Linux / macOS（服务器上用这个）：
+
+```bash
+scripts/verify.sh
+```
+
+两个脚本执行同样的四步：完整测试、语法编译、Ruff 和 CLI 帮助烟雾测试；不需要 API Key，也不访问网络。`verify.sh` 默认使用项目里的 `.venv/bin/python`（即 systemd 启动服务用的同一个解释器），可用 `PYTHON=` 覆盖。更详细的恢复、备份和状态说明见 [运维指南](docs/operator-guide.md)。

@@ -24,6 +24,19 @@ fi
 
 git pull --ff-only
 
+# The checkout is not the whole deployment: a new revision can add runtime
+# packages (python-multipart, openpyxl) or package paths (ielts_novel), and the
+# service would fail to start without them. Reinstalling is a no-op when
+# nothing changed. IELTS_EXTRAS can drop the dev tools on a bare server.
+if [ -x "$APP_DIR/.venv/bin/python" ]; then
+  PYTHON="$APP_DIR/.venv/bin/python"
+else
+  PYTHON="${PYTHON:-python3}"
+fi
+EXTRAS="${IELTS_EXTRAS:-dev}"
+echo "==> deps:    $PYTHON -m pip install -e .[$EXTRAS]"
+"$PYTHON" -m pip install --quiet -e "${APP_DIR}[${EXTRAS}]"
+
 echo "==> after:   $(git rev-parse --short HEAD) $(git log -1 --pretty=%s)"
 sudo systemctl restart "$SERVICE"
 sleep 4
