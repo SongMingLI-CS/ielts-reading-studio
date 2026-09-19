@@ -52,7 +52,8 @@ def _exports_root(service: ReadingStudioService) -> Path:
 
 
 def _relative_export_path(service: ReadingStudioService, path: Path) -> str:
-    return str(path.relative_to(_exports_root(service)))
+    """Relative path for URLs: Windows separators must not reach the browser."""
+    return path.relative_to(_exports_root(service)).as_posix()
 
 
 def _resolve_export(service: ReadingStudioService, relative: str) -> Path:
