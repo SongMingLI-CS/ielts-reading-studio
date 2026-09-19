@@ -120,6 +120,8 @@ worker 进程 ──> 同一个 SQLite（认领作业）──> Provider
 `ielts-reading serve --host 0.0.0.0` 在绑定端口前检查以下条件，任一不满足即**拒绝启动**并打印中文原因：
 
 - 必须设置 `IELTS_WEB_USERNAME` 与 `IELTS_WEB_PASSWORD`，口令至少 12 字符且不在弱口令列表；
+- 口令长度下限可用 `IELTS_WEB_PASSWORD_MIN_LENGTH` 显式放宽（最低 8）：这是一处**可见的**配置决定，
+  只影响这一项检查，弱口令列表、HTTPS 声明、会话密钥与可信代理四项仍然强制（见第 5 节第 11 条）；
 - 必须声明 HTTPS：`IELTS_WEB_FORCE_HTTPS=1`；
 - 必须设置 `IELTS_WEB_TRUSTED_PROXIES`（用于判断真实协议与客户端地址）；
 - 必须设置 `IELTS_WEB_SESSION_SECRET`（至少 32 字符，且不是示例值）。
@@ -146,6 +148,10 @@ worker 进程 ──> 同一个 SQLite（认领作业）──> Provider
 8. **CSRF 令牌不按请求轮换**：随会话有效期（登录/轮换时更新）。
 9. **备份归档未加密**：`/backup/download` 的 zip 是明文，下载后请自行加密存放。
 10. **未做依赖漏洞扫描与外部渗透测试**（`pip-audit`、第三方评估均未执行）。
+11. **本次部署的口令长度低于默认下限**：生产 `.env.web` 把 `IELTS_WEB_PASSWORD_MIN_LENGTH` 设为 10，
+    沿用学生已经在用的口令而不是强制全体重发。补偿控制是登录限速（默认每 5 分钟 10 次，按身份与来源
+    地址分别计数，失败计数落在持久表里）与「唯一入口 + 只监听回环」的边界。口令一旦轮换，
+    应把该变量改回 12 或直接删除。
 
 ## 6. 对象级权限现状（重要）
 

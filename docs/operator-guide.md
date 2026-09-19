@@ -399,6 +399,7 @@ scripts/deploy.sh                  # 正式部署（快照 → 拉取 → 依赖
 | `IELTS_WEB_FORCE_HTTPS` | 空 | `1` | 声明 HTTPS；同时让 Cookie 带 `Secure`、启用 HSTS，并拒绝明文请求（`/healthz` 除外） |
 | `IELTS_WEB_TRUSTED_PROXIES` | 空（不信任任何转发头） | 代理地址/CIDR | 决定是否解析 `X-Forwarded-For` / `X-Forwarded-Proto` |
 | `IELTS_WEB_COOKIE_SECURE` | 由上面推导 | 一般不用设 | 仅特殊代理拓扑下强制 `Secure` |
+| `IELTS_WEB_PASSWORD_MIN_LENGTH` | `12` | 一般不设 | 公网闸门要求的口令长度下限（最低 8）。调低是**有意的风险取舍**：只放宽这一项，弱口令列表与其余闸门不变；口令轮换后应改回 12 |
 
 限速与预算阈值可在 `config.yaml` 调整（`web_login_rate_limit`、`web_task_rate_limit`、
 `web_sensitive_rate_limit`、`web_max_json_body_bytes`、`web_max_upload_bytes`、`max_prompt_chars`、

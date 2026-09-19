@@ -5,8 +5,9 @@ from __future__ import annotations
 import datetime as dt
 import re
 
+import pytest
 from fastapi.testclient import TestClient
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 
 from app.config import AppConfig
 from app.pipeline.service import ReadingStudioService
@@ -220,6 +221,49 @@ def test_production_rejects_weak_password_and_missing_https():
 
     assert any("12 个字符" in issue for issue in issues)
     assert any("HTTPS" in issue for issue in issues)
+
+
+def test_password_min_length_can_be_lowered_explicitly():
+    """A deployment may relax the floor, but only as a visible configuration choice."""
+
+    strict = AppConfig(
+        base_dir=".",
+        web_username="reader",
+        web_password=SecretStr("0123456789"),
+        web_force_https=True,
+        web_trusted_proxies="127.0.0.1",
+        web_session_secret=SecretStr("s" * 48),
+    )
+
+    assert any("12 个字符" in issue for issue in strict.production_issues(host="0.0.0.0"))
+
+    relaxed = strict.model_copy(update={"web_password_min_length": 10})
+
+    assert relaxed.production_issues(host="0.0.0.0") == []
+
+
+def test_relaxed_password_min_length_still_uses_the_new_limit_and_the_weak_list():
+    relaxed = AppConfig(
+        base_dir=".",
+        web_username="reader",
+        web_password=SecretStr("short"),
+        web_password_min_length=10,
+        web_force_https=True,
+        web_trusted_proxies="127.0.0.1",
+        web_session_secret=SecretStr("s" * 48),
+    )
+
+    assert any("10 个字符" in issue for issue in relaxed.production_issues(host="0.0.0.0"))
+
+    weak = relaxed.model_copy(update={"web_password": SecretStr("changeme")})
+    assert any("弱口令" in issue for issue in weak.production_issues(host="0.0.0.0"))
+
+
+def test_password_min_length_is_bounded_so_a_typo_cannot_disable_it():
+    with pytest.raises(ValidationError):
+        AppConfig(base_dir=".", web_password_min_length=4)
+    with pytest.raises(ValidationError):
+        AppConfig(base_dir=".", web_password_min_length=4096)
 
 
 def test_production_accepts_a_complete_configuration():

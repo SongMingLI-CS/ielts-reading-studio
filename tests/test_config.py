@@ -61,6 +61,32 @@ def test_web_credentials_are_loaded_only_from_environment(tmp_path, monkeypatch)
     assert config.web_password.get_secret_value() == "env-password"
 
 
+def test_password_min_length_comes_from_the_environment(tmp_path, monkeypatch):
+    path = tmp_path / "config.yaml"
+    path.write_text("output_dir: output\n", encoding="utf-8")
+    monkeypatch.setenv("IELTS_WEB_USERNAME", "reader")
+    monkeypatch.setenv("IELTS_WEB_PASSWORD", "0123456789")
+    monkeypatch.setenv("IELTS_WEB_PASSWORD_MIN_LENGTH", "10")
+
+    config = AppConfig.load(path)
+
+    assert config.web_password_min_length == 10
+    assert not any(
+        issue.startswith("IELTS_WEB_PASSWORD") for issue in config.production_issues(host="0.0.0.0")
+    )
+
+
+def test_password_min_length_below_the_floor_is_rejected(tmp_path, monkeypatch):
+    """A typo must not be able to switch the length check off."""
+
+    path = tmp_path / "config.yaml"
+    path.write_text("output_dir: output\n", encoding="utf-8")
+    monkeypatch.setenv("IELTS_WEB_PASSWORD_MIN_LENGTH", "4")
+
+    with pytest.raises(ConfigurationError, match="web_password_min_length"):
+        AppConfig.load(path)
+
+
 def test_web_credentials_must_be_configured_together(tmp_path, monkeypatch):
     path = tmp_path / "config.yaml"
     path.write_text("{}\n", encoding="utf-8")

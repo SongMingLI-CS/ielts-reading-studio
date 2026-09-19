@@ -47,6 +47,11 @@ class AppConfig(BaseModel):
     deepseek_api_key: SecretStr | None = None
     web_username: str | None = None
     web_password: SecretStr | None = None
+    # Minimum length enforced for a publicly reachable deployment. Raising it is always
+    # safe; lowering it is a deliberate, documented risk decision (docs/security.md 第 4.8
+    # 节与第 5 节) - the compensating control is the login rate limit plus the single
+    # entry point. The floor stops a typo from disabling the check entirely.
+    web_password_min_length: int = Field(12, ge=8, le=128)
     deepseek_base_url: str = "https://api.deepseek.com"
     author_model: str = "deepseek-flash"
     examiner_model: str = "deepseek-v4-pro"
@@ -178,8 +183,11 @@ class AppConfig(BaseModel):
             issues.append("远程监听必须先设置 IELTS_WEB_USERNAME 与 IELTS_WEB_PASSWORD")
         else:
             password = self.web_password.get_secret_value()
-            if len(password) < 12:
-                issues.append("IELTS_WEB_PASSWORD 至少需要 12 个字符")
+            if len(password) < self.web_password_min_length:
+                issues.append(
+                    f"IELTS_WEB_PASSWORD 至少需要 {self.web_password_min_length} 个字符"
+                    "（可用 IELTS_WEB_PASSWORD_MIN_LENGTH 显式放宽，最低 8）"
+                )
             if password.casefold() in _WEAK_PASSWORDS:
                 issues.append("IELTS_WEB_PASSWORD 使用了示例或常见弱口令，请更换")
         if not self.web_force_https:
@@ -236,6 +244,8 @@ class AppConfig(BaseModel):
             raw["web_username"] = os.environ["IELTS_WEB_USERNAME"]
         if os.getenv("IELTS_WEB_PASSWORD"):
             raw["web_password"] = os.environ["IELTS_WEB_PASSWORD"]
+        if os.getenv("IELTS_WEB_PASSWORD_MIN_LENGTH"):
+            raw["web_password_min_length"] = os.environ["IELTS_WEB_PASSWORD_MIN_LENGTH"].strip()
         if os.getenv("IELTS_WEB_SESSION_SECRET"):
             raw["web_session_secret"] = os.environ["IELTS_WEB_SESSION_SECRET"]
         if os.getenv("IELTS_WEB_FORCE_HTTPS"):
