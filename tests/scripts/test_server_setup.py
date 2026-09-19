@@ -10,12 +10,15 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SETUP_SCRIPT = REPO_ROOT / "scripts" / "server-setup.sh"
+TLS_UNIT = "ielts-reading-studio-tls"
+WEB_UNIT = "ielts-reading-studio"
 
 pytestmark = pytest.mark.skipif(
     shutil.which("bash") is None, reason="server-setup.sh requires bash"
@@ -71,35 +74,76 @@ def _sudo_shim(root: Path) -> Path:
     return shim_dir
 
 
-_SUDO_SHIM = """#!/bin/sh
-# Test stand-in for sudo: runs real commands, no-ops the ones a laptop does not have.
-while [ "$#" -gt 0 ] && [ "${1#-}" != "$1" ]; do shift; done
-[ "$#" -gt 0 ] || exit 0
-if command -v "$1" >/dev/null 2>&1; then exec "$@"; fi
-exit 0
+_SUDO_SHIM = '''#!{python}
+"""Test stand-in for sudo: never escalates and never touches the service manager.
+
+``--apply`` shells out to ``sudo install`` / ``sudo systemctl``. Tests must behave the same
+on a laptop (no systemd, no caddy user) and on a server (both exist), so:
+
+* file operations run for real, with ownership flags dropped - a test user cannot chown;
+* everything else (``systemctl``, ``chown``, ``journalctl``) is recorded and skipped,
+  because on a real server those calls would need root and fail.
 """
 
-_CADDY_SHIM = """#!/bin/sh
-# Test stand-in for the caddy binary: only its presence is checked.
-if [ "${1:-}" = "version" ]; then echo "v2.11.4 (test stub)"; fi
-exit 0
-"""
+import os
+import subprocess
+import sys
+
+ALLOWED = {{"install", "cp", "mkdir", "chmod", "ln", "rm"}}
+DROP_WITH_VALUE = {{"-o", "-g", "-O", "--owner", "--group"}}
+
+args = [item for item in sys.argv[1:] if item != "--"]
+if not args:
+    raise SystemExit(0)
+command, rest = args[0], args[1:]
+
+log = os.environ.get("IELTS_SHIM_LOG")
+if log:
+    with open(log, "a", encoding="utf-8") as handle:
+        handle.write(" ".join(args) + "\\n")
+
+if command not in ALLOWED:
+    raise SystemExit(0)
+
+cleaned: list[str] = []
+skip_next = False
+for item in rest:
+    if skip_next:
+        skip_next = False
+        continue
+    if item in DROP_WITH_VALUE:
+        skip_next = True
+        continue
+    cleaned.append(item)
+raise SystemExit(subprocess.call([command, *cleaned]))
+'''
+
+_CADDY_SHIM = '''#!{python}
+"""Test stand-in for the caddy binary: only its presence is probed."""
+
+import sys
+
+if len(sys.argv) > 1 and sys.argv[1] == "version":
+    print("v2.11.4 (test stub)")
+raise SystemExit(0)
+'''
 
 
 def _shim_dir(checkout: Path) -> Path:
     """A PATH directory holding the ``sudo`` and ``caddy`` stand-ins.
 
     ``--apply`` shells out to ``sudo install`` / ``sudo systemctl``, and the script refuses
-    to prepare an HTTPS front when ``caddy`` is absent. Neither systemd nor caddy exists on
-    a developer machine, so the shims keep the apply path testable without pretending this
-    host is a server.
+    to prepare an HTTPS front when ``caddy`` is absent. The stand-ins make the apply path
+    testable identically on a developer machine and on a real server; set
+    ``IELTS_SHIM_LOG`` to assert which privileged commands the script requested.
     """
 
     shim_dir = checkout / "shim"
     shim_dir.mkdir(exist_ok=True)
+    interpreter = sys.executable or "python3"
     for name, body in (("sudo", _SUDO_SHIM), ("caddy", _CADDY_SHIM)):
         path = shim_dir / name
-        path.write_text(body, encoding="utf-8")
+        path.write_text(body.format(python=interpreter), encoding="utf-8")
         path.chmod(0o755)
     return shim_dir
 
@@ -117,7 +161,6 @@ def _run(checkout: Path, *args: str, systemd_dir: Path | None = None,
             "IELTS_SYSTEMD_DIR": str(target_dir),
             # Never let a test touch /etc/caddy on the machine running it.
             "IELTS_CADDY_CONFIG_DIR": str(checkout / "caddy"),
-            "IELTS_CADDY_DATA_DIR": str(checkout / "caddy-data"),
             "IELTS_SUDO": "sudo" if "--apply" in args else "sudo-should-not-run",
         }
     )
@@ -319,14 +362,67 @@ def test_apply_installs_the_https_unit(tmp_path: Path) -> None:
     checkout = _checkout(tmp_path, _complete_env())
     systemd_dir = tmp_path / "systemd"
     systemd_dir.mkdir()
+    shim_log = tmp_path / "shim.log"
 
-    result = _run(checkout, "--apply", "--no-worker")
+    result = _run(
+        checkout, "--apply", "--no-worker", extra_env={"IELTS_SHIM_LOG": str(shim_log)}
+    )
 
     assert result.returncode == 0, result.stderr
     assert (systemd_dir / "ielts-reading-studio-tls.service").exists()
     assert "caddy run" in (systemd_dir / "ielts-reading-studio-tls.service").read_text(
         encoding="utf-8"
     )
+    # The privileged commands must be requested even though the stand-in skips them.
+    requested = shim_log.read_text(encoding="utf-8")
+    assert "systemctl daemon-reload" in requested
+    assert f"systemctl enable {TLS_UNIT}" in requested
+    assert f"systemctl restart {TLS_UNIT}" in requested
+
+
+def test_apply_refreshes_a_stale_https_unit_and_config(tmp_path: Path) -> None:
+    """A unit that failed to start must be replaced on the next --apply, not skipped.
+
+    This is the regression that broke a real deployment: the unit file existed, so a
+    presence-only check left the broken version in place forever.
+    """
+
+    checkout = _checkout(tmp_path, _complete_env())
+    systemd_dir = tmp_path / "systemd"
+    systemd_dir.mkdir()
+    installed = systemd_dir / f"{TLS_UNIT}.service"
+    installed.write_text("[Service]\nExecStart=/usr/bin/caddy run --data-dir oops\n")
+    caddy_dir = tmp_path / "caddy"
+    caddy_dir.mkdir()
+    (caddy_dir / "ielts-reading-studio.caddyfile").write_text("# 旧配置\n")
+    shim_log = tmp_path / "shim.log"
+
+    result = _run(
+        checkout, "--apply", "--no-worker", extra_env={"IELTS_SHIM_LOG": str(shim_log)}
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "--data-dir" not in installed.read_text(encoding="utf-8")
+    rendered = (caddy_dir / "ielts-reading-studio.caddyfile").read_text(encoding="utf-8")
+    assert "旧配置" not in rendered
+    assert f"systemctl restart {TLS_UNIT}" in shim_log.read_text(encoding="utf-8")
+
+
+def test_second_apply_leaves_the_https_entry_alone(tmp_path: Path) -> None:
+    checkout = _checkout(tmp_path, _complete_env())
+    systemd_dir = tmp_path / "systemd"
+    systemd_dir.mkdir()
+
+    _run(checkout, "--apply", "--no-worker")
+    shim_log = tmp_path / "shim.log"
+    shim_log.write_text("", encoding="utf-8")
+    second = _run(
+        checkout, "--apply", "--no-worker", extra_env={"IELTS_SHIM_LOG": str(shim_log)}
+    )
+
+    assert second.returncode == 0, second.stderr
+    assert "已是最新" in second.stdout
+    assert f"systemctl restart {TLS_UNIT}" not in shim_log.read_text(encoding="utf-8")
 
 
 def test_apply_replaces_an_outdated_web_unit(tmp_path: Path) -> None:

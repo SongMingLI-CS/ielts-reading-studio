@@ -32,7 +32,6 @@ TLS_UNIT_SOURCE="$APP_DIR/deploy/ielts-reading-studio-tls.service"
 CADDYFILE_SOURCE="$APP_DIR/deploy/Caddyfile"
 CADDY_CONFIG_DIR="${IELTS_CADDY_CONFIG_DIR:-/etc/caddy}"
 CADDY_CONFIG_NAME="${IELTS_CADDY_CONFIG_NAME:-ielts-reading-studio.caddyfile}"
-CADDY_DATA_DIR="${IELTS_CADDY_DATA_DIR:-/var/lib/caddy-ielts-reading-studio}"
 #: How users reach the site. A bare IP is the normal case here: unregistered domains are
 #: blocked by SNI in this region, and the internal CA issues a SAN=IP certificate.
 TLS_SITE="${IELTS_TLS_SITE:-https://192.144.160.196:8766}"
@@ -388,35 +387,43 @@ install_tls_unit() {
   if [[ ! -f "$TLS_UNIT_SOURCE" || ! -f "$CADDYFILE_SOURCE" ]]; then
     return 0
   fi
-  local config_path="$CADDY_CONFIG_DIR/$CADDY_CONFIG_NAME"
-  if unit_installed "$TLS_UNIT" && [[ -f "$config_path" ]]; then
-    log "HTTPS 入口已安装（${TLS_UNIT}），跳过"
+  local config_path="$CADDY_CONFIG_DIR/$CADDY_CONFIG_NAME" rendered installed_unit="" refresh=0
+  rendered="$(mktemp)"
+  sed "s|{{SITE_ADDRESS}}|${TLS_SITE}|g" "$CADDYFILE_SOURCE" >"$rendered"
+  installed_unit="$(unit_path "$TLS_UNIT")" || installed_unit=""
+  # Compare file contents, not just presence: a fixed unit or a changed site address has to
+  # actually land, otherwise re-running --apply after a failed start changes nothing.
+  if [[ -z "$installed_unit" ]] || ! cmp -s "$TLS_UNIT_SOURCE" "$installed_unit"; then
+    refresh=1
+  fi
+  if [[ ! -f "$config_path" ]] || ! cmp -s "$rendered" "$config_path"; then
+    refresh=1
+  fi
+  if ((refresh == 0)); then
+    rm -f "$rendered"
+    log "HTTPS 入口已是最新（${TLS_UNIT}），跳过"
     return 0
   fi
   if ((APPLY == 0)); then
+    rm -f "$rendered"
     printf '  [dry-run] 渲染 %s → %s（站点地址 %s）\n' "$CADDYFILE_SOURCE" "$config_path" "$TLS_SITE"
     install_file_preview "$TLS_UNIT_SOURCE" "$SYSTEMD_DIR/${TLS_UNIT}.service"
-    printf '  [dry-run] %s install -d -o caddy -g caddy -m 750 %s\n' "$SUDO" "$CADDY_DATA_DIR"
     printf '  [dry-run] %s systemctl daemon-reload\n' "$SUDO"
-    printf '  [dry-run] %s systemctl enable --now %s\n' "$SUDO" "$TLS_UNIT"
+    printf '  [dry-run] %s systemctl enable %s\n' "$SUDO" "$TLS_UNIT"
+    printf '  [dry-run] %s systemctl restart %s\n' "$SUDO" "$TLS_UNIT"
     return 0
   fi
-  log "安装 HTTPS 入口 $TLS_UNIT"
-  local tmp
-  tmp="$(mktemp)"
-  sed "s|{{SITE_ADDRESS}}|${TLS_SITE}|g" "$CADDYFILE_SOURCE" >"$tmp"
+  log "安装/更新 HTTPS 入口 $TLS_UNIT"
   if [[ ! -d "$CADDY_CONFIG_DIR" ]]; then
     "$SUDO" install -d -m 755 "$CADDY_CONFIG_DIR"
   fi
-  install_file "$tmp" "$config_path"
-  rm -f "$tmp"
-  if id -u caddy >/dev/null 2>&1; then
-    "$SUDO" install -d -o caddy -g caddy -m 750 "$CADDY_DATA_DIR" ||
-      warn "创建 $CADDY_DATA_DIR 失败，请确认 caddy 用户对该目录可写"
-  fi
+  install_file "$rendered" "$config_path"
+  rm -f "$rendered"
   install_file "$TLS_UNIT_SOURCE" "$SYSTEMD_DIR/${TLS_UNIT}.service"
   "$SUDO" systemctl daemon-reload
-  "$SUDO" systemctl enable --now "$TLS_UNIT"
+  "$SUDO" systemctl enable "$TLS_UNIT"
+  # restart (not just start): an already running instance must pick up the new config.
+  "$SUDO" systemctl restart "$TLS_UNIT"
   return 0
 }
 

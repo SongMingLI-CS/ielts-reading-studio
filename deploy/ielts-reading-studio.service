@@ -4,6 +4,11 @@ Documentation=file:/home/ubuntu/ielts-reading-studio/docs/operator-guide.md
 After=network-online.target
 Wants=network-online.target
 
+# Restart policy: keep the site up, but back off so a crash loop cannot spin.
+# systemd only reads StartLimit* from [Unit].
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
 [Service]
 Type=simple
 User=ubuntu
@@ -22,8 +27,6 @@ ExecStart=/home/ubuntu/ielts-reading-studio/.venv/bin/python -m app.cli serve --
 # Restart policy: keep the site up, but back off so a crash loop cannot spin.
 Restart=on-failure
 RestartSec=5
-StartLimitIntervalSec=120
-StartLimitBurst=5
 TimeoutStopSec=20
 KillSignal=SIGTERM
 
