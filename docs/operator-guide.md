@@ -333,7 +333,22 @@ scripts/deploy.sh                  # 快照 → 拉取 → 依赖 → 迁移 000
 `0003` 迁移创建两张表：`web_sessions`（服务端会话）与 `rate_limit_hits`（限速计数）。
 过期会话在请求路径上按批清理；限速窗口在写入时顺带清理过期行，两者都不需要额外的定时任务。
 
-### 新增/变更的环境变量（`.env.web`）
+### 部署前的服务器前置步骤（推荐先跑一次）
+
+`scripts/server-setup.sh` 检查并（加 `--apply` 时）补齐公网部署必需的前置项，**默认 dry-run，不修改任何文件**：
+
+```bash
+cd ~/ielts-reading-studio
+git pull --ff-only                 # 先拿到新代码（含迁移 0003 与新的 deploy.sh）
+scripts/server-setup.sh            # 只报告：.env.web 缺哪些键、worker 服务是否已安装
+scripts/server-setup.sh --apply    # 写入缺失键（会先备份 .env.web 并 chmod 600）、安装 worker 服务
+scripts/deploy.sh                  # 正式部署（快照 → 拉取 → 依赖 → 迁移 → 测试 → 重启 → /healthz）
+```
+
+- 脚本**从不打印密钥**：`IELTS_WEB_SESSION_SECRET` 在服务器本机用 `openssl rand -hex 32` 生成后直接写入文件。
+- `IELTS_WEB_USERNAME` / `IELTS_WEB_PASSWORD` 需要你手工填写，脚本只提示不生成。
+- 未安装 worker 服务时页面不会报错，但生成任务会一直停在「等待 worker」——脚本会明确提醒这一点。
+- `--no-worker` 可以只处理环境变量；`IELTS_TRUSTED_PROXIES_DEFAULT` 可改默认的 `127.0.0.1`。
 
 | 变量 | 开发默认 | 生产建议 | 说明 |
 |---|---|---|---|

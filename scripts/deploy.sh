@@ -144,7 +144,7 @@ preflight() {
   fi
 
   if [[ ! -x "$VENV_PY" ]]; then
-    warn "虚拟环境缺失: $VENV_PY（先运行 uv sync --extra dev）"
+    warn "虚拟环境缺失: ${VENV_PY}（先运行 uv sync --extra dev）"
     failures=1
   fi
 
@@ -246,7 +246,7 @@ pull_step() {
     log '按要求跳过 git pull（--no-pull）'
     return 0
   fi
-  log "拉取 $BRANCH（git pull --ff-only）"
+  log "拉取 ${BRANCH}（git pull --ff-only）"
   if ! run git -C "$APP_DIR" pull --ff-only origin "$BRANCH"; then
     warn 'git pull 失败：可能是本地提交分叉或远端不可达'
     return 1
@@ -317,7 +317,7 @@ restart_worker_service() {
     return 0
   fi
   if ! "$SUDO" systemctl cat "$WORKER_SERVICE" >/dev/null 2>&1; then
-    log "未安装 worker 服务（$WORKER_SERVICE），跳过重启"
+    log "未安装 worker 服务（${WORKER_SERVICE}），跳过重启"
     return 0
   fi
   log "重启 worker 服务 $WORKER_SERVICE"
@@ -364,7 +364,7 @@ rollback() {
   if ((MIGRATED == 1)) && [[ -n "$SNAPSHOT" && -f "$SNAPSHOT" && -n "$DB_PATH" ]]; then
     if cp "$SNAPSHOT" "$DB_PATH"; then
       rm -f "$DB_PATH-wal" "$DB_PATH-shm"
-      log "已恢复数据库快照 $SNAPSHOT（快照之后写入的数据会丢失）"
+      log "已恢复数据库快照 ${SNAPSHOT}（快照之后写入的数据会丢失）"
     else
       warn "恢复数据库快照失败，请手工复制: $SNAPSHOT -> $DB_PATH"
     fi
