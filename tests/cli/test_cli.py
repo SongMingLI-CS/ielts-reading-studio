@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from sqlalchemy import create_engine, inspect
 from typer.testing import CliRunner
 
 from app.cli import app, parse_range
@@ -148,3 +149,44 @@ def test_local_serve_does_not_warn_about_https(tmp_path, monkeypatch):
     assert result.exit_code == 0, result.output
     assert called == {"host": "127.0.0.1", "port": 8767, "proxy_headers": True}
     assert "HTTPS" not in result.output
+
+
+def test_migrate_command_creates_and_reports_the_schema(tmp_path):
+    config = make_config(tmp_path)
+
+    result = runner.invoke(app, ["migrate", "--config", str(config)])
+
+    assert result.exit_code == 0, result.output
+    assert "未迁移" in result.output
+    assert (tmp_path / "output" / "state.db").exists()
+
+    again = runner.invoke(app, ["migrate", "--config", str(config)])
+
+    assert again.exit_code == 0, again.output
+    assert "无需迁移。" in again.output
+
+
+def test_migrate_check_reports_pending_migration_without_touching_the_database(tmp_path):
+    config = make_config(tmp_path)
+
+    result = runner.invoke(app, ["migrate", "--check", "--config", str(config)])
+
+    assert result.exit_code == 2, result.output
+    assert "数据库需要迁移" in result.output
+
+    # --check is read-only: SQLite creates the file, but no table may be written.
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'output' / 'state.db'}")
+    try:
+        assert inspect(engine).get_table_names() == []
+    finally:
+        engine.dispose()
+
+
+def test_migrate_check_passes_once_the_schema_is_current(tmp_path):
+    config = make_config(tmp_path)
+    runner.invoke(app, ["migrate", "--config", str(config)])
+
+    result = runner.invoke(app, ["migrate", "--check", "--config", str(config)])
+
+    assert result.exit_code == 0, result.output
+    assert "无需迁移。" in result.output

@@ -50,14 +50,16 @@ step "pytest: tests/ + components/context-novel/tests/ (offline, no API key)"
 step "compileall: app/ + components/context-novel/src/"
 "$PYTHON" -m compileall -q app components/context-novel/src
 
-step "ruff: app tests components/context-novel/src components/context-novel/tests"
+step "ruff: app tests migrations components/context-novel/src components/context-novel/tests"
 ruff_run check \
   app \
   tests \
+  migrations \
   components/context-novel/src \
   components/context-novel/tests
 
-step "CLI smoke: python -m app.cli --help"
+step "CLI smoke: app.cli --help and migrate --help"
 "$PYTHON" -m app.cli --help >/dev/null
+"$PYTHON" -m app.cli migrate --help >/dev/null
 
 printf '\nIELTS Reading Studio offline verification passed.\n'

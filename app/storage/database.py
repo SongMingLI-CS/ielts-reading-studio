@@ -19,6 +19,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine import Engine
 
+from app.storage.migrations import MigrationResult, current_revision, migrate_engine
+
 metadata = MetaData()
 
 corpora = Table(
@@ -203,4 +205,21 @@ class Database:
         return engine
 
     def create_schema(self) -> None:
-        metadata.create_all(self.engine)
+        """Historical name kept for existing callers; it now runs the migration chain.
+
+        Creating tables with ``metadata.create_all`` used to be enough, but it silently
+        diverges from the applied schema. Migrating instead means every code path
+        (startup, CLI, tests) exercises the real schema and raises ``MigrationError``
+        when the database cannot be upgraded safely.
+        """
+        self.migrate()
+
+    def migrate(self) -> MigrationResult:
+        """Bring this database to the newest schema revision (idempotent)."""
+
+        return migrate_engine(self.engine)
+
+    def schema_revision(self) -> str | None:
+        """Revision recorded in this database, or ``None`` when it has never migrated."""
+
+        return current_revision(self.engine)

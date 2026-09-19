@@ -10,18 +10,27 @@ IELTS Learning Studio 把原来的两个 IELTS 项目合并为一个私有网站
 
 难度标签是生成目标，不是官方 Band 评分；项目不声称生成内容等同于官方 IELTS 真题。
 
-## 安装（Windows / PowerShell）
+## 安装
 
-需要 Python 3.12 或 3.13：
+需要 Python 3.12 或 3.13。依赖版本锁定在 `uv.lock`，可重复安装：
 
-```powershell
+```bash
 git clone https://github.com/SongMingLI-CS/ielts-reading-studio.git
 cd ielts-reading-studio
+uv sync --frozen --extra dev      # 按 uv.lock 精确建立 .venv
+cp .env.example .env
+```
+
+没有 uv 时也可以只用 pip（按 `pyproject.toml` 的版本范围安装，不做精确锁定）：
+
+```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
 Copy-Item .env.example .env
 ```
+
+修改依赖后请运行 `uv lock`，再 `uv sync --extra dev`，并把 `uv.lock` 一起提交；CI 使用 `uv sync --frozen`，锁定文件与声明不一致时会直接失败。
 
 仅在准备生成真实样篇时，才在未被 Git 追踪的 `.env` 中填写：
 
@@ -189,6 +198,28 @@ HTML 是不依赖网络的单文件，交卷前界面不暴露答案。DOCX 单�
 `config.yaml` 中可设置模型名、输出路径、并发、批次、来源切分阈值、单次最大单元数、最大预计 Token 和连续失败上限。模型名不写死在代码中。API Key 只从环境变量或项目旁的 `.env` 读取，YAML 中出现的密钥会被忽略。
 
 认证失败或余额不足会阻断队列；限流、超时和服务端错误最多按约 1、2、4 秒加抖动重试。文章返工和题目返工分别最多两轮，超过后进入 `needs_review`，不继续收费。
+
+## 数据库迁移
+
+`output/state.db` 的 schema 由 Alembic 管理，迁移脚本在 `migrations/versions/`：
+
+```bash
+ielts-reading migrate --check     # 只报告版本；落后时退出码 2（可放进部署前置检查）
+ielts-reading migrate             # 升级到最新版本
+```
+
+- **全新安装**：`migrate` 建立全部表和索引。
+- **迁移前建立的旧库**（有应用表、没有 `alembic_version`）：只会被**标记**为基线版本 `0001`，不会重建表、不会改动任何一行数据。
+- **服务启动时自动迁移**（`serve`、网页、CLI 都走同一条路径）。迁移失败会带明确中文原因终止启动，不会带着未知 schema 继续运行。
+- **版本比代码新**（例如回退到旧版本代码）会被拒绝，而不是静默降级。
+- 回滚先备份数据库，再执行：
+
+```bash
+cp output/state.db output/state.db.before-rollback
+IELTS_DATABASE_URL="sqlite+pysqlite:///$PWD/output/state.db" .venv/bin/alembic downgrade -1
+```
+
+`migrations/versions/0001_baseline_schema.py` 之后新增的版本都必须写 `downgrade()`，否则回滚无效。
 
 ## 验证
 

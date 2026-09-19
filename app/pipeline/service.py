@@ -50,7 +50,9 @@ class ReadingStudioService:
     ) -> None:
         self.config = config
         self.database = Database(config.database_path)
-        self.database.create_schema()
+        # Migration must succeed before anything else is wired: a half-migrated schema
+        # is not something the rest of the application can reason about.
+        self.migration = self.database.migrate()
         self.repository = Repository(self.database)
         self.store = ArtifactStore(config.output_dir)
         self.importer = CorpusImporter(config, repository=self.repository, store=self.store)

@@ -7,6 +7,7 @@ promise, so an accidental real client fails loudly instead of spending tokens.
 
 from __future__ import annotations
 
+import logging
 import socket
 from collections.abc import Iterator
 
@@ -24,6 +25,17 @@ def _is_local_target(target: object) -> bool:
         return target in _LOOPBACK_HOSTS or target.startswith(("127.", "/"))
     # AF_UNIX addresses arrive as str/bytes; anything else (None, tuple) is not a remote host.
     return True
+
+
+@pytest.fixture(autouse=True, scope="session")
+def quiet_alembic_logs() -> Iterator[None]:
+    """Keep migration INFO chatter out of test output; the CLI reports migrations itself."""
+
+    logger = logging.getLogger("alembic")
+    previous = logger.level
+    logger.setLevel(logging.WARNING)
+    yield
+    logger.setLevel(previous)
 
 
 @pytest.fixture(autouse=True)

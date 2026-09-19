@@ -12,7 +12,8 @@ function Invoke-Checked {
 # No API key is needed and no provider call is made.
 Invoke-Checked { python -m pytest -q }
 Invoke-Checked { python -m compileall -q app components/context-novel/src }
-Invoke-Checked { python -m ruff check app tests components/context-novel/src components/context-novel/tests }
+Invoke-Checked { python -m ruff check app tests migrations components/context-novel/src components/context-novel/tests }
 Invoke-Checked { python -m app.cli --help | Out-Null }
+Invoke-Checked { python -m app.cli migrate --help | Out-Null }
 
 Write-Host "IELTS Reading Studio offline verification passed."

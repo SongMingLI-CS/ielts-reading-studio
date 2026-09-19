@@ -63,6 +63,32 @@ output/
 
 SQLite WAL 模式下备份时应同时复制可能存在的 `state.db-wal` 和 `state.db-shm`，或在应用停止后再复制数据库。
 
+### Schema 版本（Alembic）
+
+数据库 schema 由 Alembic 管理，迁移脚本在 `migrations/versions/`，当前基线为 `0001`。应用启动（`serve`、CLI、网页）时自动迁移；也可以手动执行：
+
+```bash
+ielts-reading migrate --check     # 只读检查，落后时退出码 2
+ielts-reading migrate             # 升级到最新版本
+```
+
+- 旧库（有应用表但没有 `alembic_version`）会被标记为 `0001`，不重建表、不删数据。
+- 迁移失败时进程以非零码退出，服务不会在半迁移状态下启动。先修复原因（磁盘、权限、锁），再重试。
+- 数据库记录的版本比代码新时会被拒绝，避免旧代码把新库当作旧 schema 使用。
+
+**回滚**（仅在明确需要退回旧版本代码时）：
+
+```bash
+systemctl --user stop ielts-reading-studio   # 或 sudo systemctl stop ielts-reading-studio
+cp output/state.db output/state.db.before-rollback
+IELTS_DATABASE_URL="sqlite+pysqlite:///$PWD/output/state.db" .venv/bin/alembic downgrade -1
+git checkout <上一个发布 commit>             # 或 git revert
+sudo systemctl start ielts-reading-studio
+curl -fsS http://127.0.0.1:8766/healthz
+```
+
+回滚前必须保留 `state.db.before-rollback`：降级迁移可能丢弃新版本写入的列或表。如果某个迁移没有写 `downgrade()`，就恢复快照而不是降级。
+
 ## 7. 样篇与批量安全
 
 真实 API 首次只生成一个样篇。人工检查来源忠实度、英文自然度、难度、题目唯一可答性、证据和中文解析，再执行 `approve-sample`。批准记录包含样篇难度和三种题型；批量配置必须与批准样篇一致。

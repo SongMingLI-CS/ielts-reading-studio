@@ -10,6 +10,7 @@ from app.config import AppConfig, ConfigurationError, redact_secrets
 from app.models import Difficulty
 from app.pipeline.service import ReadingStudioService
 from app.planning.units import default_question_types
+from app.storage.migrations import MigrationError, schema_status
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -182,6 +183,29 @@ def export_command(
 
 
 @app.command()
+def migrate(
+    config: Annotated[Path, typer.Option("--config")] = Path("config.yaml"),
+    check: Annotated[bool, typer.Option("--check", help="只显示版本状态，不修改数据库")] = False,
+) -> None:
+    """Apply pending SQLite schema migrations, or report the current revision."""
+    from app.storage.database import Database
+
+    settings = _guard(lambda: AppConfig.load(config))
+    database = Database(settings.database_path)
+    current, head = _guard(lambda: schema_status(database.engine))
+    typer.echo(f"数据库: {settings.database_path}")
+    typer.echo(f"当前版本: {current or '未迁移'}")
+    typer.echo(f"目标版本: {head}")
+    if current == head:
+        typer.echo("无需迁移。")
+        return
+    if check:
+        _abort(f"数据库需要迁移: {current or '未迁移'} -> {head}")
+    result = _guard(lambda: database.migrate())
+    typer.echo(f"已迁移: {result.from_revision or '未迁移'} -> {result.to_revision}")
+
+
+@app.command()
 def serve(
     host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8000,
@@ -249,7 +273,14 @@ def _print_estimate(value) -> None:
 def _guard(action):
     try:
         return action()
-    except (ConfigurationError, KeyError, ValueError, PermissionError, FileNotFoundError) as exc:
+    except (
+        ConfigurationError,
+        MigrationError,
+        KeyError,
+        ValueError,
+        PermissionError,
+        FileNotFoundError,
+    ) as exc:
         _abort(redact_secrets(exc))
 
 
