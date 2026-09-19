@@ -1,0 +1,4 @@
+# Shell scripts must keep LF endings everywhere: a CRLF shebang fails with
+# "bad interpreter" on Linux, and on a Windows checkout the same file becomes
+# unrunnable from Git Bash. Only .sh files are pinned; nothing is renormalised.
+*.sh text eol=lf
