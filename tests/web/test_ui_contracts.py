@@ -248,6 +248,27 @@ def test_danger_text_link_does_not_inherit_the_button_red() -> None:
     assert ".text-link.danger{color:#a8431f;background:none}" in corpora
 
 
+def test_breakpoints_come_from_the_documented_set() -> None:
+    """九个近似断点（390/600/760/880/901/980/1080…）是版面在特定宽度忽然变样的根源。"""
+
+    allowed = {420, 560, 700, 701, 900, 901, 1024, 1280, 1281}
+    seen: set[int] = set()
+    for path in sorted(STATIC.glob("*.css")):
+        if path.name == "print.css":
+            continue
+        for query in re.findall(r"@media[^{]*\((?:max|min)-width:\s*\d+px\)", _normalized(path)):
+            seen.update(int(value) for value in re.findall(r"(\d+)px", query))
+        for query in re.findall(r"@media\(max-width:(\d+)px\)", _normalized(path)):
+            seen.add(int(query))
+
+    assert seen <= allowed, sorted(seen - allowed)
+    # 六档正典都在用，避免"收敛"成只剩一两档
+    assert {420, 560, 700, 900, 1024, 1280} <= seen
+    tokens = _normalized(STATIC / "tokens.css")
+    for tier in ("--bp-xs 420px", "--bp-sm 560px", "--bp-md 700px", "--bp-lg 900px", "--bp-xl 1024px", "--bp-2xl 1280px"):
+        assert tier in tokens, tier
+
+
 def test_tablet_navigation_wraps_between_links_not_inside_them() -> None:
     css = _normalized(STATIC / "app.css")
 

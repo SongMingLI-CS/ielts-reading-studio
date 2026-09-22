@@ -137,7 +137,7 @@
 
 /* 条目列表：宽屏两列，窄屏一列 */
 .kn-list { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
-@media (min-width: 1080px) {
+@media (min-width: 1024px) {
   .kn-list-terms, .kn-list-colloc { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
@@ -239,7 +239,7 @@ mark.kw-src { background: #d9edf0; color: inherit; padding: 0 .12em; border-radi
 
 /* 同义替换：题干与原文并排 */
 .kn-pair { display: grid; gap: .7rem; grid-template-columns: 1fr; }
-@media (min-width: 760px) { .kn-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 700px) { .kn-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .kn-pair-side { border-radius: .6rem; padding: .7rem .85rem; }
 .kn-sub-side { background: #fdf6f5; border: 1px solid #f0dcd9; }
 .kn-src-side { background: #f2fafb; border: 1px solid #d5e9ec; }
@@ -273,7 +273,7 @@ mark.kw-src { background: #d9edf0; color: inherit; padding: 0 .12em; border-radi
 .kn-foot-note { margin: 1.4rem 0 0; color: var(--ink-secondary); font-size: .82rem; line-height: 1.7; }
 .kn-foot-note a { color: #1d6658; }
 
-@media (max-width: 980px) {
+@media (max-width: 1024px) {
   .kn-hero { grid-template-columns: 1fr; padding: 1.35rem 1.25rem; }
   .kn-search { grid-column: span 1; }
   .kn-filter { position: static; }

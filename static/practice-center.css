@@ -14,7 +14,7 @@
   .library-toolbar h2{font-size:1.7rem}
   .practice-book-card{min-height:0;padding:1.1rem 1rem}
 }
-@media (max-width:390px){
+@media (max-width:420px){
   /* 这里曾经把 .overview-grid 改成 1 列：390px 手机恰好命中该查询，概览塌成 4 行，
      把篇目列表推到 1232px。1 列查询已删除，≤700px 统一走一行 4 格。 */
   .practice-book-card{grid-template-columns:minmax(0,1fr)}
