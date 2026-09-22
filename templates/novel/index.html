@@ -2,46 +2,76 @@
 {% block title %}情境小说 · IELTS Learning Studio{% endblock %}
 {% block content %}
 <section class="novel-heading">
-  <div><p class="eyebrow">Vocabulary in context</p><h1>雅思词汇情境小说</h1><p class="lead">不改故事主线，把雅思词汇嵌入中文小说语境，按章生成、复现和导出。</p></div>
+  <div><p class="eyebrow">Vocabulary in context</p><h1>雅思词汇情境小说</h1><p class="lead">不改故事主线，把雅思词汇嵌入中文小说语境，按章生成、复现和导出。每本书各自保存，互不覆盖。</p></div>
   <div class="catalog-badge"><strong>{{ catalog_size }}</strong><span>全局词库</span></div>
 </section>
 
+{% if migration and migration.notes %}<div class="inline-alert">旧数据迁移：{{ migration.notes|join('；') }}。原始文件仍保留在 <code>output/context-novel/</code> 下，未删除。</div>{% endif %}
+
 <div class="workspace-grid">
-  <section class="workspace-card upload-card">
-    <span class="step-mark">01</span><p class="eyebrow">Source</p><h2>导入中文小说</h2>
-    {% if source %}
-      <div class="source-summary"><strong>{{ source.name }}</strong><span>{{ source.chapters }} 章 · {{ (source.bytes / 1024 / 1024)|round(2) }} MB</span><span class="confidence {{ 'ok' if source.confident else 'low' }}">{{ '边界可信' if source.confident else '需要检查章节边界' }}</span>{% if report and report.warnings %}<small>{{ report.warnings|join('；') }}</small>{% endif %}</div>
-    {% else %}<p class="muted">支持 TXT、DOCX、EPUB，最大 250 MB。</p>{% endif %}
-    <form method="post" action="/novel/import" enctype="multipart/form-data">{{ csrf_field() }}<label>选择小说文件<input type="file" name="source" accept=".txt,.docx,.epub" required></label><button type="submit">上传并识别章节</button></form>
+  <section class="workspace-card book-library">
+    <span class="step-mark">01</span><p class="eyebrow">Library</p><h2>我的书</h2>
+    {% if books %}
+    <p class="muted">上传过的源文件都留在服务器上，重复上传同一本会命中同一份。选一本书作为生成目标，生成与查看都以它为准。</p>
+    <div class="book-list">
+      {% for item in books %}
+      <article class="book-row{% if item.active %} is-active{% endif %}">
+        <div class="book-row-main">
+          <strong>{{ item.name }}{% if item.active %}<span class="book-badge">当前生成目标</span>{% endif %}</strong>
+          <small>{{ item.filename }} · {{ item.chapters }} 章 · {{ (item.bytes / 1024 / 1024)|round(2) }} MB · 已生成 {{ item.generated }} 章{% if item.progress.failed %} · 失败 {{ item.progress.failed }} 章{% endif %}</small>
+          <small>导入于 {{ item.imported_at[:16].replace('T', ' ') }} · <span class="confidence {{ 'ok' if item.confident else 'low' }}">{{ '边界可信' if item.confident else '需要检查章节边界' }}</span>{% if not item.source_exists %} · 源文件缺失{% endif %}</small>
+        </div>
+        <div class="book-row-actions">
+          <a class="button ghost" href="/novel?book={{ item.id }}">查看成品{% if item.generated %}（{{ item.generated }} 章）{% endif %}</a>
+          {% if not item.active %}<form method="post" action="/novel/select">{{ csrf_field() }}<input type="hidden" name="book" value="{{ item.id }}"><button type="submit" class="secondary-button">选为生成目标</button></form>{% endif %}
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}<p class="muted">书库还是空的：支持 TXT、DOCX、EPUB，最大 250 MB，上传后会自动识别章节。</p>{% endif %}
+    <details class="upload-panel"{% if not books %} open{% endif %}><summary>上传新的一本</summary>
+      <form method="post" action="/novel/import" enctype="multipart/form-data">{{ csrf_field() }}<label>选择小说文件<input type="file" name="source" accept=".txt,.docx,.epub" required></label><button type="submit">上传并识别章节</button></form>
+    </details>
   </section>
 
+  {% if selected %}
   <section class="workspace-card estimate-card">
     <span class="step-mark">02</span><p class="eyebrow">Dry run</p><h2>离线估算</h2>
-    <form method="post" action="/novel/estimate" class="range-form">{{ csrf_field() }}<label>起始章<input type="number" name="start" min="1" value="{{ selected_start or 1 }}" required></label><label>结束章<input type="number" name="end" min="1" value="{{ selected_end or 1 }}" required></label><button type="submit" {% if not source or not source.confident %}disabled{% endif %}>计算 Token 与请求</button></form>
+    <p class="muted">按《{{ selected.name }}》的章节估算，不调用模型。</p>
+    <form method="post" action="/novel/estimate" class="range-form">{{ csrf_field() }}<input type="hidden" name="book" value="{{ book_id }}"><label>起始章<input type="number" name="start" min="1" value="{{ selected_start or 1 }}" required></label><label>结束章<input type="number" name="end" min="1" value="{{ selected_end or 1 }}" required></label><button type="submit" {% if not selected.confident %}disabled{% endif %}>计算 Token 与请求</button></form>
     {% if estimate %}<div class="estimate-result"><span><strong>{{ estimate.estimated_chapters }}</strong> 章</span><span><strong>{{ estimate.api_requests }}</strong> 请求</span><span><strong>{{ estimate.estimated_total_tokens }}</strong> Token</span></div>{% endif %}
   </section>
 
   <section class="workspace-card generate-card">
-    <span class="step-mark">03</span><p class="eyebrow">Generate</p><h2>生成样章</h2>
-    <p class="muted">只生成一章。必须明确确认，才会调用模型并产生 Token 费用。</p>
+    <span class="step-mark">03</span><p class="eyebrow">Generate</p><h2>生成到《{{ selected.name }}》</h2>
+    <p class="muted">生成结果只写进这本书的目录，不会影响其他书。样章只生成一章，必须明确确认才会调用模型并产生 Token 费用。</p>
     {% if not api_ready %}<div class="inline-alert">服务器尚未配置 DeepSeek API Key，上传和估算仍可正常使用。</div>{% endif %}
-    <form method="post" action="/novel/generate-sample">{{ csrf_field() }}<label>章节编号<input type="number" name="chapter" min="1" value="1" required></label><label>确认文字<input name="confirmation" placeholder="输入：确认生成样章" autocomplete="off" required></label><button type="submit" {% if not api_ready or not source or not source.confident %}disabled{% endif %}>开始生成样章</button></form>
-    {% if run %}<div class="run-state {{ run.status }}"><span></span>{{ run.description }}：{{ {'queued':'已排队','running':'正在生成','completed':'生成完成','failed':'生成失败'}.get(run.status,run.status) }}</div>{% endif %}
+    <form method="post" action="/novel/generate-sample">{{ csrf_field() }}<input type="hidden" name="book" value="{{ book_id }}"><label>章节编号<input type="number" name="chapter" min="1" value="1" required></label><label>确认文字<input name="confirmation" placeholder="输入：确认生成样章" autocomplete="off" required></label><button type="submit" {% if not api_ready or not selected.confident %}disabled{% endif %}>开始生成样章</button></form>
+    {% if run %}<div class="run-state {{ run.status }}"><span></span>{{ run.description }}：{{ {'queued':'已排队','running':'正在生成','completed':'生成完成','failed':'生成失败'}.get(run.status, run.status) }}{% if run.outcome == 'no_chapters' %}（进程正常结束，但本次没有章节通过质量检查）{% endif %}</div>{% endif %}
     <details class="batch-panel"><summary>批量生成与恢复</summary>
-      <form method="post" action="/novel/generate-batch" class="range-form">{{ csrf_field() }}<label>起始章<input type="number" name="start" min="1" value="1" required></label><label>结束章<input type="number" name="end" min="1" value="20" required></label><label class="full-field">确认文字<input name="confirmation" placeholder="输入：确认批量生成" autocomplete="off" required></label><button type="submit" {% if not api_ready or not source or not source.confident %}disabled{% endif %}>批量生成（最多 20 章）</button></form>
-      <div class="recovery-actions"><form method="post" action="/novel/recover/resume">{{ csrf_field() }}<input name="confirmation" value="确认继续生成" type="hidden"><button type="submit" class="secondary-button" {% if not api_ready or not source or not source.confident %}disabled{% endif %}>断点继续</button></form><form method="post" action="/novel/recover/retry-failed">{{ csrf_field() }}<input name="confirmation" value="确认继续生成" type="hidden"><button type="submit" class="secondary-button" {% if not api_ready or not source or not source.confident %}disabled{% endif %}>重试失败章节</button></form></div>
+      <form method="post" action="/novel/generate-batch" class="range-form">{{ csrf_field() }}<input type="hidden" name="book" value="{{ book_id }}"><label>起始章<input type="number" name="start" min="1" value="1" required></label><label>结束章<input type="number" name="end" min="1" value="20" required></label><label class="full-field">确认文字<input name="confirmation" placeholder="输入：确认批量生成" autocomplete="off" required></label><button type="submit" {% if not api_ready or not selected.confident %}disabled{% endif %}>批量生成（最多 20 章）</button></form>
+      <div class="recovery-actions"><form method="post" action="/novel/recover/resume">{{ csrf_field() }}<input type="hidden" name="book" value="{{ book_id }}"><input name="confirmation" value="确认继续生成" type="hidden"><button type="submit" class="secondary-button" {% if not api_ready or not selected.confident %}disabled{% endif %}>断点继续</button></form><form method="post" action="/novel/recover/retry-failed">{{ csrf_field() }}<input type="hidden" name="book" value="{{ book_id }}"><input name="confirmation" value="确认继续生成" type="hidden"><button type="submit" class="secondary-button" {% if not api_ready or not selected.confident %}disabled{% endif %}>重试失败章节</button></form></div>
     </details>
   </section>
 
   <section class="workspace-card output-card">
-    <span class="step-mark">04</span><p class="eyebrow">Library</p><h2>成品与进度</h2>
-    <div class="mini-stats"><span><strong>{{ progress.completed }}</strong>完成</span><span><strong>{{ progress.running }}</strong>进行中</span><span><strong>{{ progress.failed }}</strong>失败</span></div>
-    <a class="button refresh-output" href="/novel">刷新进度</a>
-    {% if library_files or volume_files %}<div class="file-list library-downloads">{% for path in library_files %}<a href="/novel/files/{{ path }}"{% if path.endswith('.html') %} target="_blank"{% endif %}>{{ '阅读总目录' if path == 'index.html' else ('总词汇表' if path == 'glossary.xlsx' else path.split('/')[-1]) }} <span>{{ path.split('.')[-1]|upper }}</span></a>{% endfor %}{% for path in volume_files %}<a href="/novel/files/{{ path }}">{{ path.split('/')[-1] }} <span>DOCX</span></a>{% endfor %}</div>{% endif %}
-    {% if chapter_outputs %}<div class="chapter-preview-list">{% for chapter in chapter_outputs %}<article><div><small>{{ '%04d'|format(chapter.id) }}</small><strong>{{ chapter.title }}</strong></div><nav aria-label="{{ chapter.title }} 文件"><a href="/novel/preview/{{ chapter.id }}" target="_blank">网页预览</a>{% if chapter.has_docx %}<a href="/novel/download/{{ chapter.id }}/docx">下载 Word</a>{% endif %}<a href="/novel/download/{{ chapter.id }}/html">下载 HTML</a></nav></article>{% endfor %}</div>
-      {% if total_pages > 1 %}<nav class="chapter-pagination" aria-label="已完成章节分页">{% if page > 1 %}<a href="/novel?page={{ page - 1 }}">← 上一页</a>{% endif %}<span>第 {{ page }} / {{ total_pages }} 页</span>{% if page < total_pages %}<a href="/novel?page={{ page + 1 }}">下一页 →</a>{% endif %}</nav>{% endif %}
-    {% else %}<p class="muted">先在第 3 步完成样章；生成后的章节会在这里提供网页阅读与下载。</p>{% endif %}
+    <span class="step-mark">04</span><p class="eyebrow">Library</p><h2>《{{ selected.name }}》的成品与进度</h2>
+    <div class="mini-stats"><span><strong>{{ progress.completed }}</strong>完成</span><span><strong>{{ progress.running }}</strong>进行中</span><span><strong>{{ progress.failed }}</strong>失败</span><span><strong>{{ chapters_total }}</strong>可阅读</span></div>
+    <a class="button refresh-output" href="/novel?book={{ book_id }}">刷新进度</a>
+    {% if run and run.failure_reason %}<div class="inline-alert">最近一次运行没有产出完整章节：{{ run.failure_reason }}{% if run.failure_hint %} <small>{{ run.failure_hint }}</small>{% endif %}</div>{% endif %}
+    {% if library_files or volume_files %}<div class="file-list library-downloads">{% for path in library_files %}<a href="/novel/files/{{ path }}?book={{ book_id }}"{% if path.endswith('.html') %} target="_blank"{% endif %}>{{ '阅读总目录' if path == 'index.html' else ('总词汇表' if path == 'glossary.xlsx' else path.split('/')[-1]) }} <span>{{ path.split('.')[-1]|upper }}</span></a>{% endfor %}{% for path in volume_files %}<a href="/novel/files/{{ path }}?book={{ book_id }}">{{ path.split('/')[-1] }} <span>DOCX</span></a>{% endfor %}</div>{% endif %}
+    {% if chapter_outputs %}<div class="chapter-preview-list">{% for chapter in chapter_outputs %}<article><div><small>{{ '%04d'|format(chapter.id) }}</small><strong>{{ chapter.title }}</strong></div><nav aria-label="{{ chapter.title }} 文件"><a href="/novel/preview/{{ chapter.id }}?book={{ book_id }}" target="_blank">网页预览</a>{% if chapter.has_docx %}<a href="/novel/download/{{ chapter.id }}/docx?book={{ book_id }}">下载 Word</a>{% endif %}<a href="/novel/download/{{ chapter.id }}/html?book={{ book_id }}">下载 HTML</a></nav></article>{% endfor %}</div>
+      {% if total_pages > 1 %}<nav class="chapter-pagination" aria-label="已完成章节分页">
+        <p class="pagination-summary">共 {{ chapters_total }} 章 · 每页 20 章 · 第 {{ page }} / {{ total_pages }} 页</p>
+        <div class="pagination-pages">
+          {% if page > 1 %}<a class="page-step" href="/novel?book={{ book_id }}&amp;page={{ page - 1 }}" rel="prev">← 上一页</a>{% endif %}
+          {% for number in page_numbers %}{% if number == '…' %}<span class="page-gap">…</span>{% elif number == page %}<span class="page-number" aria-current="page">{{ number }}</span>{% else %}<a class="page-number" href="/novel?book={{ book_id }}&amp;page={{ number }}">{{ number }}</a>{% endif %}{% endfor %}
+          {% if page < total_pages %}<a class="page-step" href="/novel?book={{ book_id }}&amp;page={{ page + 1 }}" rel="next">下一页 →</a>{% endif %}
+        </div>
+      </nav>{% endif %}
+    {% else %}<p class="muted">这本书还没有可阅读的章节：先在第 3 步生成样章。</p>{% endif %}
   </section>
+  {% endif %}
 </div>
 {% endblock %}
 {% block scripts %}<script src="/static/novel.js?v=1"></script>{% endblock %}

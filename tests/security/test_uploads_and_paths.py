@@ -105,17 +105,34 @@ def test_export_download_refuses_a_symlink_escape(client, web_service, tmp_path)
 
 
 def test_novel_file_endpoint_refuses_traversal(client, web_service):
-    root = web_service.config.output_dir / "context-novel"
-    root.mkdir(parents=True, exist_ok=True)
-    (root / "index.html").write_text("<html>ok</html>", encoding="utf-8")
+    from app.web import novel_library as library
 
-    assert client.get("/novel/files/index.html").status_code == 200
+    digest = "ab" * 32
+    source = web_service.config.base_dir / "book.txt"
+    source.write_text("第一章 起程\n" + "内容。" * 200, encoding="utf-8")
+    entry = library.register_book(
+        web_service,
+        digest=digest,
+        filename="book.txt",
+        extension=".txt",
+        payload_path=source,
+        chapters=1,
+        confident=True,
+        bytes_written=source.stat().st_size,
+    )
+    output = library.book_paths(web_service, entry["id"], ".txt").output
+    output.mkdir(parents=True, exist_ok=True)
+    (output / "index.html").write_text("<html>ok</html>", encoding="utf-8")
+
+    assert client.get(f"/novel/files/index.html?book={entry['id']}").status_code == 200
     for attempt in (
-        "/novel/files/../state.db",
-        "/novel/files/..%2Fstate.db",
-        "/novel/files//etc/passwd",
+        f"/novel/files/../state.db?book={entry['id']}",
+        f"/novel/files/..%2Fstate.db?book={entry['id']}",
+        f"/novel/files//etc/passwd?book={entry['id']}",
     ):
         assert client.get(attempt).status_code in {403, 404}, attempt
+    # 换成一本不存在的书也不能借路读到别人的成品
+    assert client.get("/novel/files/index.html?book=ffffffffffff").status_code == 404
 
 
 def test_export_bundle_name_cannot_escape_the_exports_root(client, web_service):

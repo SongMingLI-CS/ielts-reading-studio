@@ -73,6 +73,37 @@
 }
 @media (max-width:560px){
   .next-step{gap:.65rem;margin-bottom:1.2rem}
+
+/* ---------------------------------------------------------------------------
+   书库（/novel）：每本书一行，当前生成目标高亮；章节分页给出页码而不是只有箭头。
+   --------------------------------------------------------------------------- */
+.book-library{grid-column:1/-1}
+.book-list{display:grid;gap:.6rem;margin:1rem 0}
+.book-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:.9rem 1rem;border:1px solid var(--line);border-radius:.7rem;background:#fafbf9}
+.book-row.is-active{border-color:var(--green);background:var(--mint)}
+.book-row-main{display:flex;flex-direction:column;gap:.15rem;min-width:0}
+.book-row-main strong{display:flex;align-items:center;gap:.5rem;font-size:1.05rem;overflow-wrap:anywhere}
+.book-row-main small{color:var(--ink-muted);font-size:.76rem;line-height:1.5;overflow-wrap:anywhere}
+.book-row-actions{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.book-badge{background:var(--forest);color:#fff;border-radius:2rem;padding:.15rem .55rem;font-size:.68rem;font-weight:800;white-space:nowrap}
+.upload-panel{margin-top:.6rem}
+.upload-panel summary{cursor:pointer;font-weight:750;color:var(--forest)}
+.upload-panel form{margin-top:.6rem}
+.chapter-pagination{flex-direction:column;gap:.5rem}
+.pagination-summary{margin:0;color:var(--ink-secondary);font-size:.8rem}
+.pagination-pages{display:flex;align-items:center;justify-content:center;gap:.35rem;flex-wrap:wrap}
+.pagination-pages .page-number{display:inline-flex;align-items:center;justify-content:center;min-width:var(--tap);min-height:var(--tap);padding:0 .5rem;border:1px solid var(--line);border-radius:.5rem;background:#fff;color:var(--forest);font-weight:750;text-decoration:none}
+.pagination-pages a.page-number:hover{background:#eef4f1}
+.pagination-pages .page-number[aria-current="page"]{background:var(--forest);border-color:var(--forest);color:#fff}
+.pagination-pages .page-step{border:0;background:none;padding:.4rem .3rem;color:var(--green);font-weight:750}
+.pagination-pages .page-step:hover{text-decoration:underline}
+.pagination-pages .page-gap{color:var(--ink-muted);padding:0 .2rem}
+@media (max-width:560px){
+  .book-row{flex-direction:column;align-items:stretch}
+  .book-row-actions{justify-content:space-between}
+  .pagination-pages .page-step{min-height:var(--tap)}
+}
+
   .resume-card{padding:1.05rem 1.05rem}
   .resume-card h2{font-size:1.5rem;margin:.35rem 0 .45rem}
   .resume-meta{font-size:.84rem;margin-bottom:.7rem}
