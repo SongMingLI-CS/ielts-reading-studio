@@ -172,3 +172,18 @@
   .library-toolbar h2{font-size:1.5rem;margin:.1rem 0}
 }
 
+/* ---------------------------------------------------------------------------
+   复习中心（/practice/review）：错题 / 生词本 / 词汇复习 三个标签一个入口。
+   --------------------------------------------------------------------------- */
+.review-tabs{display:flex;gap:.5rem;flex-wrap:wrap;margin:0 0 1.4rem}
+.review-tabs a{display:inline-flex;align-items:center;gap:.45rem;min-height:44px;padding:.5rem 1rem;border:1px solid var(--line);border-radius:2rem;background:#fff;color:var(--forest);font-weight:700;font-size:.9rem;text-decoration:none}
+.review-tabs a strong{font-variant-numeric:tabular-nums;background:var(--mint);color:#1c5a4b;border-radius:2rem;padding:.05rem .5rem;font-size:.8rem}
+.review-tabs a[aria-current="page"]{background:var(--forest);border-color:var(--forest);color:#fff}
+.review-tabs a[aria-current="page"] strong{background:#ffffff26;color:#fff}
+.review-tabs a:hover{transform:translateY(-1px)}
+@media (max-width:560px){
+  /* 三个标签在窄屏平分一行：换行会把"哪个是当前页"变得难认 */
+  .review-tabs{gap:.35rem}
+  .review-tabs a{flex:1 1 0;justify-content:center;padding:.5rem .55rem;font-size:.85rem}
+}
+

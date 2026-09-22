@@ -40,9 +40,9 @@
     <h2>今天可以复习</h2>
     {% if review.mistakes or review.words or review.due %}
     <div class="quick-rows">
-      <a class="quick-row" href="/practice/mistakes"><span>错题复习</span><strong>{{ review.mistakes }} 题 →</strong></a>
-      <a class="quick-row" href="/practice/vocabulary"><span>生词本</span><strong>{{ review.words }} 词 →</strong></a>
-      <a class="quick-row" href="/vocabulary/review"><span>到期待复习</span><strong>{{ review.due }} 词 →</strong></a>
+      <a class="quick-row" href="/practice/review?tab=mistakes"><span>错题复习</span><strong>{{ review.mistakes }} 题 →</strong></a>
+      <a class="quick-row" href="/practice/review?tab=words"><span>生词本</span><strong>{{ review.words }} 词 →</strong></a>
+      <a class="quick-row" href="/practice/review?tab=due"><span>到期待复习</span><strong>{{ review.due }} 词 →</strong></a>
     </div>
     <p class="caption">错题与生词来自已提交的练习；到期复习按 Leitner 间隔排程。</p>
     {% else %}

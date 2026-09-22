@@ -142,6 +142,26 @@ def vocabulary_review(
     last: str | None = None,
 ):
     """复习会话：一次一张卡，四选一；答完立刻排下一次复习时间。"""
+
+    return TEMPLATES.TemplateResponse(
+        request,
+        "vocabulary/review.html",
+        review_session_context(
+            service, mode=mode, feedback=feedback, answer=answer, last=last
+        ),
+    )
+
+
+def review_session_context(
+    service: ReadingStudioService,
+    *,
+    mode: str = "due",
+    feedback: str | None = None,
+    answer: str | None = None,
+    last: str | None = None,
+) -> dict[str, Any]:
+    """复习会话的内容：独立复习页与复习中心共用同一套抽卡与出题规则。"""
+
     now = _now()
     all_rows = study_rows(service)
     rows = tracked_rows(all_rows)
@@ -155,25 +175,36 @@ def vocabulary_review(
         # 干扰项从整个词库取，否则队列里只有一个词时出不了选择题。
         options = _options_for(card, all_rows, random.Random(seed))
         card["related"] = related_words(card, all_rows)
-    return TEMPLATES.TemplateResponse(
-        request,
-        "vocabulary/review.html",
-        {
-            "card": card,
-            "options": options,
-            "mode": mode,
-            "remaining": max(0, len(pool) - (1 if card else 0)),
-            "due_total": len(due_rows(rows, now)),
-            "tracked_total": len(rows),
-            "feedback": feedback,
-            "answered": answer,
-            "last_word": last,
-            "outcome_labels": OUTCOME_LABELS,
-            "box_intervals": {
-                box: interval_days(box) for box in range(1, MAX_BOX + 1)
-            },
-        },
-    )
+
+    return {
+        "card": card,
+        "options": options,
+        "mode": mode,
+        "remaining": max(0, len(pool) - (1 if card else 0)),
+        "due_total": len(due_rows(rows, now)),
+        "tracked_total": len(rows),
+        "feedback": feedback,
+        "answered": answer,
+        "last_word": last,
+        "outcome_labels": OUTCOME_LABELS,
+        "box_intervals": {box: interval_days(box) for box in range(1, MAX_BOX + 1)},
+    }
+
+
+#: 复习会话允许回到的页面：独立复习页或复习中心的第三个标签。
+SESSION_RETURNS = frozenset({"/vocabulary/review", "/practice/review?tab=due"})
+
+
+def _session_target(return_to: str | None) -> str:
+    """把答题后要回的地址限定在白名单内，避免变成开放重定向。"""
+
+    return return_to if return_to in SESSION_RETURNS else "/vocabulary/review"
+
+
+def _with_params(target: str, **params: str) -> str:
+    separator = "&" if "?" in target else "?"
+    query = "&".join(f"{quote(key)}={quote(value)}" for key, value in params.items())
+    return f"{target}{separator}{query}"
 
 
 @router.post("/vocabulary/review/answer")
@@ -182,6 +213,7 @@ def answer_card(
     word: Annotated[str, Form()],
     choice: Annotated[str, Form()] = "",
     mode: Annotated[str, Form()] = "due",
+    return_to: Annotated[str | None, Form()] = None,
 ):
     """四选一的作答：选项就是释义文本，选错按"不认识"处理。"""
     row = _find(study_rows(service), word)
@@ -189,9 +221,13 @@ def answer_card(
     outcome = "good" if correct and choice.strip() == correct else "again"
     _apply(service, row, outcome)
     return RedirectResponse(
-        "/vocabulary/review?"
-        f"mode={quote(mode)}&feedback={'right' if outcome == 'good' else 'wrong'}"
-        f"&answer={quote(correct)}&last={quote(row['word'])}",
+        _with_params(
+            _session_target(return_to),
+            mode=mode,
+            feedback="right" if outcome == "good" else "wrong",
+            answer=correct,
+            last=row["word"],
+        ),
         status_code=303,
     )
 
@@ -202,6 +238,7 @@ def grade_card(
     word: Annotated[str, Form()],
     outcome: Annotated[str, Form()] = "good",
     mode: Annotated[str, Form()] = "due",
+    return_to: Annotated[str | None, Form()] = None,
 ):
     """自评模式：认识 / 模糊 / 不认识。"""
     if outcome not in OUTCOME_LABELS:
@@ -209,8 +246,9 @@ def grade_card(
     row = _find(study_rows(service), word)
     _apply(service, row, outcome)
     return RedirectResponse(
-        "/vocabulary/review?"
-        f"mode={quote(mode)}&feedback={quote(outcome)}&last={quote(row['word'])}",
+        _with_params(
+            _session_target(return_to), mode=mode, feedback=outcome, last=row["word"]
+        ),
         status_code=303,
     )
 
@@ -240,9 +278,12 @@ def track_word(
 def reset_word(
     service: Annotated[ReadingStudioService, Depends(get_service)],
     word: Annotated[str, Form()],
+    return_to: Annotated[str | None, Form()] = None,
 ):
     service.repository.clear_vocabulary_review(word.strip().casefold())
-    return RedirectResponse("/vocabulary/review?feedback=reset", status_code=303)
+    return RedirectResponse(
+        _with_params(_session_target(return_to), feedback="reset"), status_code=303
+    )
 
 
 def _find(rows: list[dict[str, Any]], word: str) -> dict[str, Any]:

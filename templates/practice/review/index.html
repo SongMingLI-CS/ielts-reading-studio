@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}复习 · IELTS Reading Studio{% endblock %}
+{% block content %}
+{% set base_url = review_base ~ '?tab=' ~ tab %}
+{% set words_url = review_base ~ '?tab=words' %}
+<header class="preview-head">
+  <p class="eyebrow">Review</p>
+  <h1>复习</h1>
+  <p class="lead">错的题、收藏的词、到期的词都在这里，不用先想清楚"我要复习的那个东西叫什么名字"。数字来自你自己的练习记录：错题按错得最多排序，词汇按 Leitner 盒子到期时间排序。</p>
+</header>
+
+<nav class="review-tabs" aria-label="复习内容">
+  {% for value, label, count in tabs %}<a href="{{ review_base }}?tab={{ value }}"{% if tab == value %} aria-current="page"{% endif %}><span>{{ label }}</span><strong>{{ count }}</strong></a>{% endfor %}
+</nav>
+
+{% include partial %}
+{% endblock %}

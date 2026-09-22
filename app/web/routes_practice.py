@@ -19,8 +19,10 @@ from app.models import (
     UnitStatus,
 )
 from app.pipeline.service import ReadingStudioService
+from app.vocabulary import due_rows, study_rows, tracked_rows
 
 from .dependencies import get_service
+from .routes_vocabulary import review_session_context
 from .schemas import (
     AnswerResult,
     PracticeResult,
@@ -31,6 +33,17 @@ from .templating import templates
 
 router = APIRouter()
 TEMPLATES = templates()
+
+#: 复习中心的三个标签：错题 / 生词本 / 词汇复习。顺序即呈现顺序。
+REVIEW_TABS: dict[str, str] = {"mistakes": "错题", "words": "生词本", "due": "词汇复习"}
+#: 复习中心的筛选链接要带回自己的标签，否则点一下就被甩回旧页面。
+REVIEW_BASE = "/practice/review"
+#: 每个标签复用哪一份内容：同一份模板，独立页面与复习中心共用。
+REVIEW_PARTIALS: dict[str, str] = {
+    "mistakes": "practice/review/_mistakes.html",
+    "words": "practice/review/_words.html",
+    "due": "practice/review/_due.html",
+}
 
 QUESTION_TYPE_LABELS: dict[QuestionType, str] = {
     QuestionType.MATCHING_HEADINGS: "Matching headings",
@@ -168,26 +181,112 @@ def practice_mistakes(
     service: Annotated[ReadingStudioService, Depends(get_service)],
     type: str | None = None,
 ):
-    items = mistake_items(service)
-    available = sorted({entry["type"].value for entry in items})
-    selected = type if type in available else None
-    visible = [entry for entry in items if selected is None or entry["type"].value == selected]
-    rows = _scored_attempts(service)
+    return TEMPLATES.TemplateResponse(
+        request, "practice/mistakes.html", mistakes_context(service, type)
+    )
+
+
+@router.get("/practice/review")
+def practice_review(
+    request: Request,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+    tab: str = "mistakes",
+    type: str | None = None,
+    scope: str | None = None,
+    mode: str = "due",
+    feedback: str | None = None,
+    answer: str | None = None,
+    last: str | None = None,
+):
+    """复习中心：错题、生词本、词汇复习合成一个入口。
+
+    这三个页面此前是三个平行入口（另有词汇记忆与练习里的生词入口），学习者得先猜
+    "我今天想复习的东西叫什么名字"。这里给一张有三个标签的清单，筛选链接与表单
+    提交都带上所在标签，不会把人甩回旧页面。
+    """
+
+    selected = tab if tab in REVIEW_TABS else "mistakes"
+    if selected == "words":
+        context = vocabulary_book_context(service, scope)
+    elif selected == "due":
+        context = review_session_context(
+            service, mode=mode, feedback=feedback, answer=answer, last=last
+        )
+    else:
+        context = mistakes_context(service, type)
+    counts = review_tab_counts(service)
     return TEMPLATES.TemplateResponse(
         request,
-        "practice/mistakes.html",
+        "practice/review/index.html",
         {
-            "items": visible[:200],
-            "total_items": len(items),
-            "available_types": [
-                {"value": value, "label": QUESTION_TYPE_LABELS[QuestionType(value)]}
-                for value in available
+            **context,
+            "tab": selected,
+            "partial": REVIEW_PARTIALS[selected],
+            "tabs": [
+                (value, label, counts[value]) for value, label in REVIEW_TABS.items()
             ],
-            "selected_type": selected,
-            "type_stats": _type_accuracy(rows),
-            "attempt_count": len(rows),
+            "review_base": REVIEW_BASE,
         },
     )
+
+
+def mistakes_context(service: ReadingStudioService, selected: str | None) -> dict[str, Any]:
+    """错题本的内容：独立页面与复习中心共用，避免两处筛选规则不一样。"""
+
+    items = mistake_items(service)
+    available = sorted({entry["type"].value for entry in items})
+    type_ = selected if selected in available else None
+    visible = [entry for entry in items if type_ is None or entry["type"].value == type_]
+    rows = _scored_attempts(service)
+    return {
+        "items": visible[:200],
+        "total_items": len(items),
+        "available_types": [
+            {"value": value, "label": QUESTION_TYPE_LABELS[QuestionType(value)]}
+            for value in available
+        ],
+        "selected_type": type_,
+        "type_stats": _type_accuracy(rows),
+        "attempt_count": len(rows),
+    }
+
+
+def vocabulary_book_context(service: ReadingStudioService, scope: str | None) -> dict[str, Any]:
+    """生词本的内容：收藏 / 已掌握 / 未标记三档筛选。"""
+
+    rows = _vocabulary_rows(service)
+    saved = [row for row in rows if row["status"] == "saved"]
+    known = [row for row in rows if row["status"] == "known"]
+    selected = scope if scope in {"saved", "known", "untagged"} else None
+    if selected == "saved":
+        visible = saved
+    elif selected == "known":
+        visible = known
+    elif selected == "untagged":
+        visible = [row for row in rows if not row["status"]]
+    else:
+        visible = rows
+    return {
+        "rows": visible,
+        "total": len(rows),
+        "saved_count": len(saved),
+        "known_count": len(known),
+        "selected_scope": selected,
+        "question_total": 0,
+    }
+
+
+def review_tab_counts(service: ReadingStudioService) -> dict[str, int]:
+    """三个标签各自有多少东西要复习；数字来自记录，不是估算。"""
+
+    now = datetime.now(UTC)
+    vocabulary = _vocabulary_rows(service)
+    tracked = tracked_rows(study_rows(service))
+    return {
+        "mistakes": len(mistake_items(service)),
+        "words": sum(1 for row in vocabulary if row["status"] == "saved"),
+        "due": len(due_rows(tracked, now)),
+    }
 
 
 def mistake_items(service: ReadingStudioService) -> list[dict[str, Any]]:
@@ -302,30 +401,13 @@ def vocabulary_book(
     service: Annotated[ReadingStudioService, Depends(get_service)],
     scope: str | None = None,
 ):
-    rows = _vocabulary_rows(service)
-    saved = [row for row in rows if row["status"] == "saved"]
-    known = [row for row in rows if row["status"] == "known"]
-    selected = scope if scope in {"saved", "known", "untagged"} else None
-    if selected == "saved":
-        visible = saved
-    elif selected == "known":
-        visible = known
-    elif selected == "untagged":
-        visible = [row for row in rows if not row["status"]]
-    else:
-        visible = rows
     return TEMPLATES.TemplateResponse(
-        request,
-        "practice/vocabulary.html",
-        {
-            "rows": visible,
-            "total": len(rows),
-            "saved_count": len(saved),
-            "known_count": len(known),
-            "selected_scope": selected,
-            "question_total": 0,
-        },
+        request, "practice/vocabulary.html", vocabulary_book_context(service, scope)
     )
+
+
+#: 标记动作允许回到的页面；其它值一律忽略，避免变成开放重定向。
+MARK_RETURNS = frozenset({"/practice/vocabulary", f"{REVIEW_BASE}?tab=words"})
 
 
 @router.post("/practice/vocabulary/mark")
@@ -334,6 +416,7 @@ def mark_vocabulary(
     word: Annotated[str, Form()],
     action: Annotated[str, Form()] = "save",
     scope: Annotated[str | None, Form()] = None,
+    return_to: Annotated[str | None, Form()] = None,
 ):
     if action == "clear":
         service.repository.clear_vocabulary_mark(word)
@@ -341,7 +424,11 @@ def mark_vocabulary(
         service.repository.set_vocabulary_mark(word, "known")
     else:
         service.repository.set_vocabulary_mark(word, "saved")
-    target = f"/practice/vocabulary?scope={quote(scope)}" if scope else "/practice/vocabulary"
+    if return_to in MARK_RETURNS:
+        suffix = f"{'&' if '?' in return_to else '?'}scope={quote(scope)}" if scope else ""
+        target = f"{return_to}{suffix}"
+    else:
+        target = f"/practice/vocabulary?scope={quote(scope)}" if scope else "/practice/vocabulary"
     return RedirectResponse(target, status_code=303)
 
 

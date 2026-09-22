@@ -7,9 +7,9 @@
     <h1>词汇记忆</h1>
     <p class="lead">把练习里出现过的词按<b>词性、复现频率、来源篇目、难度、同根词族</b>分好组，再用 Leitner 盒子的间隔重复排复习：答对进下一盒（间隔翻倍），答错退回第一盒。<b>释义、例句、搭配全部来自已校验的阅读原文</b>，不需要外部词典。</p>
     <div class="library-actions">
-      <a class="button" href="/vocabulary/review">开始复习（{{ totals.due }} 个到期）</a>
-      <a class="button ghost" href="/vocabulary/review?mode=all">复习全部（{{ totals.tracked }}）</a>
-      <a class="button ghost" href="/practice/vocabulary">生词本与导出</a>
+      <a class="button" href="/practice/review?tab=due">开始复习（{{ totals.due }} 个到期）</a>
+      <a class="button ghost" href="/practice/review?tab=due&mode=all">复习全部（{{ totals.tracked }}）</a>
+      <a class="button ghost" href="/practice/review?tab=words">生词本与导出</a>
     </div>
   </div>
   <aside class="library-totals">
@@ -85,7 +85,7 @@
           <button type="submit" name="action" value="add">加入复习</button>
           {% endif %}
         </form>
-        <a class="button ghost" href="/vocabulary/review?mode=all">去复习</a>
+        <a class="button ghost" href="/practice/review?tab=due&mode=all">去复习</a>
       </div>
     </div>
     {% if focus.related %}
