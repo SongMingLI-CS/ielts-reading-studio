@@ -196,6 +196,9 @@ def test_navigation_is_grouped_with_a_label_per_group(client) -> None:
     assert ".site-header .nav-short{display:none}" in css
     assert ".site-header .nav-full{display:none}" in css
     assert '<span class="nav-full">阅读练习</span><span class="nav-short">阅读</span>' in page.text
+
+
+def test_next_step_card_is_a_full_width_single_column_on_small_screens() -> None:
     """"继续练习 + 今天复习"是首页首屏的主体：窄屏必须竖排，不能挤成两列。"""
 
     css = _normalized(STATIC / "studio.css")
@@ -205,3 +208,45 @@ def test_navigation_is_grouped_with_a_label_per_group(client) -> None:
     assert ".quick-row{display:flex;align-items:center;justify-content:space-between" in css
     # 触控目标与全站一致：复习入口不能比 44px 更矮
     assert "min-height:44px" in css
+
+
+def test_mobile_bottom_nav_adds_four_thumb_reachable_entries(client, completed_unit) -> None:
+    """窄屏多一条底栏（首页/阅读/复习/语料）：顶部仍是全部入口，底栏只解决拇指够不到。"""
+
+    page = client.get("/")
+    block = re.search(r'<nav class="bottom-nav".*?</nav>', page.text, re.DOTALL)
+    assert block, "页面没有渲染手机底栏"
+    nav = block.group(0)
+    assert nav.count("<a ") == 4
+    for href, label in (
+        ("/", "首页"),
+        ("/practice", "阅读"),
+        ("/practice/review", "复习"),
+        ("/corpora", "语料"),
+    ):
+        assert f'href="{href}"' in nav, href
+        assert f">{label}</a>" in nav, label
+    assert 'href="/" aria-current="page"' in nav
+
+    review = re.search(
+        r'<nav class="bottom-nav".*?</nav>', client.get("/practice/review").text, re.DOTALL
+    )
+    assert review, "复习中心没有底栏"
+    assert 'href="/practice/review" aria-current="page"' in review.group(0)
+    assert 'href="/practice" aria-current="page"' not in review.group(0)
+
+    # 答题页底部已经有提交栏，所以 CSS 里要靠它把底栏关掉
+    assert 'class="submit-dock"' in client.get(f"/practice/{completed_unit.id}").text
+
+    css = _normalized(STATIC / "app.css")
+    assert ".bottom-nav{display:none}" in css
+    assert ".bottom-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))" in css
+    assert "position:fixed;left:0;right:0;bottom:0;z-index:30" in css
+    # 页面给底栏让出高度，内容不会被压住
+    assert "body{padding-bottom:4.2rem}" in css
+    # 答题页的两条底栏不能叠在一起
+    assert "body:has(.submit-dock){padding-bottom:0}" in css
+    assert "body:has(.submit-dock) .bottom-nav{display:none}" in css
+    # 打印不打印导航
+    assert "@media print{.bottom-nav{display:none}}" in css
+

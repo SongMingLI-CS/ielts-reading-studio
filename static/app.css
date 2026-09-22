@@ -196,3 +196,19 @@ input[type=radio],input[type=checkbox]{width:auto;max-width:none;margin:0;paddin
   .jobs-table td:last-child .button{display:block;text-align:center}
 }
 
+/* ---------------------------------------------------------------------------
+   手机底部四入口（首页 / 阅读 / 复习 / 语料）。
+   顶部的分组导航仍然把 13 个入口全列出来，这一排只解决"拇指够不到"的问题，
+   因此只在窄屏出现，且答题页（底部已有提交栏）不显示，避免两条底栏叠在一起。
+   --------------------------------------------------------------------------- */
+.bottom-nav{display:none}
+@media (max-width:700px){
+  .bottom-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.15rem;position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fffffff2;border-top:1px solid var(--line);padding:.3rem .35rem calc(.3rem + env(safe-area-inset-bottom));backdrop-filter:blur(12px);box-shadow:0 -8px 20px #123c3514}
+  .bottom-nav a{display:flex;align-items:center;justify-content:center;min-height:46px;border-radius:.6rem;color:#4e5b56;font-size:.86rem;font-weight:750;text-decoration:none}
+  .bottom-nav a[aria-current="page"]{background:var(--mint);color:var(--forest)}
+  body{padding-bottom:4.2rem}
+  body:has(.submit-dock){padding-bottom:0}
+  body:has(.submit-dock) .bottom-nav{display:none}
+}
+@media print{.bottom-nav{display:none}}
+

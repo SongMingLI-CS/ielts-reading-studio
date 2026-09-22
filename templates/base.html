@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#123c35">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <script src="/static/security.js?v=1" defer></script>
-  <link rel="stylesheet" href="/static/app.css?v=7">
+  <link rel="stylesheet" href="/static/app.css?v=8">
   <link rel="stylesheet" href="/static/practice-center.css?v=8">
   <link rel="stylesheet" href="/static/studio.css?v=2">
   <link rel="stylesheet" href="/static/corpora.css?v=3">
@@ -45,6 +45,13 @@
     </nav>
   </header>
   <main>{% block content %}{% endblock %}</main>
+  {% set practice_active = request.url.path.startswith('/practice') and not review_active %}
+  <nav class="bottom-nav" aria-label="手机快捷入口">
+    <a href="/"{% if request.url.path == '/' %} aria-current="page"{% endif %}>首页</a>
+    <a href="/practice"{% if practice_active %} aria-current="page"{% endif %}>阅读</a>
+    <a href="/practice/review"{% if review_active %} aria-current="page"{% endif %}>复习</a>
+    <a href="/corpora"{% if request.url.path.startswith('/corpora') %} aria-current="page"{% endif %}>语料</a>
+  </nav>
   {% block scripts %}{% endblock %}
 </body>
 </html>
