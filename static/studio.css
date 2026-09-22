@@ -41,3 +41,47 @@
   .product-stats strong{font-size:1.5rem}
 }
 
+/* ---------------------------------------------------------------------------
+   首页「下一步」：首屏只回答"现在点哪里"——继续草稿 / 今天复习什么。
+   工具卡退到下面，不再是首屏主体（评审 P1-04：入口太晚才出现）。
+   --------------------------------------------------------------------------- */
+.next-step{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:1.1rem;margin:0 0 2.4rem}
+.resume-card{position:relative;overflow:hidden;border:1px solid #b6d2c4;border-radius:1.2rem;background:linear-gradient(135deg,#eaf3ed,#f7fbf9);padding:1.9rem;box-shadow:0 14px 38px #153d3609}
+.resume-card::after{content:"";position:absolute;right:-4rem;top:-4rem;width:11rem;height:11rem;border-radius:50%;background:#cfe6db47;pointer-events:none}
+.resume-card h2{position:relative;font:1.9rem/1.2 Georgia,serif;margin:.5rem 0 .55rem}
+.resume-card .eyebrow{position:relative}
+.resume-card[data-kind="empty"]{background:linear-gradient(135deg,#f6f4ee,#fbfaf6);border-color:#dcd8c9}
+.resume-meta{position:relative;color:#5c6a64;font-size:.9rem;margin:0 0 1rem}
+.resume-progress{position:relative;height:.4rem;background:#cfe0d6;border-radius:2rem;overflow:hidden;margin:0 0 1.1rem}
+.resume-progress span{display:block;height:100%;border-radius:2rem;background:linear-gradient(90deg,var(--green),#54a78f)}
+.resume-action{position:relative;display:inline-flex;align-items:center;gap:.45rem}
+.review-panel{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:1.2rem;background:#fff;padding:1.6rem;box-shadow:0 14px 38px #153d3609}
+.review-panel h2{font:1.25rem/1.3 Georgia,serif;margin:0 0 1rem}
+.quick-rows{display:grid;gap:.45rem}
+.quick-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;min-height:44px;padding:.65rem .85rem;border:1px solid #e3e8e4;border-radius:.6rem;background:#fafbf9;color:var(--ink);font-size:.92rem;text-decoration:none;transition:border-color .15s,background .15s}
+.quick-row:hover{border-color:#b9cfc5;background:#f2f7f4}
+.quick-row strong{color:var(--green);font-size:.86rem;white-space:nowrap}
+.review-panel .caption{margin:1rem 0 0}
+.review-empty{color:#5c6a64;font-size:.9rem;margin:0 0 1rem}
+.review-panel .button{align-self:flex-start}
+.tools-heading{display:flex;align-items:end;justify-content:space-between;gap:1rem;margin:0 0 1rem}
+.tools-heading h2{font:1.7rem Georgia,serif;margin:0}
+.tools-heading p{margin:0;color:#6b7771;font-size:.88rem}
+
+@media (max-width:900px){
+  .next-step{grid-template-columns:minmax(0,1fr);gap:.8rem;margin-bottom:1.6rem}
+}
+@media (max-width:600px){
+  .next-step{gap:.65rem;margin-bottom:1.2rem}
+  .resume-card{padding:1.15rem 1.1rem}
+  .resume-card h2{font-size:1.5rem;margin:.35rem 0 .45rem}
+  .resume-meta{font-size:.84rem;margin-bottom:.8rem}
+  .review-panel{padding:1.1rem}
+  .review-panel h2{font-size:1.1rem;margin-bottom:.7rem}
+  .tools-heading{display:block}
+  .tools-heading h2{font-size:1.45rem}
+  .tools-heading p{margin-top:.25rem}
+  /* 有草稿时首屏让给"继续练习"：装饰性标语收起来，复习入口因此也能露出来 */
+  body:has(.resume-card[data-kind="resume"]) .studio-hero .lead{display:none}
+}
+

@@ -10,7 +10,51 @@
   <div class="studio-total"><span>已准备内容</span><strong>{{ reading_count + novel_chapters }}</strong><small>篇阅读与章节</small></div>
 </section>
 
-<section class="product-grid" aria-label="学习工具">
+<section class="next-step" aria-label="下一步">
+  <article class="resume-card" data-kind="{{ next_step.kind }}">
+  {% if next_step.kind == 'resume' %}
+    <p class="eyebrow">继续上次练习 · 草稿已保存</p>
+    <h2>{{ next_step.title }}</h2>
+    <p class="resume-meta">已答 {{ next_step.answered }} / {{ next_step.total }} 题{% if next_step.elapsed %} · 已用时 {{ next_step.elapsed // 60 }}:{{ '%02d'|format(next_step.elapsed % 60) }}{% endif %}{% if next_step.source %} · {{ next_step.source }}{% endif %}</p>
+    <div class="resume-progress" role="img" aria-label="已答 {{ next_step.answered }} 题，共 {{ next_step.total }} 题"><span style="width: {{ (next_step.answered / next_step.total * 100)|round|int if next_step.total else 0 }}%"></span></div>
+    <a class="button resume-action" href="{{ next_step.href }}">{{ next_step.cta }}</a>
+  {% elif next_step.kind == 'start' %}
+    <p class="eyebrow">开始第一篇</p>
+    <h2>{{ next_step.title }}</h2>
+    <p class="resume-meta">{{ next_step.question_count }} 题 · {{ next_step.word_count }} 词{% if next_step.source %} · {{ next_step.source }}{% endif %}</p>
+    <a class="button resume-action" href="{{ next_step.href }}">{{ next_step.cta }}</a>
+  {% elif next_step.kind == 'redo' %}
+    <p class="eyebrow">已经练过全部篇目</p>
+    <h2>{{ next_step.title }}</h2>
+    <p class="resume-meta">{{ next_step.question_count }} 题 · {{ next_step.word_count }} 词{% if next_step.source %} · {{ next_step.source }}{% endif %} · 重新开始会清空这篇的草稿</p>
+    <a class="button resume-action" href="{{ next_step.href }}">{{ next_step.cta }}</a>
+  {% else %}
+    <p class="eyebrow">还没有可练习的篇目</p>
+    <h2>先导入一份中文素材</h2>
+    <p class="resume-meta">导入后解析章节、生成英文 Passage 与题目，批准样篇后就能在这里开始练习。</p>
+    <a class="button resume-action" href="/corpora/import">导入素材 →</a>
+  {% endif %}
+  </article>
+
+  <aside class="review-panel" aria-label="今天可以复习">
+    <h2>今天可以复习</h2>
+    {% if review.mistakes or review.words or review.due %}
+    <div class="quick-rows">
+      <a class="quick-row" href="/practice/mistakes"><span>错题复习</span><strong>{{ review.mistakes }} 题 →</strong></a>
+      <a class="quick-row" href="/practice/vocabulary"><span>生词本</span><strong>{{ review.words }} 词 →</strong></a>
+      <a class="quick-row" href="/vocabulary/review"><span>到期待复习</span><strong>{{ review.due }} 词 →</strong></a>
+    </div>
+    <p class="caption">错题与生词来自已提交的练习；到期复习按 Leitner 间隔排程。</p>
+    {% else %}
+    <p class="review-empty">完成一篇练习后，这里会列出该复习的错题和生词——没有记录时不会显示虚构进度。</p>
+    <a class="button ghost" href="/practice">去练习中心 →</a>
+    {% endif %}
+  </aside>
+</section>
+
+<section class="tools">
+  <div class="tools-heading"><h2>浏览工具</h2><p>三个工具的完整说明与入口；从上面的卡片直接开始也可以。</p></div>
+  <section class="product-grid" aria-label="学习工具">
   <article class="product-card reading-product">
     <div class="product-number">01</div>
     <p class="eyebrow">Academic practice</p>
@@ -35,7 +79,8 @@
     <div class="product-stats"><span><strong>4</strong> 项标准</span><span><strong>0.5</strong> 分档</span></div>
     <a class="product-link" href="/writing">开始评估作文 <span>→</span></a>
   </article>
+  </section>
 </section>
 
-<section class="privacy-strip"><span aria-hidden="true">●</span><div><strong>同一套登录，同一台服务器</strong><p>两个工具彼此独立保存数据，不会覆盖现有十章练习。</p></div></section>
+<section class="privacy-strip"><span aria-hidden="true">●</span><div><strong>同一套登录，同一台服务器</strong><p>三个工具共用同一套登录与私有存储，各自的数据互不覆盖。</p></div></section>
 {% endblock %}

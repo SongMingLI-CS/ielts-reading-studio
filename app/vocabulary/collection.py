@@ -1,7 +1,8 @@
-"""把已完成的 Package 汇总成词表：跨篇合并、去重、带上收藏状态。"""
+"""把已完成的 Package 汇总成词表：跨篇合并、去重、带上收藏与复习状态。"""
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
 
 from app.models import UnitStatus
@@ -60,3 +61,45 @@ def collect_vocabulary(service: Any, *, include_marks: bool = True) -> list[dict
     for row in rows:
         row["passage_count"] = len(row["passages"])
     return rows
+
+
+def as_aware(value: Any) -> dt.datetime | None:
+    """SQLite 取回的时间可能没有时区，统一按 UTC 补齐再比较。"""
+
+    if not isinstance(value, dt.datetime):
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=dt.UTC)
+
+
+def study_rows(service: Any) -> list[dict[str, Any]]:
+    """全部词条 + 复习状态（box / 到期时间 / 复习次数）。
+
+    首页与词汇页都要判断"今天该复习哪些词"，判定逻辑必须只有一份，否则两处会
+    对同一个词给出不同的到期待办。
+    """
+
+    rows = collect_vocabulary(service)
+    reviews = service.repository.list_vocabulary_reviews()
+    for row in rows:
+        state = reviews.get(row["key"])
+        row["review_box"] = int(state["box"]) if state else 0
+        row["due_at"] = as_aware(state["due_at"]) if state else None
+        row["seen"] = int(state["seen"]) if state else 0
+        row["lapses"] = int(state["lapses"]) if state else 0
+    return rows
+
+
+def tracked_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """已经进入复习队列的词（box > 0）；收藏了但还没开始复习的不算。"""
+
+    return [row for row in rows if row["review_box"] > 0]
+
+
+def due_rows(rows: list[dict[str, Any]], now: dt.datetime) -> list[dict[str, Any]]:
+    """今天该复习的词：在队列里，且到期时间已过或从未排期。"""
+
+    return [
+        row
+        for row in tracked_rows(rows)
+        if row["due_at"] is None or row["due_at"] <= now
+    ]

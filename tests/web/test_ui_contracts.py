@@ -163,8 +163,8 @@ def test_mobile_library_keeps_stats_on_one_row() -> None:
     assert ".overview-grid{grid-template-columns:1fr}" not in css
 
 
-def test_mobile_home_pulls_the_first_call_to_action_into_the_first_screen() -> None:
-    """390×844 实测：首页首个 CTA 从 1208px 提到 793px（hero 与产品卡各收一层留白）。"""
+def test_mobile_home_hero_fits_the_first_screen() -> None:
+    """390×844 实测：hero 与产品卡各收一层留白，首屏才放得下"下一步"卡片。"""
 
     css = _normalized(STATIC / "studio.css")
     mobile = css.split("@media (max-width:600px){", 1)[-1]
@@ -174,3 +174,15 @@ def test_mobile_home_pulls_the_first_call_to_action_into_the_first_screen() -> N
     # 竖排的大数字块自己就占 100px 首屏高度，手机上必须横排
     assert ".studio-total{flex-direction:row;align-items:baseline;flex-wrap:wrap" in mobile
     assert ".product-card{min-height:0;padding:1.2rem}" in mobile
+
+
+def test_next_step_card_is_a_full_width_single_column_on_small_screens() -> None:
+    """"继续练习 + 今天复习"是首页首屏的主体：窄屏必须竖排，不能挤成两列。"""
+
+    css = _normalized(STATIC / "studio.css")
+
+    assert ".next-step{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)" in css
+    assert ".next-step{grid-template-columns:minmax(0,1fr);gap:.8rem;margin-bottom:1.6rem}" in css
+    assert ".quick-row{display:flex;align-items:center;justify-content:space-between" in css
+    # 触控目标与全站一致：复习入口不能比 44px 更矮
+    assert "min-height:44px" in css

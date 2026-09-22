@@ -168,7 +168,7 @@ def practice_mistakes(
     service: Annotated[ReadingStudioService, Depends(get_service)],
     type: str | None = None,
 ):
-    items = _mistake_items(service)
+    items = mistake_items(service)
     available = sorted({entry["type"].value for entry in items})
     selected = type if type in available else None
     visible = [entry for entry in items if selected is None or entry["type"].value == selected]
@@ -190,7 +190,7 @@ def practice_mistakes(
     )
 
 
-def _mistake_items(service: ReadingStudioService) -> list[dict[str, Any]]:
+def mistake_items(service: ReadingStudioService) -> list[dict[str, Any]]:
     """每一道做错过的题，按"错得最多"排序；错误次数与最后出现时间都带上。"""
     rows = _scored_attempts(service)
     wrong: dict[tuple[str, int], dict[str, Any]] = {}
@@ -371,7 +371,7 @@ def print_mistakes(
     limit: int = 60,
 ):
     """错题本的打印版：一页一篇，可直接打印或存成 PDF。"""
-    items = _mistake_items(service)
+    items = mistake_items(service)
     available = sorted({entry["type"].value for entry in items})
     selected = type if type in available else None
     visible = [entry for entry in items if selected is None or entry["type"].value == selected]

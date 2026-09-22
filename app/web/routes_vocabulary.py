@@ -12,10 +12,12 @@ from starlette.requests import Request
 from app.pipeline.service import ReadingStudioService
 from app.vocabulary import (
     classify_rows,
-    collect_vocabulary,
+    due_rows,
     interval_days,
     related_words,
     schedule,
+    study_rows,
+    tracked_rows,
 )
 from app.vocabulary.srs import MAX_BOX, OUTCOME_LABELS
 
@@ -30,38 +32,6 @@ GROUPS = ("pos", "frequency", "source", "level", "family")
 
 def _now() -> dt.datetime:
     return dt.datetime.now(dt.UTC)
-
-
-def _as_aware(value: Any) -> dt.datetime | None:
-    """SQLite 取回的时间可能没有时区，统一按 UTC 补齐再比较。"""
-    if not isinstance(value, dt.datetime):
-        return None
-    return value if value.tzinfo else value.replace(tzinfo=dt.UTC)
-
-
-def _study_rows(service: ReadingStudioService) -> list[dict[str, Any]]:
-    """全部词条 + 复习状态（box / 到期时间 / 复习次数）。"""
-    rows = collect_vocabulary(service)
-    reviews = service.repository.list_vocabulary_reviews()
-    for row in rows:
-        state = reviews.get(row["key"])
-        row["review_box"] = int(state["box"]) if state else 0
-        row["due_at"] = _as_aware(state["due_at"]) if state else None
-        row["seen"] = int(state["seen"]) if state else 0
-        row["lapses"] = int(state["lapses"]) if state else 0
-    return rows
-
-
-def _tracked(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [row for row in rows if row["review_box"] > 0]
-
-
-def _due(rows: list[dict[str, Any]], now: dt.datetime) -> list[dict[str, Any]]:
-    return [
-        row
-        for row in _tracked(rows)
-        if row["due_at"] is None or row["due_at"] <= now
-    ]
 
 
 def _options_for(
@@ -95,12 +65,12 @@ def vocabulary_home(
     meanings: str = "all",
 ):
     now = _now()
-    rows = _study_rows(service)
+    rows = study_rows(service)
     scope = scope if scope in {"saved", "tracked", "all"} else "saved"
     if scope == "saved":
         scoped = [row for row in rows if row["status"] == "saved"]
     elif scope == "tracked":
-        scoped = _tracked(rows)
+        scoped = tracked_rows(rows)
     else:
         scoped = rows
     if meanings == "with":
@@ -108,7 +78,7 @@ def vocabulary_home(
         scoped = [row for row in scoped if (row["chinese_meaning"] or "").strip()]
     grouped = classify_rows(rows)
     selected_group = group if group in GROUPS else "pos"
-    due = _due(rows, now)
+    due = due_rows(rows, now)
     focus_row = next(
         (row for row in rows if row["key"] == (focus or "").casefold()), None
     )
@@ -140,7 +110,7 @@ def vocabulary_home(
                 "all": len(rows),
                 "saved": sum(row["status"] == "saved" for row in rows),
                 "known": sum(row["status"] == "known" for row in rows),
-                "tracked": len(_tracked(rows)),
+                "tracked": len(tracked_rows(rows)),
                 "due": len(due),
                 "families": len(grouped["families"]),
                 "no_meaning": sum(
@@ -173,10 +143,10 @@ def vocabulary_review(
 ):
     """复习会话：一次一张卡，四选一；答完立刻排下一次复习时间。"""
     now = _now()
-    all_rows = _study_rows(service)
-    rows = _tracked(all_rows)
+    all_rows = study_rows(service)
+    rows = tracked_rows(all_rows)
     mode = mode if mode in {"due", "all"} else "due"
-    pool = rows if mode == "all" else _due(rows, now)
+    pool = rows if mode == "all" else due_rows(rows, now)
     pool = sorted(pool, key=lambda row: (row["due_at"] or now, row["word"].casefold()))
     card = pool[0] if pool else None
     options: list[str] = []
@@ -193,7 +163,7 @@ def vocabulary_review(
             "options": options,
             "mode": mode,
             "remaining": max(0, len(pool) - (1 if card else 0)),
-            "due_total": len(_due(rows, now)),
+            "due_total": len(due_rows(rows, now)),
             "tracked_total": len(rows),
             "feedback": feedback,
             "answered": answer,
@@ -214,7 +184,7 @@ def answer_card(
     mode: Annotated[str, Form()] = "due",
 ):
     """四选一的作答：选项就是释义文本，选错按"不认识"处理。"""
-    row = _find(_study_rows(service), word)
+    row = _find(study_rows(service), word)
     correct = (row["chinese_meaning"] or "").strip()
     outcome = "good" if correct and choice.strip() == correct else "again"
     _apply(service, row, outcome)
@@ -236,7 +206,7 @@ def grade_card(
     """自评模式：认识 / 模糊 / 不认识。"""
     if outcome not in OUTCOME_LABELS:
         raise HTTPException(status_code=422, detail="Unsupported outcome")
-    row = _find(_study_rows(service), word)
+    row = _find(study_rows(service), word)
     _apply(service, row, outcome)
     return RedirectResponse(
         "/vocabulary/review?"
