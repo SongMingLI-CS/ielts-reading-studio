@@ -441,7 +441,11 @@ class SecurityGate:
             nonce=state.nonce, https=state.https
         ).items():
             response.headers.setdefault(name, value)
-        if not headers_module.is_cacheable(request.url.path):
+        if headers_module.is_cacheable(request.url.path):
+            # 静态资源每次都用 ETag 重新校验（命中就是 304，很便宜）。少了这一行浏览器会按
+            # heuristics 长时间复用旧文件，于是刚修好的样式在用户那里看起来没生效。
+            response.headers.setdefault("Cache-Control", headers_module.CACHE_CONTROL_REVALIDATE)
+        else:
             response.headers.setdefault("Cache-Control", headers_module.CACHE_CONTROL_PRIVATE)
             response.headers.setdefault("Pragma", headers_module.PRAGMA_PRIVATE)
         return response

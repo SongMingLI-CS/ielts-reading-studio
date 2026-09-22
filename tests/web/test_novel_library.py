@@ -176,12 +176,19 @@ def test_progress_counts_report_the_way_chapters_failed(web_service):
     assert (counts["completed"], counts["failed"], counts["running"]) == (2, 4, 1)
     assert counts["pending"] == 1
     assert counts["reasons"] == {"billing": 2, "invalid_response": 1, "unknown": 1}
+    # 页面要能指出是哪几章：按数量倒序，同一原因的章节号升序
+    assert counts["failures"] == [
+        {"reason": "billing", "count": 2, "chapters": [3, 4]},
+        {"reason": "invalid_response", "count": 1, "chapters": [5]},
+        {"reason": "unknown", "count": 1, "chapters": [7]},
+    ]
 
     assert library.progress_counts(database.parent / "missing.sqlite3") == {
         "completed": 0,
         "failed": 0,
         "running": 0,
         "reasons": {},
+        "failures": [],
     }
     database.write_bytes(b"not a database")
     assert library.progress_counts(database)["failed"] == 0

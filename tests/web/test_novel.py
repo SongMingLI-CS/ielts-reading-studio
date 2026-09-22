@@ -204,7 +204,7 @@ def test_chapter_pagination_keeps_the_book_and_clamps_the_page(client, web_servi
 
 
 def test_page_explains_why_chapters_failed_not_just_how_many(client, web_service):
-    """「失败 7 章」旁边要给出原因分布与下一步，否则操作者只能猜。"""
+    """「失败 3 章」要给出原因、章节号与下一步，否则操作者只能猜。"""
 
     _import(client, "story.txt")
     book = library.active_book_id(web_service)
@@ -225,7 +225,7 @@ def test_page_explains_why_chapters_failed_not_just_how_many(client, web_service
             (2, "completed", None),
             (3, "failed", "billing"),
             (6, "failed", "billing"),
-            (7, "failed", "billing"),
+            (7, "failed", "ChapterConversionError"),
             (9, "pending", None),
         ],
     )
@@ -249,10 +249,15 @@ def test_page_explains_why_chapters_failed_not_just_how_many(client, web_service
 
     page = client.get(f"/novel?book={book}")
 
-    assert "失败原因：" in page.text
-    assert "billing × 3" in page.text
+    # 一个说明块：中文原因 + 内部标识 + 章节号 + 只给一次下一步
+    assert "这 3 章没生成出来，原因如下" in page.text
     assert "模型账户余额或配额不足" in page.text
-    assert "第 3 章失败：billing（连续失败 5）" in page.text
+    assert "第 3、6 章" in page.text
+    assert "这一章的正文转换失败" in page.text and "第 7 章" in page.text
+    assert "下一步：" in page.text
+    assert page.text.count("充值或换一个可用的密钥后点「重试失败章节」") == 1
+    # 最近一次运行写清完成/失败，而不是笼统的「没有产出完整章节」
+    assert "最近一次运行：《story》失败章节重试 · 完成 0 章、失败 3 章" in page.text
     # 被中断（崩溃恢复）的章节也要露出来，否则统计加起来对不上进度库的行数
     assert "<strong>1</strong>待重试" in page.text
 

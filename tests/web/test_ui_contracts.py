@@ -394,7 +394,10 @@ def test_novel_library_rules_are_not_trapped_inside_a_media_query() -> None:
         ".book-row-actions",
         ".book-badge",
         ".upload-panel summary",
-        ".failure-reasons",
+        ".failure-panel",
+        ".failure-panel h3",
+        ".failure-next",
+        ".run-summary",
         ".pagination-summary",
         ".pagination-pages .page-number",
     ):

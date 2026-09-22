@@ -25,6 +25,7 @@ from ielts_novel.processors.chapter_parser import (
 )
 from starlette.requests import Request
 
+from app.pipeline.novel_runner import failure_hint, failure_label
 from app.pipeline.queue import NOVEL_KIND
 from app.pipeline.service import ReadingStudioService
 from app.security.uploads import check_magic, validate_extension
@@ -100,6 +101,29 @@ def _require_book(
     if book is None:
         raise HTTPException(status_code=409, detail="书库里还没有小说，请先上传一本")
     return book, _paths(service, book)
+
+
+def _progress_summary(database: Path | None) -> dict[str, Any]:
+    """这一本的进度统计，外加上「失败原因怎么说给操作者听」。
+
+    组件只给 ``error_type`` 这种内部标识（``billing`` / ``ChapterConversionError``…），页面要给出
+    中文说法、涉及的章节号和下一步；同一批失败只把建议写一次，避免两块黄条把同一条建议说两遍。
+    """
+
+    summary = (
+        progress_counts(database)
+        if database is not None
+        else {"completed": 0, "failed": 0, "running": 0, "reasons": {}, "failures": []}
+    )
+    hints: list[str] = []
+    for item in summary.get("failures", []):
+        reason = str(item["reason"])
+        item["label"] = failure_label(reason)
+        item["hint"] = failure_hint(reason)
+        if item["hint"] and item["hint"] not in hints:
+            hints.append(item["hint"])
+    summary["hints"] = hints
+    return summary
 
 
 def _catalog_size() -> int:
@@ -192,11 +216,7 @@ def _page_context(
         "source": selected,
         "report": _read_json(paths["report"]) if paths else None,
         "run": _read_json(paths["run"]) if paths else None,
-        "progress": (
-            progress_counts(output / "state.sqlite3")
-            if output
-            else {"completed": 0, "failed": 0, "running": 0}
-        ),
+        "progress": _progress_summary(output / "state.sqlite3" if output else None),
         "catalog_size": _catalog_size(),
         "api_ready": service.config.deepseek_api_key is not None,
         "chapter_outputs": chapter_outputs,

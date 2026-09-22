@@ -12,6 +12,11 @@ import secrets
 #: Static assets are the only thing worth caching; everything else carries private data.
 CACHEABLE_PREFIXES = ("/static/",)
 CACHE_CONTROL_PRIVATE = "no-store, no-cache, must-revalidate, max-age=0"
+#: Static assets carry no ``Cache-Control`` of their own, so browsers fall back to heuristic
+#: freshness and can keep serving an old stylesheet after a deploy (a fixed layout bug stayed
+#: invisible for exactly that reason). ``no-cache`` means "store, but revalidate": every load
+#: hits the ETag and usually gets a 304.
+CACHE_CONTROL_REVALIDATE = "no-cache"
 PRAGMA_PRIVATE = "no-cache"
 
 

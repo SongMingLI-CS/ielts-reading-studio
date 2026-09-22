@@ -112,26 +112,33 @@ curl -fsS http://127.0.0.1:8766/healthz
 
 ### 8.1 情境小说的失败原因（页面上会直接写出来）
 
-`/novel` 的输出卡在「完成 / 进行中 / 失败 / 可阅读」下面多一行「失败原因：<error_type> × 章数」，
-它来自这本书自己的进度库 `output/context-novel/books/<book-id>/state.sqlite3` 的
-`chapter_progress` 表（一章一行，失败行带 `error_type`）。看到数字以后按下表处理：
+`/novel` 的输出卡在「完成 / 进行中 / 待重试 / 失败 / 可阅读」下面会多出一个说明块，用中文写清
+「这 N 章没生成出来，原因如下」，每条给出 **中文原因 + 组件原始标识（如 `billing`、
+`ChapterConversionError`）+ 涉及的章节号**，最后是统一的「下一步」。数据来自这本书自己的
+进度库 `output/context-novel/books/<book-id>/state.sqlite3` 的 `chapter_progress` 表（一章一行，
+失败行带 `error_type`）。看到数字以后按下表处理：
 
-| `error_type` | 含义 | 下一步 |
+| `error_type` | 页面上的中文说法 | 下一步 |
 |---|---|---|
-| `billing` | 模型账户余额 / 配额不足（provider 返回余额不足） | 充值或换密钥，再点「重试失败章节」；只重跑失败章节，已完成的不会重跑、不会重复收费 |
-| `authentication` | 密钥无效或过期 | 检查 `.env.web` 的 `DEEPSEEK_API_KEY` |
+| `billing` | 模型账户余额或配额不足 | 充值或换密钥，再点「重试失败章节」；只重跑失败章节，已完成的不会重跑、不会重复收费 |
+| `authentication` | API 密钥无效或已过期 | 检查 `.env.web` 的 `DEEPSEEK_API_KEY` |
 | `rate_limit` | 被模型侧限流 | 等几分钟，再「断点继续」或「重试失败章节」 |
-| `density_too_low` | 词汇密度没过门禁（每 500 字至少 20 个词条） | 换更长的章节，或调低密度下限后重试 |
-| `invalid_response` / `empty_response` | 模型返回的 JSON 不合法或为空 | 直接重试这一章 |
-| `ChapterConversionError` | 该章正文转换失败 | 换一章，或按范围分批重试 |
-| `RunLimitError` | 超过单次运行的章节上限（样篇确认前每次只能一章） | 按章节范围分批生成 |
+| `density_too_low` | 词汇密度没达到下限（每 500 字至少 20 个词条） | 换更长的章节，或调低密度下限后重试 |
+| `invalid_response` / `empty_response` | 模型返回的内容不是合法 JSON / 模型返回了空响应 | 直接重试这一章 |
+| `ChapterConversionError` | 这一章的正文转换失败 | 换一章，或按范围分批重试 |
+| `RunLimitError` | 超出单次运行的章节上限（样篇确认前每次只能一章） | 按章节范围分批生成 |
 
-连续失败到 `max_consecutive_failures`（默认 5）时组件会主动停止批处理，日志与
-`run_status.json` 里会写 `连续 N 章失败，已停止批处理`；先修掉原因再重试，否则只会再停一次。
+认不出来的 `error_type` 会原样显示，不会编造解释。连续失败到 `max_consecutive_failures`（默认 5）时
+组件会主动停止批处理，日志与 `run_status.json` 里会写 `连续 N 章失败，已停止批处理`；先修掉原因再
+重试，否则只会再停一次。
 
 统计里还会出现一个只在需要时显示的 **待重试**：组件启动时会把上次中断的 `running` 章节重置为
 `pending`（崩溃恢复），这些章节既不算完成也不算失败，点「断点继续」就会继续处理它们。四个数字
 （完成 + 进行中 + 待重试 + 失败）加起来应当等于进度库里这一本的章节行数；对不上时先看 `待重试`。
+
+页面样式不会「卡」在浏览器缓存里：`/static/*` 一律返回 `Cache-Control: no-cache`（带 ETag，
+命中就是 304），改动上线后刷新即可看到，不需要用户手动清缓存或强刷。改完 `static/` 下的文件后
+顺手把 `templates/base.html` 里对应的 `?v=` 加一即可双保险。
 
 运行 `scripts/verify.sh`（Linux / macOS，服务器上用这个）或 `scripts/verify.ps1`（Windows）可确认本地代码、依赖和离线路径完整：两个测试套件、`app/` 与组件源码的字节编译、四处 Ruff 检查与 CLI 帮助烟雾测试。`verify.sh` 默认使用项目里的 `.venv/bin/python`（systemd 启动服务的同一个解释器），可用 `PYTHON=` 覆盖。真实样篇之前还应核对 DeepSeek 官方当前模型名与价格，并保持模型名由配置提供。
 

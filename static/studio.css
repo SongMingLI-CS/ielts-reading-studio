@@ -104,9 +104,18 @@
 .upload-panel{margin-top:.6rem}
 .upload-panel summary{cursor:pointer;font-weight:750;color:var(--forest)}
 .upload-panel form{margin-top:.6rem}
-.failure-reasons{margin:.6rem 0 0;padding:.6rem .8rem;border-left:3px solid #d8b25f;border-radius:.4rem;background:#fff8e9;color:#7a5a1c;font-size:.82rem}
-.failure-reasons small{display:block;margin-top:.25rem;color:#6a5430;font-weight:400}
+.failure-panel{margin:1rem 0 0;padding:.85rem 1rem;border:1px solid #e8c88e;border-left:4px solid #d8a63f;border-radius:.6rem;background:#fff8e9}
+.failure-panel h3{margin:0 0 .5rem;font-size:.95rem;color:#6f5015}
+.failure-panel ul{margin:0;padding-left:1.1rem;color:#5d4a22;font-size:.86rem;line-height:1.7}
+.failure-panel li{margin:0}
+.failure-panel code{margin-left:.25rem;padding:.05rem .3rem;border-radius:.25rem;background:#f3e6c8;color:#6f5015;font-size:.78rem}
+.failure-next{margin:.6rem 0 0;padding-top:.5rem;border-top:1px dashed #e2cf9f;color:#5d4a22;font-size:.83rem}
+.run-summary{margin:.75rem 0 0;color:var(--ink-secondary);font-size:.82rem;line-height:1.6;overflow-wrap:anywhere}
 .chapter-pagination{flex-direction:column;gap:.5rem}
+/* 统计有 4 格或 5 格（多一个「待重试」）：用 auto-fit 让每格等宽，不会有一格被拉长 */
+.output-card .mini-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(5.5rem,1fr))}
+/* 章节数不是偶数时最后一张卡独占整行，避免右下角空出一格 */
+.chapter-preview-list article:last-child:nth-child(odd){grid-column:1/-1}
 .pagination-summary{margin:0;color:var(--ink-secondary);font-size:.8rem}
 .pagination-pages{display:flex;align-items:center;justify-content:center;gap:.35rem;flex-wrap:wrap}
 .pagination-pages .page-number{display:inline-flex;align-items:center;justify-content:center;min-width:var(--tap);min-height:var(--tap);padding:0 .5rem;border:1px solid var(--line);border-radius:.5rem;background:#fff;color:var(--forest);font-weight:750;text-decoration:none}
@@ -120,5 +129,4 @@
   .book-row{flex-direction:column;align-items:stretch}
   .book-row-actions{justify-content:space-between}
   .pagination-pages .page-step{min-height:var(--tap)}
-  .output-card .mini-stats{display:grid;grid-template-columns:1fr 1fr}
 }

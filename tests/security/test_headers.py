@@ -48,13 +48,17 @@ def test_private_pages_are_never_cached(raw_client):
         assert response.headers.get("pragma") == "no-cache"
 
 
-def test_static_assets_are_cacheable(raw_client):
+def test_static_assets_are_cacheable_but_must_revalidate(raw_client):
+    """静态资源必须带 ``no-cache``：否则浏览器按 heuristics 复用旧样式，修好的布局看不到。"""
+
     response = raw_client.get("/static/app.css")
 
     assert response.status_code == 200
-    assert "no-store" not in response.headers.get("cache-control", "")
+    assert response.headers.get("cache-control") == "no-cache"
     assert is_cacheable("/static/app.css") is True
     assert is_cacheable("/practice") is False
+    # ETag 仍在，重新校验命中就是 304
+    assert response.headers.get("etag")
 
 
 def test_csp_allows_only_nonce_scripts_and_same_origin_assets(raw_client):

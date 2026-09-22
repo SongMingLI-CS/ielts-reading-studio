@@ -7,7 +7,12 @@ import subprocess
 from pathlib import Path
 
 from app.config import AppConfig
-from app.pipeline.novel_runner import ensure_system_corpus, run_novel_job
+from app.pipeline.novel_runner import (
+    ensure_system_corpus,
+    failure_hint,
+    failure_label,
+    run_novel_job,
+)
 from app.pipeline.queue import NOVEL_KIND
 from app.pipeline.service import ReadingStudioService
 from app.pipeline.worker import JobWorker
@@ -127,6 +132,7 @@ def test_exit_code_zero_without_chapters_is_recorded_not_hidden(
     assert payload["outcome"] == "no_chapters"  # 但没有任何章节产出
     assert payload["chapters_completed"] == 0
     assert "density_too_low" in payload["failure_reason"]
+    assert payload["failure_label"] == "词汇密度没达到下限"
     assert "每 500 字至少 20 个词条" in payload["failure_hint"]
 
 
@@ -166,8 +172,22 @@ def test_billing_failures_explain_the_balance_and_the_retry_path(
     assert payload["outcome"] == "failed"
     assert payload["chapters_failed"] == 2
     assert "billing" in payload["failure_reason"]
-    assert "余额或配额不足" in payload["failure_hint"]
+    assert payload["failure_label"] == "模型账户余额或配额不足"
     assert "重试失败章节" in payload["failure_hint"]
+    assert "重复收费" in payload["failure_hint"]
+
+
+def test_failure_labels_and_hints_agree_on_the_same_keyword() -> None:
+    """`authentication` 不能被更宽泛的 `auth` 抢走，否则页面会说错原因。"""
+
+    assert failure_label("ProviderAuthError: authentication failed") == "API 密钥无效或已过期"
+    assert failure_hint("authentication") == "检查 .env.web 里的 DEEPSEEK_API_KEY 后重试失败章节。"
+    assert failure_label("第 9 章失败：ChapterConversionError") == "这一章的正文转换失败"
+    assert failure_label("density_too_low") == "词汇密度没达到下限"
+    assert "每 500 字至少 20 个词条" in failure_hint("density_too_low")
+    # 认不出来的原因原样显示，不编造解释
+    assert failure_label("weird_new_error") == "weird_new_error"
+    assert failure_hint("weird_new_error") == ""
 
 
 def test_latest_run_in_the_append_only_log_decides_the_outcome(

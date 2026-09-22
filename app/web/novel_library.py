@@ -148,14 +148,20 @@ def generated_chapters(service: ReadingStudioService, book_id: str) -> int:
 
 
 def progress_counts(database: Path) -> dict[str, Any]:
-    """按状态统计章节进度，并给出失败原因分布。
+    """按状态统计章节进度，并给出失败原因分布与涉及的章节号。
 
     组件的进度库一章一行（``failed`` 行会记 ``error_type``），所以「失败 7 章」这种数字只有
-    配上原因才可解释：7 章全是 ``billing``（余额不足）与 7 章分散在模型质量问题上，操作者要
-    做的事完全不同。
+    配上原因和章节号才可解释、才能行动：7 章全是 ``billing``（余额不足）与 7 章分散在模型质量
+    问题上，操作者要做的事完全不同。
     """
 
-    counts: dict[str, Any] = {"completed": 0, "failed": 0, "running": 0, "reasons": {}}
+    counts: dict[str, Any] = {
+        "completed": 0,
+        "failed": 0,
+        "running": 0,
+        "reasons": {},
+        "failures": [],
+    }
     if not database.exists():
         return counts
     try:
@@ -163,14 +169,23 @@ def progress_counts(database: Path) -> dict[str, Any]:
             rows = connection.execute(
                 "SELECT status, COUNT(*) FROM chapter_progress GROUP BY status"
             ).fetchall()
-            reasons = connection.execute(
-                "SELECT COALESCE(NULLIF(error_type, ''), 'unknown'), COUNT(*) "
-                "FROM chapter_progress WHERE status='failed' GROUP BY 1 ORDER BY 2 DESC, 1"
+            failures = connection.execute(
+                "SELECT COALESCE(NULLIF(error_type, ''), 'unknown'), chapter_id "
+                "FROM chapter_progress WHERE status='failed' ORDER BY chapter_id"
             ).fetchall()
     except sqlite3.Error:
         return counts
     counts.update({str(status): int(count) for status, count in rows})
-    counts["reasons"] = {str(reason): int(count) for reason, count in reasons}
+    grouped: dict[str, list[int]] = {}
+    for reason, chapter_id in failures:
+        grouped.setdefault(str(reason), []).append(int(chapter_id))
+    counts["reasons"] = {reason: len(chapters) for reason, chapters in grouped.items()}
+    counts["failures"] = [
+        {"reason": reason, "count": len(chapters), "chapters": chapters}
+        for reason, chapters in sorted(
+            grouped.items(), key=lambda item: (-len(item[1]), item[0])
+        )
+    ]
     return counts
 
 
