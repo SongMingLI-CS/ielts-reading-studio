@@ -17,7 +17,7 @@
       <a class="chip{% if mode == 'list' %} active{% endif %}" href="/practice/vocabulary/print?scope={{ scope }}&mode=list">清单</a>
       <a class="chip{% if mode == 'quiz' %} active{% endif %}" href="/practice/vocabulary/print?scope={{ scope }}&mode=quiz">自测</a>
       <a class="chip" href="/practice/vocabulary/print?scope=all&mode={{ mode }}">全部单词</a>
-      <button type="button" onclick="window.print()">打印 / 存为 PDF</button>
+      <button type="button" data-print-trigger>打印 / 存为 PDF</button>
       <a class="chip" href="/practice/vocabulary">返回生词本</a>
     </nav>
   </header>
@@ -69,5 +69,6 @@
 
   <footer class="sheet-foot">IELTS Reading Studio · 生词本打印版 · 释义与例句来自已校验的阅读 Package。</footer>
 </main>
+<script src="/static/print.js?v=1"></script>
 </body>
 </html>

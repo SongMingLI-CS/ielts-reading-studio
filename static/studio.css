@@ -9,3 +9,35 @@
 
 @media(max-width:900px){.studio-hero{grid-template-columns:1fr;padding:2.5rem}.studio-total{border-left:0;border-top:1px solid #b8c9c1;padding:1.5rem 0 0}.studio-total strong{font-size:3.5rem}.product-grid,.workspace-grid,.chapter-preview-list{grid-template-columns:1fr}.product-card{min-height:23rem}.novel-heading{align-items:flex-start}}
 @media(max-width:600px){.studio-hero{margin-top:0;padding:1.7rem 1.25rem;border-radius:.9rem}.studio-hero h1{font-size:clamp(2.5rem,14vw,4rem)}.product-card{min-height:21rem;padding:1.35rem}.product-card h2{font-size:1.85rem}.product-stats{gap:1rem}.novel-heading{display:block}.catalog-badge{align-items:flex-start;margin-top:1rem;min-width:0}.workspace-card{padding:1.25rem}.range-form{grid-template-columns:1fr}.estimate-result,.mini-stats{flex-wrap:wrap}.estimate-result span,.mini-stats span{min-width:5rem}.chapter-preview-list article{align-items:flex-start;flex-direction:column}.chapter-preview-list nav{width:100%;flex-wrap:wrap}.chapter-preview-list nav a{flex:1;text-align:center;white-space:nowrap}}
+
+/* ---------------------------------------------------------------------------
+   首页：把「进入练习中心」这类主操作抬进首屏（1440×900 实测此前在折线下方）
+   --------------------------------------------------------------------------- */
+@media (min-width:901px){
+  body:has(.studio-hero) main{padding-top:1.75rem}
+  .studio-hero{margin:0 0 1.5rem;padding:2.2rem 3rem}
+  .studio-hero h1{margin:.35rem 0 .9rem;font-size:clamp(2.4rem,4vw,3.6rem)}
+  .studio-total strong{font:3.4rem/1 Georgia,serif}
+  .product-card{min-height:0;padding:1.6rem}
+  .product-stats{margin:1rem 0}
+}
+
+/* ---------------------------------------------------------------------------
+   手机（≤600px）：首页 hero 与产品卡再收一层，让第一个「进入练习中心」
+   在 390×844 上尽量靠近首屏（hero 与卡片此前各留了桌面级留白）
+   --------------------------------------------------------------------------- */
+@media (max-width:600px){
+  body:has(.studio-hero) main{padding-top:.8rem}
+  .studio-hero{gap:.9rem;margin:0 0 1.1rem;padding:1.15rem 1.1rem}
+  .studio-hero h1{margin:.3rem 0 .65rem;font-size:clamp(1.85rem,10.5vw,2.6rem)}
+  .studio-hero .lead{font-size:.95rem;line-height:1.55}
+  /* 大数字块在手机上改为横排一行，否则它自己就占掉 100px 首屏高度 */
+  .studio-total{flex-direction:row;align-items:baseline;flex-wrap:wrap;gap:.5rem;padding:.65rem 0 0}
+  .studio-total strong{font-size:2.4rem;margin:0}
+  .product-card{min-height:0;padding:1.2rem}
+  .product-card h2{font-size:1.6rem}
+  .product-number{font-size:1.5rem}
+  .product-stats{gap:.7rem;margin:.7rem 0}
+  .product-stats strong{font-size:1.5rem}
+}
+

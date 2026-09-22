@@ -101,3 +101,29 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   .site-header nav a[aria-current="page"]::after{display:none}
   .mobile-pane-tabs{top:env(safe-area-inset-top)}
 }
+
+/* ---------------------------------------------------------------------------
+   UI review fixes（实测：768px 平板 / 1440×900 首页 / 390px 手机）
+   --------------------------------------------------------------------------- */
+
+/* 导航在 701–1280px 一行放不下 12 个链接：此前没有换行规则，浏览器把每个链接压成
+   逐字竖排。改为按需换行 + 链接内部不换行；≤700px 仍是横向滚动条（见上方规则）。 */
+@media (min-width:701px) and (max-width:1280px){
+  .site-header{flex-wrap:wrap;gap:.6rem 1.25rem}
+  .site-header nav{flex-wrap:wrap;justify-content:flex-end;gap:.6rem 1.1rem}
+  .site-header nav a{white-space:nowrap}
+}
+
+/* 单选/复选框不该继承 input{width:100%}：控件被撑满整行后，标签文字被挤到卡片另一侧。 */
+input[type=radio],input[type=checkbox]{width:auto;max-width:none;margin:0;padding:0;flex:0 0 auto;accent-color:var(--green)}
+
+/* hidden 必须压过组件自己的 display：作者样式的 .x{display:grid|flex} 优先于 UA 的
+   [hidden]{display:none}，所以凡是靠 hidden 隐藏的组件都要补一条 [hidden] 兜底。 */
+.writing-result[hidden],.panel[hidden],.kn-active-filters[hidden]{display:none}
+
+/* ≤1024px 走「阅读文章 / 答题」标签页：一次只显示一个面板，网格必须塌成单列，
+   否则可见面板只占 53%，右半屏留白。 */
+@media (max-width:1024px){
+  .practice-shell.mobile-tabs-enabled{grid-template-columns:minmax(0,1fr)}
+}
+

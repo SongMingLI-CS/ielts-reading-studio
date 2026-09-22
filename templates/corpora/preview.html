@@ -72,7 +72,7 @@
 {% if total_chapters %}
     <form class="page-size" method="get" action="/corpora/{{ corpus.id }}/preview">{{ csrf_field() }}
       <label>每页
-        <select name="page_size" onchange="this.form.submit()">
+        <select name="page_size" data-auto-submit>
           {% for size in [25, 50, 100] %}<option value="{{ size }}" {% if size == page_size %}selected{% endif %}>{{ size }}</option>{% endfor %}
         </select>
       </label>
@@ -135,7 +135,7 @@
           <button type="submit" class="button small">保存标题</button>
         </form>
         <form method="post" action="/corpora/{{ corpus.id }}/boundaries/edit"
-              onsubmit="return confirm('把第 {{ item.chapter.ordinal }} 章与第 {{ item.chapter.ordinal + 1 }} 章合并？');">{{ csrf_field() }}
+              data-confirm="把第 {{ item.chapter.ordinal }} 章与第 {{ item.chapter.ordinal + 1 }} 章合并？">{{ csrf_field() }}
           <input type="hidden" name="action" value="merge_next">
           <input type="hidden" name="chapter_id" value="{{ item.chapter.id }}">
           <input type="hidden" name="page" value="{{ page }}">
@@ -143,7 +143,7 @@
           <button type="submit" class="button small secondary">与下一章合并</button>
         </form>
         <form method="post" action="/corpora/{{ corpus.id }}/boundaries/edit"
-              onsubmit="return confirm('在第 {{ item.chapter.ordinal }} 章的指定段前拆成两章？');">{{ csrf_field() }}
+              data-confirm="在第 {{ item.chapter.ordinal }} 章的指定段前拆成两章？">{{ csrf_field() }}
           <input type="hidden" name="action" value="split_before_paragraph">
           <input type="hidden" name="chapter_id" value="{{ item.chapter.id }}">
           <input type="hidden" name="page" value="{{ page }}">
@@ -191,3 +191,4 @@
 </details>
 {% endif %}
 {% endblock %}
+{% block scripts %}<script src="/static/corpora.js?v=1"></script>{% endblock %}

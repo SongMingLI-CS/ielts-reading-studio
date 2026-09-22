@@ -21,7 +21,7 @@
       </p>
     </div>
     <nav class="sheet-tools">
-      <button type="button" onclick="window.print()">打印 / 存为 PDF</button>
+      <button type="button" data-print-trigger>打印 / 存为 PDF</button>
       <a class="chip" href="/knowledge?{{ base_query }}">返回汇总页</a>
       <a class="chip" href="/knowledge/export.md?{{ base_query }}">导出 Markdown</a>
     </nav>
@@ -42,5 +42,6 @@
     IELTS Reading Studio · 知识点手册打印版 · 释义、搭配与例句取自生成时的原文，未使用外部词典。
   </footer>
 </main>
+<script src="/static/print.js?v=1"></script>
 </body>
 </html>

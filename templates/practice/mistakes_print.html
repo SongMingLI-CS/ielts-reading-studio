@@ -16,7 +16,7 @@
     <nav class="sheet-tools">
       <a class="chip{% if with_explanations %} active{% endif %}" href="/practice/mistakes/print?explanations=1{% if selected_type %}&type={{ selected_type }}{% endif %}">含解析</a>
       <a class="chip{% if not with_explanations %} active{% endif %}" href="/practice/mistakes/print?explanations=0{% if selected_type %}&type={{ selected_type }}{% endif %}">不含解析</a>
-      <button type="button" onclick="window.print()">打印 / 存为 PDF</button>
+      <button type="button" data-print-trigger>打印 / 存为 PDF</button>
       <a class="chip" href="/practice/mistakes">返回错题本</a>
     </nav>
   </header>
@@ -50,5 +50,6 @@
 
   <footer class="sheet-foot">IELTS Reading Studio · 错题本打印版 · 判分依据原文证据，不使用模糊匹配。</footer>
 </main>
+<script src="/static/print.js?v=1"></script>
 </body>
 </html>
