@@ -98,6 +98,11 @@ IELTS_WEB_PASSWORD=请使用独立的强密码
 - 词汇记忆：按词性、复现频率、来源、难度、同根词族分类，Leitner 盒子间隔重复复习；
 - 设置页：显示当前生效配置、密钥来源（不回显密钥）与数据位置，并可一键测试模型连通性。
 - 情境小说上传、章节识别、离线 Token 估算、样章生成门禁和成品下载。
+- 情境小说按书归档：源文件存在 `input/context-novel/library/<书 id>/source.<ext>`（按 sha256 去重、
+  永不删除），成品在 `output/context-novel/books/<书 id>/`，索引是 `input/context-novel/books.json`
+  （书名、文件名、字节数、章节数、导入时间与当前生成目标）。导入新书不再覆盖上一本：页面顶部
+  可以换一本看（`?book=`）、指定「生成目标」，章节列表按每页 20 章分页。旧布局的数据在第一次
+  打开页面时迁移一次，只按章节标题归属、只复制不删除，结果写在 `output/context-novel/migration_log.json`。
 
 ## 写作评估网页与 API
 
@@ -184,8 +189,8 @@ HTML 是不依赖网络的单文件，交卷前界面不暴露答案。DOCX 单�
 | 来源 | 取什么 | 说明 |
 |---|---|---|
 | `output/packages/*.json` | `passage.vocabulary`、每题的 `prompt` 与 `evidence_quote` | 只读已完成的篇目 |
-| `output/context-novel/glossary.json` | 术语库（含 CEFR、音标、搭配、例句、首末章、复现次数） | 小说未生成时页面会提示，不影响阅读侧内容 |
-| `output/context-novel/chapter_json/*.json` | 每段的"中文语境 → 英文表达"替换对 | 展示为「中英语境」，说明这个表达是在什么语境里用的 |
+| `output/context-novel/books/<书 id>/glossary.json` | 术语库（含 CEFR、音标、搭配、例句、首末章、复现次数） | 按书隔离；当前书未生成时页面会提示，不影响阅读侧内容 |
+| `output/context-novel/books/<书 id>/chapter_json/*.json` | 每段的"中文语境 → 英文表达"替换对 | 展示为「中英语境」，说明这个表达是在什么语境里用的 |
 
 筛选、排序、分页都在服务端完成，所有状态写在地址里（可收藏、可分享）：
 来源（仅阅读 / 仅小说 / 两边都出现）、难度（B1/B2/C1）、类型（单词 / 固定搭配 / 短语动词）、
@@ -314,6 +319,6 @@ scripts/verify.sh
 两个脚本执行同样的检查。`verify.sh` 默认使用项目里的 `.venv/bin/python`（也就是 systemd 启动服务用的同一个解释器），
 可用 `PYTHON=/path/to/python` 或 `IELTS_VERIFY_PYTHON=` 覆盖。
 
-当前基线：**625 passed**（主项目 506 + 情境小说组件 119）、Ruff 全仓零告警。CI
+当前基线：**719 passed**（主项目 600 + 情境小说组件 119）、Ruff 全仓零告警。CI
 （`.github/workflows/ci.yml`）在 Python 3.12 与 3.13 上执行同一条命令，并且不配置任何密钥。
 更详细的恢复、备份和状态说明见 [运维指南](docs/operator-guide.md)。

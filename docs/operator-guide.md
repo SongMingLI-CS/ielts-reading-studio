@@ -347,8 +347,7 @@ sudo systemctl restart ielts-reading-studio
 `/knowledge` 是只读视图，删产物/删语料库之后它会自动缩小，不需要迁移：
 
 - 阅读侧读 `output/packages/*.json`，只统计 `completed` 的单元；某篇被返工或删除时词条随之消失。
-- 小说侧读 `output/context-novel/glossary.json` 与 `chapter_json/`。**这两个文件缺失时页面照常工作**，
-  只显示顶部一行提示；小说未生成前不必做任何配置。
+- 小说侧读当前书的 `output/context-novel/books/<书 id>/glossary.json` 与 `chapter_json/`（书由 `input/context-novel/books.json` 索引）。**这两个文件缺失时页面照常工作**，只显示顶部一行提示；小说未生成前不必做任何配置。页面上换一本看（`?book=`）或换生成目标（`/novel/select`）就会换成那本书的文件。
 - 小说术语库的解析结果按文件指纹（mtime + 大小 + 章节数）在内存里缓存，最多 8 份；
   重新生成章节后指纹变化会自动重读，不需要重启服务。
 - 术语库里的中文释义质量取决于小说生成时的模型输出（早期数据可能是"积"这类过短的释义），

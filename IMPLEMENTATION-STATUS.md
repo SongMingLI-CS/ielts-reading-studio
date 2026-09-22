@@ -32,7 +32,7 @@ DeepSeek 适配器与双智能体已接入应用，但真实样篇门禁尚未�
 
 | 检查项 | 命令 | 结果 |
 |---|---|---|
-| 单元 + 集成测试（两个套件） | `python -m pytest -q` | **635 passed**（主项目 516 + 情境小说组件 119） |
+| 单元 + 集成测试（两个套件） | `python -m pytest -q` | **719 passed**（主项目 600 + 情境小说组件 119） |
 | 静态检查（全仓） | `python -m ruff check app tests migrations components/context-novel/src components/context-novel/tests` | **All checks passed!** |
 | 语法编译 | `python -m compileall -q app components/context-novel/src` | 通过 |
 | CLI 烟雾检查 | `python -m app.cli --help` | 通过，列出 13 个命令（含 `migrate`/`snapshot`/`worker`） |
@@ -211,7 +211,7 @@ SQLite：2000 章、1000 单元全部落库
 ```powershell
 cd C:\Users\Lenovo\Desktop\ielts-reading-studio
 python -m pip install -e ".[dev]"                        # 若尚未安装
-python -m pytest -q                                      # 预期 480 passed（主项目 361 + 组件 119）
+python -m pytest -q                                      # 预期 719 passed（主项目 600 + 组件 119）
 python -m ruff check app tests components/context-novel/src components/context-novel/tests   # 预期 All checks passed!
 python -m compileall -q app components/context-novel/src # 语法编译检查
 ```
