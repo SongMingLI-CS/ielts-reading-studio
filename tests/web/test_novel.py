@@ -226,6 +226,7 @@ def test_page_explains_why_chapters_failed_not_just_how_many(client, web_service
             (3, "failed", "billing"),
             (6, "failed", "billing"),
             (7, "failed", "billing"),
+            (9, "pending", None),
         ],
     )
     database.commit()
@@ -252,6 +253,8 @@ def test_page_explains_why_chapters_failed_not_just_how_many(client, web_service
     assert "billing × 3" in page.text
     assert "模型账户余额或配额不足" in page.text
     assert "第 3 章失败：billing（连续失败 5）" in page.text
+    # 被中断（崩溃恢复）的章节也要露出来，否则统计加起来对不上进度库的行数
+    assert "<strong>1</strong>待重试" in page.text
 
 
 def test_failed_run_surfaces_the_reason_instead_of_looking_successful(client, web_service):

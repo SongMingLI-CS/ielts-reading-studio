@@ -162,6 +162,7 @@ def test_progress_counts_report_the_way_chapters_failed(web_service):
         (5, "failed", 0, "invalid_response"),
         (6, "running", 0, None),
         (7, "failed", 0, None),
+        (8, "pending", 0, None),
     ]
     connection.executemany(
         "INSERT INTO chapter_progress VALUES (?,?,?,?,'2026-09-22T00:00:00+00:00')", rows
@@ -171,7 +172,9 @@ def test_progress_counts_report_the_way_chapters_failed(web_service):
 
     counts = library.progress_counts(database)
 
+    # 组件的每个状态都要报出来：只报 running 会把崩溃恢复后的 pending 变成隐形章（8 行只看到 7）
     assert (counts["completed"], counts["failed"], counts["running"]) == (2, 4, 1)
+    assert counts["pending"] == 1
     assert counts["reasons"] == {"billing": 2, "invalid_response": 1, "unknown": 1}
 
     assert library.progress_counts(database.parent / "missing.sqlite3") == {
