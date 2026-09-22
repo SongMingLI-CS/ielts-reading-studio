@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 from pathlib import Path
 
 from app.web import novel_library as library
@@ -139,6 +140,48 @@ def test_migration_leaves_unmatched_output_in_place(web_service):
     assert summary["notes"]
     assert (legacy_output / "html" / "第0009章.html").is_file()
     assert not (library.books_root(web_service) / digest[:12] / "html").exists()
+
+
+def test_progress_counts_report_the_way_chapters_failed(web_service):
+    """「失败 7 章」要配上原因才可解释：billing 与 invalid_response 要分开统计。"""
+
+    database = web_service.config.output_dir / "books" / "x" / "state.sqlite3"
+    database.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(database)
+    connection.execute(
+        """CREATE TABLE chapter_progress (
+            chapter_id INTEGER PRIMARY KEY, status TEXT NOT NULL,
+            inserted_count INTEGER NOT NULL DEFAULT 0, error_type TEXT, updated_at TEXT NOT NULL
+        )"""
+    )
+    rows = [
+        (1, "completed", 150, None),
+        (2, "completed", 171, None),
+        (3, "failed", 0, "billing"),
+        (4, "failed", 0, "billing"),
+        (5, "failed", 0, "invalid_response"),
+        (6, "running", 0, None),
+        (7, "failed", 0, None),
+    ]
+    connection.executemany(
+        "INSERT INTO chapter_progress VALUES (?,?,?,?,'2026-09-22T00:00:00+00:00')", rows
+    )
+    connection.commit()
+    connection.close()
+
+    counts = library.progress_counts(database)
+
+    assert (counts["completed"], counts["failed"], counts["running"]) == (2, 4, 1)
+    assert counts["reasons"] == {"billing": 2, "invalid_response": 1, "unknown": 1}
+
+    assert library.progress_counts(database.parent / "missing.sqlite3") == {
+        "completed": 0,
+        "failed": 0,
+        "running": 0,
+        "reasons": {},
+    }
+    database.write_bytes(b"not a database")
+    assert library.progress_counts(database)["failed"] == 0
 
 
 def test_migration_is_a_no_op_once_the_library_has_books(web_service):

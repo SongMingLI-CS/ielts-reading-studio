@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 
 from app.web import novel_library as library
 
@@ -200,6 +201,57 @@ def test_chapter_pagination_keeps_the_book_and_clamps_the_page(client, web_servi
     # 页码越界钳到最后一页，不会出现空页
     clamped = client.get(f"/novel?book={book}&page=99")
     assert "第 2 / 2 页" in clamped.text
+
+
+def test_page_explains_why_chapters_failed_not_just_how_many(client, web_service):
+    """「失败 7 章」旁边要给出原因分布与下一步，否则操作者只能猜。"""
+
+    _import(client, "story.txt")
+    book = library.active_book_id(web_service)
+    entry = library.book_entry(web_service, book)
+    paths = library.book_paths(web_service, book, entry["extension"])
+    paths.output.mkdir(parents=True, exist_ok=True)
+    database = sqlite3.connect(paths.output / "state.sqlite3")
+    database.execute(
+        """CREATE TABLE chapter_progress (
+            chapter_id INTEGER PRIMARY KEY, status TEXT NOT NULL,
+            inserted_count INTEGER NOT NULL DEFAULT 0, error_type TEXT, updated_at TEXT NOT NULL
+        )"""
+    )
+    database.executemany(
+        "INSERT INTO chapter_progress VALUES (?,?,0,?,'2026-09-22T08:24:00+00:00')",
+        [
+            (1, "completed", None),
+            (2, "completed", None),
+            (3, "failed", "billing"),
+            (6, "failed", "billing"),
+            (7, "failed", "billing"),
+        ],
+    )
+    database.commit()
+    database.close()
+    paths.run.write_text(
+        json.dumps(
+            {
+                "status": "failed",
+                "outcome": "failed",
+                "description": "《story》失败章节重试",
+                "chapters_completed": 0,
+                "chapters_failed": 3,
+                "failure_reason": "第 3 章失败：billing（连续失败 5）",
+                "failure_hint": "模型账户余额或配额不足",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    page = client.get(f"/novel?book={book}")
+
+    assert "失败原因：" in page.text
+    assert "billing × 3" in page.text
+    assert "模型账户余额或配额不足" in page.text
+    assert "第 3 章失败：billing（连续失败 5）" in page.text
 
 
 def test_failed_run_surfaces_the_reason_instead_of_looking_successful(client, web_service):

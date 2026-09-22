@@ -358,6 +358,54 @@ def test_next_step_card_is_a_full_width_single_column_on_small_screens() -> None
     assert "min-height:44px" in css
 
 
+def _outside_media_queries(css: str) -> str:
+    """Stylesheet text with the *bodies* of every rule and at-rule removed.
+
+    What is left is the top-level selector text (``.book-row``) and the at-rule preludes
+    (``@media (max-width:560px)``). A selector that is missing here is only declared inside a
+    media query, which is exactly how the whole novel library ended up unstyled on desktop.
+    """
+
+    kept: list[str] = []
+    depth = 0
+    for character in css:
+        if character == "{":
+            depth += 1
+        elif character == "}":
+            depth -= 1
+        elif depth == 0:
+            kept.append(character)
+    return "".join(kept)
+
+
+def test_novel_library_rules_are_not_trapped_inside_a_media_query() -> None:
+    """书库与分页的规则必须写在媒体查询之外，否则桌面端整块没有样式。"""
+
+    css = _normalized(STATIC / "studio.css")
+    top_level = _outside_media_queries(css)
+
+    assert css.count("{") == css.count("}"), "studio.css 花括号不平衡"
+    for selector in (
+        ".book-library",
+        ".book-list",
+        ".book-row",
+        ".book-row.is-active",
+        ".book-row-main",
+        ".book-row-actions",
+        ".book-badge",
+        ".upload-panel summary",
+        ".failure-reasons",
+        ".pagination-summary",
+        ".pagination-pages .page-number",
+    ):
+        assert selector in top_level, f"{selector} 只在媒体查询里生效"
+    # 负面对照：这条确实属于窄屏专用，不能出现在顶层
+    assert ".book-row.is-active" not in _outside_media_queries(
+        _normalized(STATIC / "studio.css").replace(".book-row.is-active", "", 1)
+    )
+    assert ".book-row{flex-direction:column" not in top_level
+
+
 def test_mobile_bottom_nav_adds_four_thumb_reachable_entries(client, completed_unit) -> None:
     """窄屏多一条底栏（首页/阅读/复习/语料）：顶部仍是全部入口，底栏只解决拇指够不到。"""
 

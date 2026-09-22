@@ -130,6 +130,46 @@ def test_exit_code_zero_without_chapters_is_recorded_not_hidden(
     assert "每 500 字至少 20 个词条" in payload["failure_hint"]
 
 
+def test_billing_failures_explain_the_balance_and_the_retry_path(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """余额不足是最常见的一类失败：提示必须说清怎么修、以及重试只跑失败章节。"""
+
+    status_path = tmp_path / "run_status.json"
+    log_path = tmp_path / "reports" / "web-generation.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.write_text(
+        "第 6 章失败：billing（连续失败 1）\n第 7 章失败：billing（连续失败 2）\n"
+        "连续 5 章失败，已停止批处理\n"
+        '{"requested": 20, "completed": [1, 2, 4, 5], "failed": {"6": "billing", "7": "billing"},'
+        ' "inserted_total": 745}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "app.pipeline.novel_runner.subprocess.run",
+        lambda command, **kwargs: subprocess.CompletedProcess(command, 1),
+    )
+
+    try:
+        run_novel_job(
+            None,
+            {
+                "arguments": ["--chapters", "1-20"],
+                "config_path": str(tmp_path / "c.yaml"),
+                "status_path": str(status_path),
+            },
+        )
+    except RuntimeError:
+        pass  # 非零退出码照旧抛给 worker
+
+    payload = json.loads(status_path.read_text(encoding="utf-8"))
+    assert payload["outcome"] == "failed"
+    assert payload["chapters_failed"] == 2
+    assert "billing" in payload["failure_reason"]
+    assert "余额或配额不足" in payload["failure_hint"]
+    assert "重试失败章节" in payload["failure_hint"]
+
+
 def test_latest_run_in_the_append_only_log_decides_the_outcome(
     tmp_path: Path, monkeypatch
 ) -> None:

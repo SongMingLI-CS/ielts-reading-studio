@@ -147,8 +147,15 @@ def generated_chapters(service: ReadingStudioService, book_id: str) -> int:
     )
 
 
-def progress_counts(database: Path) -> dict[str, int]:
-    counts = {"completed": 0, "failed": 0, "running": 0}
+def progress_counts(database: Path) -> dict[str, Any]:
+    """按状态统计章节进度，并给出失败原因分布。
+
+    组件的进度库一章一行（``failed`` 行会记 ``error_type``），所以「失败 7 章」这种数字只有
+    配上原因才可解释：7 章全是 ``billing``（余额不足）与 7 章分散在模型质量问题上，操作者要
+    做的事完全不同。
+    """
+
+    counts: dict[str, Any] = {"completed": 0, "failed": 0, "running": 0, "reasons": {}}
     if not database.exists():
         return counts
     try:
@@ -156,9 +163,14 @@ def progress_counts(database: Path) -> dict[str, int]:
             rows = connection.execute(
                 "SELECT status, COUNT(*) FROM chapter_progress GROUP BY status"
             ).fetchall()
-        counts.update({str(status): int(count) for status, count in rows})
+            reasons = connection.execute(
+                "SELECT COALESCE(NULLIF(error_type, ''), 'unknown'), COUNT(*) "
+                "FROM chapter_progress WHERE status='failed' GROUP BY 1 ORDER BY 2 DESC, 1"
+            ).fetchall()
     except sqlite3.Error:
         return counts
+    counts.update({str(status): int(count) for status, count in rows})
+    counts["reasons"] = {str(reason): int(count) for reason, count in reasons}
     return counts
 
 

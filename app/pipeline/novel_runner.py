@@ -45,14 +45,24 @@ def ensure_system_corpus(service: ReadingStudioService) -> str:
     return SYSTEM_CORPUS_ID
 
 
-#: 组件报出的失败关键词 → 给操作者的下一步建议。
+#: 组件报出的失败关键词 → 给操作者的下一步建议。按从具体到宽泛的顺序匹配，命中第一个即用。
 FAILURE_HINTS = {
+    "billing": (
+        "模型账户余额或配额不足（provider 返回 billing）：充值或换一个可用密钥后点「重试失败章节」。"
+        "重试只跑失败的那几章，已完成的章节不会重跑、也不会重复收费。"
+    ),
+    "authentication": "密钥无效或已过期：检查 .env.web 里的 DEEPSEEK_API_KEY 后重试失败章节。",
+    "rate_limit": "被模型侧限流：等几分钟再点「断点继续」或「重试失败章节」。",
     "density_too_low": (
         "这一章的词汇密度没达到下限（每 500 字至少 20 个词条），组件重试后就丢弃了。"
         "换一章更长的、或把密度下限调低后重试；已成功的章节不受影响。"
     ),
     "invalid_response": "模型返回的 JSON 不合法，重试这一章通常即可恢复。",
+    "empty_response": "模型返回空响应，重试这一章通常即可恢复。",
     "ChapterConversionError": "这一章的正文转换失败，换一章或分开重试。",
+    "RunLimitError": (
+        "这一批超过了单次运行的章节上限（或样章确认前每次只能生成一章）：按章节范围分批生成即可。"
+    ),
     "auth": "密钥或余额问题：检查 .env.web 里的 DEEPSEEK_API_KEY 与账户余额。",
 }
 

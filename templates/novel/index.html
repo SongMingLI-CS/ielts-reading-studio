@@ -57,6 +57,7 @@
   <section class="workspace-card output-card">
     <span class="step-mark">04</span><p class="eyebrow">Library</p><h2>《{{ selected.name }}》的成品与进度</h2>
     <div class="mini-stats"><span><strong>{{ progress.completed }}</strong>完成</span><span><strong>{{ progress.running }}</strong>进行中</span><span><strong>{{ progress.failed }}</strong>失败</span><span><strong>{{ chapters_total }}</strong>可阅读</span></div>
+    {% if progress.reasons %}<p class="failure-reasons">失败原因：{% for reason, count in progress.reasons.items() %}{{ reason }} × {{ count }}{% if not loop.last %} · {% endif %}{% endfor %}{% if run and run.failure_hint %}<br><small>{{ run.failure_hint }}</small>{% endif %}</p>{% endif %}
     <a class="button refresh-output" href="/novel?book={{ book_id }}">刷新进度</a>
     {% if run and run.failure_reason %}<div class="inline-alert">最近一次运行没有产出完整章节：{{ run.failure_reason }}{% if run.failure_hint %} <small>{{ run.failure_hint }}</small>{% endif %}</div>{% endif %}
     {% if library_files or volume_files %}<div class="file-list library-downloads">{% for path in library_files %}<a href="/novel/files/{{ path }}?book={{ book_id }}"{% if path.endswith('.html') %} target="_blank"{% endif %}>{{ '阅读总目录' if path == 'index.html' else ('总词汇表' if path == 'glossary.xlsx' else path.split('/')[-1]) }} <span>{{ path.split('.')[-1]|upper }}</span></a>{% endfor %}{% for path in volume_files %}<a href="/novel/files/{{ path }}?book={{ book_id }}">{{ path.split('/')[-1] }} <span>DOCX</span></a>{% endfor %}</div>{% endif %}

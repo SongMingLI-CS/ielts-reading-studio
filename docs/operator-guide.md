@@ -110,6 +110,25 @@ curl -fsS http://127.0.0.1:8766/healthz
 - `agent_schema_error`：模型 JSON 不符合 Pydantic 契约，错误会脱敏并保存。
 - `needs_review`：达到返工上限；先检查 `failed/` 与 `reports/`，不要盲目重跑。
 
+### 8.1 情境小说的失败原因（页面上会直接写出来）
+
+`/novel` 的输出卡在「完成 / 进行中 / 失败 / 可阅读」下面多一行「失败原因：<error_type> × 章数」，
+它来自这本书自己的进度库 `output/context-novel/books/<book-id>/state.sqlite3` 的
+`chapter_progress` 表（一章一行，失败行带 `error_type`）。看到数字以后按下表处理：
+
+| `error_type` | 含义 | 下一步 |
+|---|---|---|
+| `billing` | 模型账户余额 / 配额不足（provider 返回余额不足） | 充值或换密钥，再点「重试失败章节」；只重跑失败章节，已完成的不会重跑、不会重复收费 |
+| `authentication` | 密钥无效或过期 | 检查 `.env.web` 的 `DEEPSEEK_API_KEY` |
+| `rate_limit` | 被模型侧限流 | 等几分钟，再「断点继续」或「重试失败章节」 |
+| `density_too_low` | 词汇密度没过门禁（每 500 字至少 20 个词条） | 换更长的章节，或调低密度下限后重试 |
+| `invalid_response` / `empty_response` | 模型返回的 JSON 不合法或为空 | 直接重试这一章 |
+| `ChapterConversionError` | 该章正文转换失败 | 换一章，或按范围分批重试 |
+| `RunLimitError` | 超过单次运行的章节上限（样篇确认前每次只能一章） | 按章节范围分批生成 |
+
+连续失败到 `max_consecutive_failures`（默认 5）时组件会主动停止批处理，日志与
+`run_status.json` 里会写 `连续 N 章失败，已停止批处理`；先修掉原因再重试，否则只会再停一次。
+
 运行 `scripts/verify.sh`（Linux / macOS，服务器上用这个）或 `scripts/verify.ps1`（Windows）可确认本地代码、依赖和离线路径完整：两个测试套件、`app/` 与组件源码的字节编译、四处 Ruff 检查与 CLI 帮助烟雾测试。`verify.sh` 默认使用项目里的 `.venv/bin/python`（systemd 启动服务的同一个解释器），可用 `PYTHON=` 覆盖。真实样篇之前还应核对 DeepSeek 官方当前模型名与价格，并保持模型名由配置提供。
 
 ## 9. 远程部署（服务器）
