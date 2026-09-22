@@ -6,11 +6,12 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends
 from starlette.requests import Request
 
-from app.models import Corpus, GenerationUnit, ReadingPackage, UnitStatus
+from app.models import Corpus, GenerationUnit, UnitStatus
 from app.pipeline.service import ReadingStudioService
 from app.vocabulary import due_rows, study_rows
 
 from .dependencies import get_service
+from .progress import draft_progress, question_numbers
 
 # 复习待办必须与错题页用同一份判定，否则首页和错题页会对同一批作答给出不同数字。
 from .routes_practice import mistake_items
@@ -128,22 +129,6 @@ def _library(service: ReadingStudioService) -> list[tuple[Corpus, GenerationUnit
     ]
 
 
-def _question_numbers(package: ReadingPackage) -> list[int]:
-    return [
-        question.number
-        for group in package.question_groups
-        for question in group.questions
-    ]
-
-
-def _has_answer(value: Any) -> bool:
-    """草稿里这一题算不算答过。多选存的是列表，文本题存字符串。"""
-
-    if isinstance(value, (list, tuple, set)):
-        return any(str(item).strip() for item in value)
-    return bool(str(value or "").strip())
-
-
 def _resume_card(
     service: ReadingStudioService, attempt: dict[str, Any]
 ) -> dict[str, Any] | None:
@@ -156,13 +141,10 @@ def _resume_card(
         package = service.load_package(unit.id)
     except (FileNotFoundError, ValueError):
         return None
-    numbers = _question_numbers(package)
-    answers = attempt["payload"].get("answers") or {}
-    answered = sum(1 for number in numbers if _has_answer(answers.get(str(number))))
-    upcoming = next(
-        (number for number in numbers if not _has_answer(answers.get(str(number)))),
-        None,
-    )
+    progress = draft_progress(package, attempt["payload"])
+    numbers = question_numbers(package)
+    answered = int(progress["answered"] or 0)
+    upcoming = progress["upcoming"]
     elapsed = attempt["payload"].get("elapsed_seconds")
     corpus = service.repository.get_corpus(unit.corpus_id)
     return {
@@ -195,7 +177,7 @@ def _unit_card(
         package = service.load_package(unit.id)
     except (FileNotFoundError, ValueError):
         return None
-    numbers = _question_numbers(package)
+    numbers = question_numbers(package)
     return {
         "kind": kind,
         "unit_id": unit.id,

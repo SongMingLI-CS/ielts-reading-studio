@@ -151,16 +151,30 @@ def test_mobile_tabs_collapse_the_practice_grid_to_one_column() -> None:
 
 
 def test_mobile_library_keeps_stats_on_one_row() -> None:
-    """390×844 实测：概览格塌成 4 行时首篇练习卡要到 1232px；压成一行 4 格后是 771px。"""
+    """390×844 实测：概览格塌成 4 行时首篇练习卡要到 1232px；压成一行 4 格后是 697px。"""
 
     css = _normalized(STATIC / "practice-center.css")
 
     assert ".hero-actions{min-width:0;max-width:100%;flex-direction:row;flex-wrap:wrap" in css
-    assert ".overview-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:.35rem;margin-top:.55rem}" in css
+    assert ".overview-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:.35rem;margin-top:.4rem}" in css
     # 一列网格的子项必须允许收缩，否则内容的 min-content 会把整页顶出 390px 视口
     assert ".practice-hero,.hero-copy,.study-overview{min-width:0}" in css
     # 390px 是设计师实机宽度；任何让它退回单列的规则都会复活「首卡在 1232px」的缺陷
     assert ".overview-grid{grid-template-columns:1fr}" not in css
+    # 手机上的 hero 说明只是占位：留着它，搜索框与筛选标签就压在第一屏之外
+    assert ".hero-copy .lead{display:none}" in css
+
+
+def test_mobile_library_puts_search_and_filters_above_the_first_card() -> None:
+    """390 实测：搜索 587 / 筛选 641 / 首篇卡 697，三行都落在底栏 787 之上。"""
+
+    css = _normalized(STATIC / "practice-center.css")
+
+    assert "body:has(.practice-hero) .library-toolbar{display:none}" in css
+    # 四个筛选标签在窄屏横向滚动，占一行而不是换行成两行
+    assert ".filter-tabs{flex-wrap:nowrap;overflow-x:auto" in css
+    # .library-search 的按钮保持 44px 触控高度
+    assert ".library-search button{min-height:44px}" in css
 
 
 def test_mobile_home_hero_fits_the_first_screen() -> None:

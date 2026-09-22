@@ -22,6 +22,7 @@ from app.pipeline.service import ReadingStudioService
 from app.vocabulary import due_rows, study_rows, tracked_rows
 
 from .dependencies import get_service
+from .progress import draft_progress
 from .routes_vocabulary import review_session_context
 from .schemas import (
     AnswerResult,
@@ -62,7 +63,30 @@ OPTION_PREFIX = re.compile(r"^\s*([A-Za-z]{1,4}|\d{1,2})\s*[.)、]\s*")
 def practice_center(
     request: Request,
     service: Annotated[ReadingStudioService, Depends(get_service)],
+    q: str | None = None,
+    state: str | None = None,
 ):
+    return TEMPLATES.TemplateResponse(
+        request, "practice/index.html", practice_library_context(service, q, state)
+    )
+
+
+#: 练习中心的状态筛选：值 → 标签。顺序就是屏幕上的顺序。
+PRACTICE_STATES: dict[str, str] = {
+    "in_progress": "进行中",
+    "new": "未开始",
+    "done": "已完成",
+}
+
+
+def practice_library_context(
+    service: ReadingStudioService, query: str | None, state: str | None
+) -> dict[str, Any]:
+    """练习中心的上下文：篇目、草稿进度、状态筛选与搜索。
+
+    搜索与筛选都在服务端做，链接可以直接分享（?q=&state=），也不依赖脚本。
+    """
+
     items = []
     attempts = service.repository.list_practice_attempts()
     attempts_by_unit: dict[str, list[dict]] = {}
@@ -92,28 +116,51 @@ def practice_center(
                 if scored
                 else None
             )
+            latest_draft = drafts[0] if drafts else None
+            progress = (
+                draft_progress(package, latest_draft["payload"]) if latest_draft else None
+            )
+            # 只要还有草稿就算"进行中"，即使这一篇以前提交过：草稿比旧成绩更应该被接着写，
+            # 显示成"重做"会带上 ?fresh=1 并把已经写好的答案清掉。
+            if latest_draft is not None or (unit_attempts and not submitted):
+                item_state = "in_progress"
+            elif submitted:
+                item_state = "submitted"
+            else:
+                item_state = "empty"
             items.append(
                 {
                     "unit": unit,
                     "corpus": corpus,
                     "package": package,
                     "attempts": unit_attempts,
-                    "latest": unit_attempts[0] if unit_attempts else None,
                     "latest_submitted": submitted[0] if submitted else None,
-                    "latest_draft": drafts[0] if drafts else None,
+                    "latest_draft": latest_draft,
                     "submitted_count": len(submitted),
                     "best": round(best * 100) if best is not None else None,
-                    "state": "empty"
-                    if not unit_attempts
-                    else ("submitted" if submitted else "in_progress"),
+                    "draft": progress,
+                    "state": item_state,
                 }
             )
+
+    needle = (query or "").strip().casefold()
+    selected = state if state in PRACTICE_STATES else None
+    visible = [
+        item
+        for item in items
+        if (not needle or needle in item["package"].passage.title.casefold())
+        and (
+            selected is None
+            or (selected == "new" and item["state"] == "empty")
+            or (selected == "done" and item["state"] == "submitted")
+            or (selected == "in_progress" and item["state"] == "in_progress")
+        )
+    ]
+
     submitted_attempts = [
         attempt for attempt in attempts if attempt["status"] == "submitted"
     ]
-    scoreable = [
-        attempt for attempt in submitted_attempts if attempt["total"]
-    ]
+    scoreable = [attempt for attempt in submitted_attempts if attempt["total"]]
     average = (
         round(
             sum(attempt["score"] / attempt["total"] for attempt in scoreable)
@@ -123,17 +170,31 @@ def practice_center(
         if scoreable
         else None
     )
-    summary = {
-        "available": len(items),
+    counts = {
+        "all": len(items),
         "in_progress": sum(item["state"] == "in_progress" for item in items),
-        "submitted": len(submitted_attempts),
-        "average": average,
+        "new": sum(item["state"] == "empty" for item in items),
+        "done": sum(item["state"] == "submitted" for item in items),
     }
-    return TEMPLATES.TemplateResponse(
-        request,
-        "practice/index.html",
-        {"items": items, "summary": summary},
-    )
+    return {
+        "items": visible,
+        "total_items": len(items),
+        "matched": len(visible),
+        "query": query or "",
+        "selected_state": selected,
+        "state_tabs": [
+            (value, label, counts[value]) for value, label in PRACTICE_STATES.items()
+        ],
+        "state_counts": counts,
+        # 一篇都没做过时给"开始第一篇"，全部做过时给"去复习"的引导
+        "all_done": bool(items) and counts["done"] == len(items),
+        "summary": {
+            "available": len(items),
+            "in_progress": counts["in_progress"],
+            "submitted": len(submitted_attempts),
+            "average": average,
+        },
+    }
 
 
 @router.get("/practice/history")

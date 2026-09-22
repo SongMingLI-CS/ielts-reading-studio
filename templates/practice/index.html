@@ -13,20 +13,37 @@
     <div class="overview-grid">
       <div><strong>{{ summary.available }}</strong><span>可练习</span></div>
       <div><strong>{{ summary.in_progress }}</strong><span>进行中</span></div>
-      <div><strong>{{ summary.submitted }}</strong><span>已完成</span></div>
+      <div><strong>{{ summary.submitted }}</strong><span>已提交</span></div>
       <div><strong>{% if summary.average is not none %}{{ summary.average }}%{% else %}—{% endif %}</strong><span>平均正确率</span></div>
     </div>
   </aside>
 </section>
 
-{% if items %}
+{% if total_items %}
 <div class="library-toolbar"><div><p class="eyebrow">Your passages</p><h2>可练习篇目</h2></div><p>按章节顺序排列 · 草稿自动保存 · 提交后给出答案与解析</p></div>
+<form class="library-search" action="/practice" method="get" role="search">
+  {% if selected_state %}<input type="hidden" name="state" value="{{ selected_state }}">{% endif %}
+  <div class="search-field">
+    <label for="library-q">搜索篇名</label>
+    <input id="library-q" type="search" name="q" value="{{ query }}" placeholder="输入篇名里的任意词" autocomplete="off">
+  </div>
+  <button type="submit">搜索</button>
+  {% if query %}<a class="text-link" href="/practice{% if selected_state %}?state={{ selected_state }}{% endif %}">清除</a>{% endif %}
+</form>
+<nav class="filter-tabs" aria-label="按进度筛选">
+  <a href="/practice{% if query %}?q={{ query|urlencode }}{% endif %}"{% if not selected_state %} aria-current="page"{% endif %}>全部 {{ state_counts.all }}</a>
+  {% for value, label, count in state_tabs %}<a href="/practice?state={{ value }}{% if query %}&q={{ query|urlencode }}{% endif %}"{% if selected_state == value %} aria-current="page"{% endif %}>{{ label }} {{ count }}</a>{% endfor %}
+</nav>
+{% if all_done %}
+<p class="inline-note plain">这些篇目都做完了。想再练一遍就挑一篇「重做」，或者去<a class="text-link" href="/practice/review?tab=mistakes">复习错题</a>、<a class="text-link" href="/corpora">生成新的篇目</a>。</p>
+{% endif %}
+{% if matched %}
 <div class="practice-library">
 {% for item in items %}
   <article class="practice-book-card" data-status="{{ item.state }}">
     <div class="book-spine"><span>{{ '%02d'|format(item.unit.ordinal or loop.index) }}</span><i></i></div>
     <div class="book-copy">
-      <div class="card-topline"><p class="card-kicker">{{ item.package.passage.difficulty.value|title }}</p>{% if item.state == 'submitted' %}<span class="attempt-state submitted">已完成 {{ item.submitted_count }} 次</span>{% elif item.state == 'in_progress' %}<span class="attempt-state in_progress">进行中</span>{% else %}<span class="attempt-state new">新篇目</span>{% endif %}</div>
+      <div class="card-topline"><p class="card-kicker">{{ item.package.passage.difficulty.value|title }}</p>{% if item.state == 'submitted' %}<span class="attempt-state submitted">已完成 {{ item.submitted_count }} 次</span>{% elif item.state == 'in_progress' %}<span class="attempt-state in_progress">进行中{% if item.draft %} {{ item.draft.answered }} / {{ item.draft.total }}{% endif %}</span>{% else %}<span class="attempt-state new">新篇目</span>{% endif %}</div>
       <h2>{{ item.package.passage.title }}</h2>
       <p class="source-name">{{ item.corpus.name }}</p>
       <div class="passage-facts">
@@ -38,12 +55,20 @@
     </div>
     <div class="card-actions">
       {% if item.latest_submitted %}<a class="practice-arrow ghost" href="/practice/{{ item.unit.id }}/result/{{ item.latest_submitted.id }}"><span>看解析</span> →</a>{% endif %}
-      <a class="practice-arrow" href="/practice/{{ item.unit.id }}{% if item.state == 'submitted' %}?fresh=1{% endif %}" aria-label="{% if item.state == 'in_progress' %}继续{% elif item.state == 'submitted' %}重做{% else %}开始{% endif %} {{ item.package.passage.title }}"><span>{% if item.state == 'in_progress' %}继续{% elif item.state == 'submitted' %}重做{% else %}开始{% endif %}</span> →</a>
+      <a class="practice-arrow" href="/practice/{{ item.unit.id }}{% if item.state == 'submitted' %}?fresh=1{% endif %}" aria-label="{% if item.state == 'in_progress' %}继续{% elif item.state == 'submitted' %}重做{% else %}开始{% endif %} {{ item.package.passage.title }}"><span>{% if item.state == 'in_progress' and item.draft and item.draft.upcoming %}继续第 {{ item.draft.upcoming }} 题{% elif item.state == 'in_progress' %}继续作答{% elif item.state == 'submitted' %}重做{% else %}开始{% endif %}</span> →</a>
     </div>
   </article>
 {% endfor %}
 </div>
 {% else %}
-<div class="empty practice-empty"><span class="empty-icon">✦</span><h2>还没有可练习的篇目</h2><p>完成并批准一个生成单元后，它会出现在这里。</p><a class="button" href="/corpora">返回语料库</a></div>
+<div class="empty practice-empty">
+  <span class="empty-icon">✦</span>
+  <h2>{% if query %}没有篇名包含「{{ query }}」的篇目{% else %}这个进度下还没有篇目{% endif %}</h2>
+  <p>{% if total_items %}现在有 {{ total_items }} 篇可练习。{% endif %}换个词或换个筛选条件再看看。</p>
+  <a class="button" href="/practice">查看全部篇目</a>
+</div>
+{% endif %}
+{% else %}
+<div class="empty practice-empty"><span class="empty-icon">✦</span><h2>还没有可练习的篇目</h2><p>完成并批准一个生成单元后，它会出现在这里。先去语料库导入素材、生成样篇并批准，就可以开始练习。</p><a class="button" href="/corpora">去语料库导入</a></div>
 {% endif %}
 {% endblock %}

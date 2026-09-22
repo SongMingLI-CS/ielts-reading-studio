@@ -1,4 +1,4 @@
-.practice-hero{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(290px,.55fr);gap:1.4rem;align-items:stretch;margin-bottom:3.2rem}.hero-copy{position:relative;overflow:hidden;background:#173f37;color:white;border-radius:1.25rem;padding:3rem}.hero-copy::after{content:"";position:absolute;width:15rem;height:15rem;border:1px solid #ffffff22;border-radius:50%;right:-4rem;top:-7rem;box-shadow:0 0 0 2.5rem #ffffff08,0 0 0 5rem #ffffff06}.hero-copy .eyebrow{color:#9dd0c0}.hero-copy h1{font-size:clamp(2.7rem,6vw,4.8rem);margin:.4rem 0 1rem;position:relative;z-index:1}.hero-copy .lead{color:#d7e7e1;max-width:43rem;margin:0;position:relative;z-index:1}.hero-actions{display:flex;gap:1rem;align-items:center;margin-top:2.2rem;color:#c7ddd5;font-size:.9rem;position:relative;z-index:1}.hero-actions .local-badge{background:#ffffff10;color:#effaf6;border-color:#ffffff22}.study-overview{background:#fff;border:1px solid var(--line);border-radius:1.25rem;padding:1.7rem;box-shadow:0 14px 40px #153d360a}.overview-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-top:1rem}.overview-grid div{display:flex;flex-direction:column;justify-content:center;min-height:6.4rem;background:#f3f5f1;border-radius:.8rem;padding:1rem}.overview-grid strong{font:2rem Georgia,serif;color:var(--forest)}.overview-grid span{color:#69746f;font-size:.76rem}.library-toolbar{display:flex;align-items:end;justify-content:space-between;gap:1rem;margin-bottom:1rem}.library-toolbar h2{font:2rem Georgia,serif;margin:.2rem 0}.library-toolbar>p{color:#76807c;font-size:.86rem}.practice-library{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}.practice-book-card{position:relative;display:grid;grid-template-columns:3.2rem minmax(0,1fr) auto;gap:1.15rem;min-height:14.5rem;align-items:start;background:#fff;border:1px solid var(--line);border-radius:1rem;padding:1.35rem;box-shadow:0 10px 30px #153d3608;transition:transform .18s,box-shadow .18s,border-color .18s}.practice-book-card:hover{transform:translateY(-3px);box-shadow:0 18px 42px #153d3614;border-color:#b9cec6}.book-spine{display:flex;flex-direction:column;align-items:center;gap:.8rem;height:100%;color:#77847e;font:italic 1.55rem Georgia,serif}.book-spine i{display:block;width:1px;flex:1;background:linear-gradient(#b8c7c1,transparent)}.card-topline{display:flex;justify-content:space-between;align-items:center;gap:.5rem}.book-copy h2{font:1.55rem/1.18 Georgia,serif;margin:.65rem 0;max-width:32rem}.source-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#7a8580;font-size:.78rem;margin:.45rem 0 1.2rem}.attempt-state{font-size:.68rem;font-weight:800;border-radius:2rem;padding:.3rem .55rem}.attempt-state.new{background:#eef0ec;color:#6c7772}.attempt-state.in_progress{background:#fff1d7;color:#8b5d18}.attempt-state.submitted{background:#dff0e8;color:#286b57}.passage-facts{display:flex;gap:1.2rem;flex-wrap:wrap}.passage-facts span{font-weight:800;color:#294b43}.passage-facts small{display:block;text-transform:uppercase;letter-spacing:.08em;color:#8b9591;font-size:.58rem;font-weight:700}.practice-arrow{display:inline-flex;align-items:center;justify-content:space-between;gap:.6rem;min-height:40px;padding:.5rem .9rem;border:1px solid var(--forest);border-radius:.55rem;background:var(--forest);color:#fff;font-size:.86rem;font-weight:800;text-decoration:none;white-space:nowrap}.practice-arrow:hover{background:#0e493d;border-color:#0e493d;color:#fff}
+.practice-hero{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(290px,.55fr);gap:1.4rem;align-items:stretch;margin-bottom:3.2rem}.hero-copy{position:relative;overflow:hidden;background:#173f37;color:white;border-radius:1.25rem;padding:3rem}.hero-copy::after{content:"";position:absolute;width:15rem;height:15rem;border:1px solid #ffffff22;border-radius:50%;right:-4rem;top:-7rem;box-shadow:0 0 0 2.5rem #ffffff08,0 0 0 5rem #ffffff06}.hero-copy .eyebrow{color:#9dd0c0}/* .text-link 由后加载的 corpora.css 定义成深绿 #1d6658，在深绿 hero 上只有 1.72:1；这里用 0,2,0 的特异性盖过它，实测 8.9:1。 */.hero-copy .text-link{color:#cfe6dd;text-decoration:underline;text-decoration-color:#ffffff59;text-underline-offset:.22rem}.hero-copy .text-link:hover{color:#fff;text-decoration-color:#ffffffa6}.hero-copy h1{font-size:clamp(2.7rem,6vw,4.8rem);margin:.4rem 0 1rem;position:relative;z-index:1}.hero-copy .lead{color:#d7e7e1;max-width:43rem;margin:0;position:relative;z-index:1}.hero-actions{display:flex;gap:1rem;align-items:center;margin-top:2.2rem;color:#c7ddd5;font-size:.9rem;position:relative;z-index:1}.hero-actions .local-badge{background:#ffffff10;color:#effaf6;border-color:#ffffff22}.study-overview{background:#fff;border:1px solid var(--line);border-radius:1.25rem;padding:1.7rem;box-shadow:0 14px 40px #153d360a}.overview-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-top:1rem}.overview-grid div{display:flex;flex-direction:column;justify-content:center;min-height:6.4rem;background:#f3f5f1;border-radius:.8rem;padding:1rem}.overview-grid strong{font:2rem Georgia,serif;color:var(--forest)}.overview-grid span{color:#69746f;font-size:.76rem}.library-toolbar{display:flex;align-items:end;justify-content:space-between;gap:1rem;margin-bottom:1rem}.library-toolbar h2{font:2rem Georgia,serif;margin:.2rem 0}.library-toolbar>p{color:#76807c;font-size:.86rem}.practice-library{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}.practice-book-card{position:relative;display:grid;grid-template-columns:3.2rem minmax(0,1fr) auto;gap:1.15rem;min-height:14.5rem;align-items:start;background:#fff;border:1px solid var(--line);border-radius:1rem;padding:1.35rem;box-shadow:0 10px 30px #153d3608;transition:transform .18s,box-shadow .18s,border-color .18s}.practice-book-card:hover{transform:translateY(-3px);box-shadow:0 18px 42px #153d3614;border-color:#b9cec6}.book-spine{display:flex;flex-direction:column;align-items:center;gap:.8rem;height:100%;color:#77847e;font:italic 1.55rem Georgia,serif}.book-spine i{display:block;width:1px;flex:1;background:linear-gradient(#b8c7c1,transparent)}.card-topline{display:flex;justify-content:space-between;align-items:center;gap:.5rem}.book-copy h2{font:1.55rem/1.18 Georgia,serif;margin:.65rem 0;max-width:32rem}.source-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#7a8580;font-size:.78rem;margin:.45rem 0 1.2rem}.attempt-state{font-size:.68rem;font-weight:800;border-radius:2rem;padding:.3rem .55rem}.attempt-state.new{background:#eef0ec;color:#6c7772}.attempt-state.in_progress{background:#fff1d7;color:#8b5d18}.attempt-state.submitted{background:#dff0e8;color:#286b57}.passage-facts{display:flex;gap:1.2rem;flex-wrap:wrap}.passage-facts span{font-weight:800;color:#294b43}.passage-facts small{display:block;text-transform:uppercase;letter-spacing:.08em;color:#8b9591;font-size:.58rem;font-weight:700}.practice-arrow{display:inline-flex;align-items:center;justify-content:space-between;gap:.6rem;min-height:40px;padding:.5rem .9rem;border:1px solid var(--forest);border-radius:.55rem;background:var(--forest);color:#fff;font-size:.86rem;font-weight:800;text-decoration:none;white-space:nowrap}.practice-arrow:hover{background:#0e493d;border-color:#0e493d;color:#fff}
 @media(max-width:900px){.practice-hero{grid-template-columns:1fr}.practice-library{grid-template-columns:1fr}.overview-grid div{min-height:5rem}}@media(max-width:560px){.hero-copy{padding:2rem}.overview-grid{grid-template-columns:1fr 1fr}.library-toolbar{align-items:flex-start;flex-direction:column}.library-toolbar>p{margin-top:0}.practice-book-card{grid-template-columns:2.4rem minmax(0,1fr)}.card-actions{grid-column:1/-1;flex-direction:row;justify-content:flex-end}}
 
 @media (max-width:700px){
@@ -160,11 +160,14 @@
   .hero-copy{padding:1.25rem 1.15rem}
   .hero-copy h1{font-size:clamp(1.9rem,11vw,2.6rem);margin:.3rem 0 .7rem}
   .hero-actions{min-width:0;max-width:100%;flex-direction:row;flex-wrap:wrap;align-items:center;gap:.45rem .8rem;margin-top:.85rem}
-  .practice-hero{gap:.75rem;margin-bottom:1.1rem}
-  .study-overview{padding:.9rem}
+  .practice-hero{gap:.6rem;margin-bottom:.9rem}
+  /* 手机上这段说明只是占位：藏掉它，搜索框、筛选标签和第一张卡才进得了首屏 */
+  .hero-copy .lead{display:none}
+  .hero-actions{margin-top:.6rem}
+  .study-overview{padding:.8rem}
   .study-overview .eyebrow{margin:.1rem 0}
   /* 学习概览压成一行 4 格：此前 ≤390px 会塌成 4 行、把篇目列表推到 1232px */
-  .overview-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:.35rem;margin-top:.55rem}
+  .overview-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:.35rem;margin-top:.4rem}
   .overview-grid div{min-width:0;min-height:3.1rem;padding:.4rem .45rem}
   .overview-grid strong{font-size:1.15rem}
   .overview-grid span{font-size:.62rem}
@@ -185,5 +188,37 @@
   /* 三个标签在窄屏平分一行：换行会把"哪个是当前页"变得难认 */
   .review-tabs{gap:.35rem}
   .review-tabs a{flex:1 1 0;justify-content:center;padding:.5rem .55rem;font-size:.85rem}
+}
+
+/* ---------------------------------------------------------------------------
+   练习中心：搜索篇名 + 按进度筛选。两者都走 GET，链接可以直接分享，也不依赖脚本。
+   --------------------------------------------------------------------------- */
+.library-search{display:flex;align-items:flex-end;gap:.6rem;flex-wrap:wrap;margin:0 0 1rem}
+.library-search .search-field{flex:1 1 18rem;max-width:26rem}
+.library-search label{display:block;margin:0 0 .25rem;font-size:.78rem;font-weight:800;color:#6c7772}
+.library-search input{margin:0;min-height:44px}
+.library-search button{min-height:44px}
+@media (max-width:700px){
+  /* 搜索 + 筛选一共只占两行：首篇练习卡不进首屏，这次改动就白做了。
+     .library-toolbar 同时被语料页用着，而 corpora.css 在本文件之后加载，
+     所以这里带 .practice-hero 作用域，避免被后加载的 display:flex 覆盖。 */
+  body:has(.practice-hero) .library-toolbar{display:none}
+  .library-search{align-items:center;gap:.4rem;margin-bottom:.6rem}
+  .library-search .search-field{flex:1 1 auto;max-width:none}
+  .library-search label{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .library-search button{flex:0 0 auto;width:auto}
+  /* 进度筛选横向滚动，不换行占两行 */
+  .filter-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-bottom:.8rem}
+  .filter-tabs::-webkit-scrollbar{display:none}
+  .filter-tabs a{flex:0 0 auto}
+}
+@media (min-width:701px) and (max-width:900px){
+  /* 平板：hero 竖排后本来就高，标题与概览再压一层，首条篇目才留在首屏 */
+  body:has(.practice-hero) .library-toolbar{display:none}
+  .practice-hero{gap:1rem;margin-bottom:1.6rem}
+  .overview-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem;margin-top:.6rem}
+  .overview-grid div{min-height:4.2rem;padding:.6rem .7rem}
+  .library-search{margin-bottom:.7rem}
+  .filter-tabs{margin-bottom:.8rem}
 }
 
