@@ -176,7 +176,26 @@ def test_mobile_home_hero_fits_the_first_screen() -> None:
     assert ".product-card{min-height:0;padding:1.2rem}" in mobile
 
 
-def test_next_step_card_is_a_full_width_single_column_on_small_screens() -> None:
+def test_navigation_is_grouped_with_a_label_per_group(client) -> None:
+    """12 个一级链接平铺时，用户得先理解"系统有哪些模块"；分组后每组说清自己是什么。"""
+
+    page = client.get("/")
+
+    assert page.text.count('class="nav-group"') == 3
+    for label in ("学习", "内容管理", "账户"):
+        assert f'<span class="nav-label">{label}</span>' in page.text
+    # 任务页此前没有任何入链，导航里必须有入口
+    assert '<a href="/jobs"' in page.text
+
+    css = _normalized(STATIC / "app.css")
+    assert ".site-header .nav-group{display:flex;align-items:center;gap:1.35rem}" in css
+    # 手机端不再是"隐藏滚动条的横滚导航"：分组换行，没有藏起来的入口
+    assert ".site-header nav{display:block;overflow:visible;flex-wrap:wrap" in css
+    assert ".site-header .nav-label{display:block;flex:0 0 auto;margin-right:.15rem" in css
+    # 长标签在窄屏换短名，桌面保留全称（display:none 的那份不会进无障碍树）
+    assert ".site-header .nav-short{display:none}" in css
+    assert ".site-header .nav-full{display:none}" in css
+    assert '<span class="nav-full">阅读练习</span><span class="nav-short">阅读</span>' in page.text
     """"继续练习 + 今天复习"是首页首屏的主体：窄屏必须竖排，不能挤成两列。"""
 
     css = _normalized(STATIC / "studio.css")

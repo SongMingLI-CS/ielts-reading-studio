@@ -17,12 +17,32 @@ from app.planning.units import DEFAULT_QUESTION_TYPES, default_question_types
 from app.security.budget import BudgetError
 
 from .dependencies import get_service
-from .glossary import difficulty_rows, type_rows
+from .glossary import (
+    ACTIVE_JOB_STATUSES,
+    difficulty_rows,
+    job_kind_label,
+    job_status_class,
+    job_status_label,
+    type_rows,
+)
 from .templating import templates
 
 router = APIRouter()
 TEMPLATES = templates()
 RANGE_EXAMPLES = "1-20 · 1,3,8-12 · all"
+
+
+def _ordinal_span(ordinals: list[int]) -> str:
+    """把章节号写成人话：连续区间给区间，零散列表给个数。"""
+
+    if not ordinals:
+        return ""
+    ordered = sorted(ordinals)
+    if len(ordered) == 1:
+        return f"第 {ordered[0]} 章"
+    if ordered == list(range(ordered[0], ordered[-1] + 1)):
+        return f"第 {ordered[0]}–{ordered[-1]} 章"
+    return f"{len(ordered)} 个章节"
 
 
 def _sample_status(service: ReadingStudioService, corpus_id: str) -> dict[str, Any] | None:
@@ -229,6 +249,112 @@ def start_job(
     except (KeyError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return RedirectResponse(f"/jobs/{job['id']}", status_code=303)
+
+
+@router.get("/jobs")
+def job_index(
+    request: Request,
+    service: Annotated[ReadingStudioService, Depends(get_service)],
+    status: str | None = None,
+    corpus: str | None = None,
+):
+    """全部生成任务集中一处。
+
+    任务页此前只能从"提交后跳转"那一次进入：离开页面后就再也找不到进行中或失败
+    的任务，重试/继续/取消全部失去入口。这个索引就是那个缺失的入口。
+    """
+
+    selected = status if status in {"active", "failed", "finished"} else None
+    corpus_id = corpus or None
+    rows = [_job_row(service, job) for job in service.repository.list_jobs(corpus_id)]
+    if selected == "active":
+        visible = [row for row in rows if row["status"] in ACTIVE_JOB_STATUSES]
+    elif selected == "failed":
+        visible = [row for row in rows if row["has_failures"]]
+    elif selected == "finished":
+        visible = [
+            row
+            for row in rows
+            if row["status"] not in ACTIVE_JOB_STATUSES and not row["has_failures"]
+        ]
+    else:
+        visible = rows
+    return TEMPLATES.TemplateResponse(
+        request,
+        "jobs/index.html",
+        {
+            "rows": visible,
+            "total": len(rows),
+            "selected_status": selected,
+            "corpus_filter": corpus_id,
+            "corpus_name": rows[0]["corpus_name"] if corpus_id and rows else None,
+            "status_tabs": [
+                (_jobs_href(None, corpus_id), "全部", None),
+                (_jobs_href("active", corpus_id), "进行中 / 已暂停", "active"),
+                (_jobs_href("failed", corpus_id), "有失败单元", "failed"),
+                (_jobs_href("finished", corpus_id), "已完成", "finished"),
+            ],
+        },
+    )
+
+
+def _jobs_href(status: str | None, corpus: str | None) -> str:
+    params = [
+        f"{key}={value}"
+        for key, value in (("status", status), ("corpus", corpus))
+        if value
+    ]
+    return f"/jobs?{'&'.join(params)}" if params else "/jobs"
+
+
+def _job_row(service: ReadingStudioService, job: dict[str, Any]) -> dict[str, Any]:
+    """一个任务的可读摘要：材料、章节范围、进度、失败原因入口。"""
+
+    units = service.repository.list_job_units(job["id"])
+    counts: dict[str, int] = {}
+    for unit in units:
+        counts[unit.status.value] = counts.get(unit.status.value, 0) + 1
+    payload = job["payload"] or {}
+    ordinals = [int(value) for value in payload.get("ordinals") or []]
+    corpus = service.repository.get_corpus(job["corpus_id"])
+    total = len(units)
+    done = counts.get(UnitStatus.COMPLETED.value, 0)
+    failed = counts.get(UnitStatus.FAILED.value, 0)
+    needs_review = counts.get(UnitStatus.NEEDS_REVIEW.value, 0)
+    # 单元失败或待人工确认都算"这个任务有事要处理"：批次跑完时这两类会把任务
+    # 标成 completed_with_errors，筛选与"查看并重试"按钮都要看得见它们。
+    has_failures = bool(failed or needs_review or job["status"] == "completed_with_errors")
+    span = _ordinal_span(ordinals)
+    kind_label = job_kind_label(job.get("kind") or "")
+    return {
+        "id": job["id"],
+        "status": job["status"],
+        "status_label": job_status_label(job["status"]),
+        "status_class": job_status_class(job["status"]),
+        "kind": job.get("kind") or "",
+        "kind_label": kind_label,
+        "corpus_id": job["corpus_id"],
+        "corpus_name": corpus.name if corpus else job["corpus_id"][:8],
+        "title": f"{span}{kind_label}任务" if span else f"{kind_label}任务",
+        "total": total,
+        "done": done,
+        "failed": failed,
+        "needs_review": needs_review,
+        "has_failures": has_failures,
+        "progress": round(done / total * 100) if total else 0,
+        "difficulty": payload.get("difficulty"),
+        "question_types": payload.get("question_types") or [],
+        "attempts": job.get("attempts") or 0,
+        "error_code": job.get("error_code"),
+        "updated_at": job.get("updated_at"),
+        "created_at": job.get("created_at"),
+        "updated_label": _moment_label(job.get("updated_at")),
+        "created_label": _moment_label(job.get("created_at")),
+    }
+
+
+def _moment_label(value: Any) -> str:
+    return value.astimezone().strftime("%Y-%m-%d %H:%M") if value else "—"
 
 
 @router.get("/jobs/{job_id}")

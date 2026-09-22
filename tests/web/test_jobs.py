@@ -1,5 +1,7 @@
 from pydantic import SecretStr
 
+from app.models import UnitStatus
+
 
 def test_configuration_page_explains_types_and_the_gate(client, web_service, sample_txt):
     manifest = web_service.import_source(sample_txt)
@@ -147,6 +149,79 @@ def test_configuration_page_shows_estimate_and_approval_gate(client, web_service
     assert "批量生成已锁定" in response.text
 
 
+def test_job_index_lists_tasks_with_readable_names_and_progress(
+    client, web_service, completed_unit
+) -> None:
+    """任务页此前没有任何入链：离开跳转就找不回来，这里给出集中入口。"""
+
+    web_service.repository.create_job(
+        "job-1",
+        completed_unit.corpus_id,
+        "running",
+        {"unit_ids": [completed_unit.id], "ordinals": [1, 2, 3], "difficulty": "standard"},
+    )
+    web_service.repository.assign_units_to_job([completed_unit.id], "job-1")
+
+    page = client.get("/jobs")
+    assert page.status_code == 200
+    assert "第 1–3 章阅读生成任务" in page.text
+    assert 'href="/jobs/job-1"' in page.text
+    assert "1 / 1 单元完成" in page.text
+    # 状态显示中文，而不是把 queued/running 这类内部值直接丢给用户
+    assert "生成中" in page.text
+    assert ">running<" not in page.text
+
+
+def test_job_index_surfaces_failed_tasks_and_filters_them(
+    client, web_service, sample_txt, completed_unit
+) -> None:
+    manifest = web_service.import_source(sample_txt)
+    failed_unit = next(unit for unit in manifest.units if unit.id != completed_unit.id)
+    web_service.repository.transition(failed_unit.id, UnitStatus.INDEXED, UnitStatus.FAILED)
+    web_service.repository.create_job(
+        "job-failed",
+        manifest.corpus.id,
+        "failed",
+        {"unit_ids": [failed_unit.id], "ordinals": [failed_unit.ordinal]},
+    )
+    web_service.repository.assign_units_to_job([failed_unit.id], "job-failed")
+    web_service.repository.create_job(
+        "job-done",
+        completed_unit.corpus_id,
+        "completed",
+        {"unit_ids": [completed_unit.id], "ordinals": [1]},
+    )
+    web_service.repository.assign_units_to_job([completed_unit.id], "job-done")
+
+    all_jobs = client.get("/jobs")
+    assert 'href="/jobs/job-failed"' in all_jobs.text
+    assert "失败 1 个单元" in all_jobs.text
+    assert "查看并重试" in all_jobs.text
+
+    only_failed = client.get("/jobs?status=failed")
+    assert 'href="/jobs/job-failed"' in only_failed.text
+    assert 'href="/jobs/job-done"' not in only_failed.text
+
+
+def test_job_index_is_reachable_from_the_navigation_and_the_corpus_card(
+    client, web_service, completed_unit
+) -> None:
+    """导航里要有入口，材料卡上的"最近任务"也要能点进任务页。"""
+
+    web_service.repository.create_job(
+        "job-1", completed_unit.corpus_id, "completed", {"unit_ids": [completed_unit.id]}
+    )
+
+    home = client.get("/")
+    assert 'href="/jobs"' in home.text
+
+    corpora = client.get("/corpora")
+    assert f'href="/jobs?corpus={completed_unit.corpus_id}"' in corpora.text
+    assert 'href="/jobs/job-1"' in corpora.text
+    assert "最近任务" in corpora.text
+    assert "已完成" in corpora.text
+
+
 def test_job_monitor_pause_and_unit_json(client, web_service, completed_unit):
     web_service.repository.create_job(
         "job-1",
@@ -177,3 +252,73 @@ def test_start_job_requires_sample_approval(client, web_service, sample_txt):
         data={"range_spec": "1-1"},
     )
     assert response.status_code == 409
+
+
+def test_job_vocabulary_covers_every_real_pipeline_status() -> None:
+    """库里存的是 completed / completed_with_errors：漏一个，界面上就露出英文枚举。"""
+
+    from app.pipeline import queue
+    from app.web.glossary import (
+        ACTIVE_JOB_STATUSES,
+        JOB_KIND_LABELS,
+        JOB_STATUS_LABELS,
+        job_kind_label,
+        job_status_class,
+        job_status_label,
+    )
+
+    statuses = {
+        queue.QUEUED,
+        queue.RUNNING,
+        queue.PAUSED,
+        queue.BLOCKED,
+        queue.COMPLETED,
+        queue.COMPLETED_WITH_ERRORS,
+        queue.FAILED,
+        queue.CANCELLED,
+    }
+    assert statuses == set(JOB_STATUS_LABELS)
+    # "还有人打算做完它"的集合要和队列自己的定义一致，否则筛选会少显示任务
+    assert set(ACTIVE_JOB_STATUSES) == set(queue.ACTIVE_STATUSES)
+    for value in statuses:
+        assert not job_status_label(value).isascii(), value
+        assert job_status_class(value) == value.replace("_", "-")
+    # 未知状态说人话，而不是把内部值漏到界面上
+    assert job_status_label("brand_new_state") == "状态未知"
+    assert job_status_class("brand_new_state") == "unknown"
+
+    kinds = {queue.READING_KIND, queue.SAMPLE_KIND, queue.NOVEL_KIND}
+    assert kinds == set(JOB_KIND_LABELS)
+    for kind in kinds:
+        assert not job_kind_label(kind).isascii(), kind
+
+
+def test_units_waiting_for_a_human_are_reachable_under_the_failed_filter(
+    client, web_service, sample_txt, completed_unit
+) -> None:
+    """批次跑完但有待确认单元时任务会变成 completed_with_errors，筛选不能漏掉它。"""
+
+    manifest = web_service.import_source(sample_txt)
+    review_unit = next(unit for unit in manifest.units if unit.id != completed_unit.id)
+    web_service.repository.transition(review_unit.id, UnitStatus.INDEXED, UnitStatus.NEEDS_REVIEW)
+    web_service.repository.create_job(
+        "job-review",
+        manifest.corpus.id,
+        "completed_with_errors",
+        {"unit_ids": [review_unit.id], "ordinals": [review_unit.ordinal]},
+    )
+    web_service.repository.assign_units_to_job([review_unit.id], "job-review")
+
+    page = client.get("/jobs")
+    assert "部分失败" in page.text
+    assert "待人工确认 1 个单元" in page.text
+    assert "查看并重试" in page.text
+    # 内部枚举不出现在页面上
+    assert "completed_with_errors" not in page.text
+
+    only_failed = client.get("/jobs?status=failed")
+    assert 'href="/jobs/job-review"' in only_failed.text
+
+    finished = client.get("/jobs?status=finished")
+    assert 'href="/jobs/job-review"' not in finished.text
+

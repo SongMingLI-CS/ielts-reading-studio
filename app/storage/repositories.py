@@ -387,7 +387,12 @@ class Repository:
                     "id": row["id"],
                     "corpus_id": row["corpus_id"],
                     "status": row["status"],
+                    "kind": row["kind"],
+                    "attempts": row["attempts"],
+                    "error_code": row["error_code"],
                     "payload": json.loads(row["payload"]),
+                    "created_at": row["created_at"],
+                    "updated_at": row["updated_at"],
                 }
                 for row in rows
             ]

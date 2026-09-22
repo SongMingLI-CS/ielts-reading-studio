@@ -22,6 +22,7 @@ from app.planning.importer import MANIFEST_REBUILT_DIAGNOSTIC, corpus_id_for
 from app.security.uploads import check_magic, validate_extension
 
 from .dependencies import get_service
+from .glossary import job_status_label
 from .templating import templates
 
 router = APIRouter()
@@ -498,6 +499,8 @@ def _corpus_card(
         "approval_unit": (approval or {}).get("unit_id"),
         "job_count": len(jobs),
         "last_job": jobs[0] if jobs else None,
+        # 材料卡只说"最近任务 succeeded"没人看得懂，也给不出回任务页的入口。
+        "last_job_label": job_status_label(jobs[0]["status"]) if jobs else None,
         "confidence": confidence,
         "confidence_percent": (
             round(confidence * 100) if confidence is not None and confidence_known else None

@@ -73,9 +73,9 @@
 }
 @media (max-width:600px){
   .next-step{gap:.65rem;margin-bottom:1.2rem}
-  .resume-card{padding:1.15rem 1.1rem}
+  .resume-card{padding:1.05rem 1.05rem}
   .resume-card h2{font-size:1.5rem;margin:.35rem 0 .45rem}
-  .resume-meta{font-size:.84rem;margin-bottom:.8rem}
+  .resume-meta{font-size:.84rem;margin-bottom:.7rem}
   .review-panel{padding:1.1rem}
   .review-panel h2{font-size:1.1rem;margin-bottom:.7rem}
   .tools-heading{display:block}
@@ -83,5 +83,6 @@
   .tools-heading p{margin-top:.25rem}
   /* 有草稿时首屏让给"继续练习"：装饰性标语收起来，复习入口因此也能露出来 */
   body:has(.resume-card[data-kind="resume"]) .studio-hero .lead{display:none}
+  body:has(.resume-card[data-kind="resume"]) .studio-hero .eyebrow{display:none}
 }
 

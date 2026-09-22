@@ -84,11 +84,12 @@
       {% else %}<a class="button" href="/corpora/{{ card.corpus.id }}/configure">{{ card.step.action }}</a>{% endif %}
       <a class="text-link" href="/corpora/{{ card.corpus.id }}/preview">章节解析</a>
       <a class="text-link" href="/corpora/{{ card.corpus.id }}/configure">生成配置</a>
+      {% if card.job_count %}<a class="text-link" href="/jobs?corpus={{ card.corpus.id }}">任务记录</a>{% endif %}
       {% if card.practice_ready %}<a class="text-link" href="/practice">{{ card.practice_ready }} 篇可练习</a>{% endif %}
       <a class="text-link danger" href="/corpora/{{ card.corpus.id }}/delete">删除</a>
     </footer>
 
-    <p class="corpus-foot">ID {{ card.corpus.id[:8] }}{% if card.job_count %} · {{ card.job_count }} 个任务{% endif %}{% if card.last_job %} · 最近任务 {{ card.last_job.status }}{% endif %}</p>
+    <p class="corpus-foot">ID {{ card.corpus.id[:8] }}{% if card.job_count %} · <a class="text-link" href="/jobs?corpus={{ card.corpus.id }}">{{ card.job_count }} 个任务</a>{% endif %}{% if card.last_job %} · 最近任务 <a class="text-link" href="/jobs/{{ card.last_job.id }}">{{ card.last_job_label }}</a>{% endif %}</p>
   </article>
 {% endfor %}
 </div>

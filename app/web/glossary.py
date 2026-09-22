@@ -4,6 +4,44 @@ from __future__ import annotations
 
 from app.models import Difficulty, QuestionType
 
+# 任务状态的中文说法。任务列表与材料卡都要显示它，放在一处避免两页说法不同。
+# 键必须与 app.pipeline.queue 里的状态常量一致：库里存的是 completed /
+# completed_with_errors / blocked，直接显示会把内部枚举漏给用户（测试守着这点）。
+JOB_STATUS_LABELS = {
+    "queued": "排队中",
+    "running": "生成中",
+    "paused": "已暂停",
+    "blocked": "已阻塞",
+    "completed": "已完成",
+    "completed_with_errors": "部分失败",
+    "failed": "已失败",
+    "cancelled": "已取消",
+}
+#: 与 queue.ACTIVE_STATUSES 对齐："还有人打算把它做完"的状态。
+ACTIVE_JOB_STATUSES = ("queued", "running", "paused", "blocked")
+#: 真实作业类型见 queue.READING_KIND / SAMPLE_KIND / NOVEL_KIND。
+JOB_KIND_LABELS = {
+    "reading_generation": "阅读生成",
+    "reading_sample": "样章生成",
+    "novel_component": "小说组件",
+}
+
+
+def job_status_label(status: str) -> str:
+    """状态的中文说法；未知状态说"状态未知"，而不是把英文枚举漏到界面上。"""
+
+    return JOB_STATUS_LABELS.get(status, "状态未知")
+
+
+def job_status_class(status: str) -> str:
+    """给状态徽章用的 CSS 类名后缀（completed_with_errors → completed-with-errors）。"""
+
+    return status.replace("_", "-") if status in JOB_STATUS_LABELS else "unknown"
+
+
+def job_kind_label(kind: str) -> str:
+    return JOB_KIND_LABELS.get(kind, kind or "任务")
+
 QUESTION_TYPE_GUIDE: dict[QuestionType, dict[str, str]] = {
     QuestionType.MATCHING_HEADINGS: {
         "name_zh": "小标题匹配",
