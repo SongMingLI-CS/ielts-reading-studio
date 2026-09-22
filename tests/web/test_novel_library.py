@@ -150,3 +150,27 @@ def test_migration_is_a_no_op_once_the_library_has_books(web_service):
     assert library.migrate_legacy(web_service) is None
     assert not (legacy_output / "migration_log.json").exists()
     assert len(library.read_index(web_service)["books"]) == 1
+
+
+def test_migration_skips_a_source_it_cannot_parse(web_service, monkeypatch):
+    """坏掉的源文件只记一笔，不能让迁移（以及整页）停在它上面。"""
+
+    legacy_output = library.output_root(web_service)
+    (legacy_output / "html").mkdir(parents=True, exist_ok=True)
+    body = "第一章 起程\n正文".encode()
+    digest = hashlib.sha256(body).hexdigest()
+    upload = library.input_root(web_service) / "uploads" / digest
+    upload.mkdir(parents=True, exist_ok=True)
+    (upload / "source.txt").write_bytes(body)
+
+    def broken(path):
+        raise RuntimeError("这个文件读不动")
+
+    monkeypatch.setattr("ielts_novel.processors.chapter_parser.parse_novel", broken)
+
+    summary = library.migrate_legacy(web_service)
+
+    assert summary["books"] == []
+    assert any("解析失败" in note for note in summary["notes"])
+    assert library.read_index(web_service)["books"] == {}
+

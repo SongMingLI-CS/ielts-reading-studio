@@ -382,6 +382,11 @@ def migrate_legacy(service: ReadingStudioService) -> dict[str, Any] | None:
             result = parse_novel(source_path)
         except ChapterDetectionError as exc:  # 边界不可信也要登记，页面会提示
             result = exc.result
+        except Exception as exc:  # noqa: BLE001 - 单本书解析不了不能让整页打不开
+            summary["notes"].append(
+                f"{source_path.name} 解析失败，已跳过：{exc.__class__.__name__}: {exc}"
+            )
+            continue
         entry = register_book(
             service,
             digest=digest,
