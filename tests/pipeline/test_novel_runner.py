@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -87,3 +88,76 @@ def test_novel_runner_marks_failures_and_propagates_them(tmp_path: Path, monkeyp
     payload = status_path.read_text(encoding="utf-8")
     assert '"failed"' in payload
     assert '"return_code": 2' in payload.replace("\n", " ").replace("  ", " ")
+
+
+def test_exit_code_zero_without_chapters_is_recorded_not_hidden(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """进程退出码 0 但一章都没生成时，状态必须写明原因，不能让页面显示“成功”。"""
+
+    status_path = tmp_path / "run_status.json"
+    log_path = tmp_path / "reports" / "web-generation.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.write_text(
+        "总章节数 1 | 已完成 0\n"
+        "ERROR: 分块合并后的章节质量检查失败：density_too_low\n"
+        '{"requested": 1, "completed": [], "failed": {}, "inserted_total": 0}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "app.pipeline.novel_runner.subprocess.run",
+        lambda command, **kwargs: subprocess.CompletedProcess(command, 0),
+    )
+
+    assert (
+        run_novel_job(
+            None,
+            {
+                "arguments": ["--chapter", "1"],
+                "config_path": str(tmp_path / "c.yaml"),
+                "status_path": str(status_path),
+                "description": "第 1 章样章",
+            },
+        )
+        == 0
+    )
+
+    payload = json.loads(status_path.read_text(encoding="utf-8"))
+    assert payload["status"] == "completed"  # 进程本身没崩
+    assert payload["outcome"] == "no_chapters"  # 但没有任何章节产出
+    assert payload["chapters_completed"] == 0
+    assert "density_too_low" in payload["failure_reason"]
+    assert "每 500 字至少 20 个词条" in payload["failure_hint"]
+
+
+def test_latest_run_in_the_append_only_log_decides_the_outcome(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """日志是追加写的：这次的结果要从自己新写的那几行里读，不能沿用上一轮的失败。"""
+
+    status_path = tmp_path / "run_status.json"
+    log_path = tmp_path / "reports" / "web-generation.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.write_text(
+        "ERROR: 分块合并后的章节质量检查失败：density_too_low\n"  # 上一轮留下的
+        '{"requested": 2, "completed": [1, 2], "failed": {}, "inserted_total": 40}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "app.pipeline.novel_runner.subprocess.run",
+        lambda command, **kwargs: subprocess.CompletedProcess(command, 0),
+    )
+
+    run_novel_job(
+        None,
+        {
+            "arguments": ["--chapters", "1-2"],
+            "config_path": str(tmp_path / "c.yaml"),
+            "status_path": str(status_path),
+        },
+    )
+
+    payload = json.loads(status_path.read_text(encoding="utf-8"))
+    assert payload["outcome"] == "ok"
+    assert payload["chapters_completed"] == 2
+    assert payload["inserted_total"] == 40
