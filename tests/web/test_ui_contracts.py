@@ -135,6 +135,119 @@ def test_hidden_attribute_wins_over_component_display() -> None:
     assert not failures, "hidden 会被组件自己的 display 覆盖，需要 [hidden] 兜底：" + "、".join(failures)
 
 
+def test_every_shell_ships_a_skip_link_and_a_main_target() -> None:
+    """键盘用户不该按 13 次 Tab 才能到达内容：页头之前要有一个跳转链接。"""
+
+    base = (TEMPLATES / "base.html").read_text(encoding="utf-8")
+
+    assert '<a class="skip-link" href="#main">' in base
+    assert 'id="main"' in base
+    # 跳转链接必须是 body 的第一个可聚焦元素
+    assert base.index('class="skip-link"') < base.index('class="site-header"')
+
+
+def test_stylesheets_load_in_token_accessibility_order() -> None:
+    """tokens.css 在最前（供所有组件取色），accessibility.css 在最后（要盖过组件）。"""
+
+    base = (TEMPLATES / "base.html").read_text(encoding="utf-8")
+    sheets = re.findall(r'href="/static/([a-z-]+\.css)', base)
+
+    assert sheets[0] == "tokens.css"
+    assert sheets[-1] == "accessibility.css"
+    assert sheets.index("tokens.css") < sheets.index("app.css")
+
+
+def test_palette_is_defined_once() -> None:
+    """十四个近似灰正是"每个人都自己挑一个"的结果：调色板只能定义在 tokens.css。"""
+
+    tokens = _normalized(STATIC / "tokens.css")
+    for token in (
+        "--ink:#172029",
+        "--ink-secondary:#626d67",
+        "--ink-muted:#5b6660",
+        "--ink-decor:#7f8a84",
+        "--success-ink:#1f7a58",
+        "--warning-ink:#6f6039",
+        "--focus-ring:#123c35",
+        "--tap:44px",
+    ):
+        assert token in tokens, token
+
+    # app.css 曾经自带一份重复定义，两处会悄悄漂移
+    app = _normalized(STATIC / "app.css")
+    for token in ("--ink:", "--forest:", "--green:", "--mint:", "--line:", "--orange:"):
+        assert token not in app, f"{token} 仍定义在 app.css"
+
+
+def test_audited_low_contrast_greys_are_gone() -> None:
+    """这些字面量是实测低于 4.5:1 的灰色（最低 2.18:1），必须走令牌。"""
+
+    legacy = (
+        "#9aa4a0", "#9aa5a1", "#9aa7a1", "#8b9691", "#8b9591", "#8a958f", "#8a9590",
+        "#7d8a85", "#7b8783", "#7b8681", "#78837e", "#76807c", "#6f7b76", "#708078",
+        "#6d7a75", "#6d7973", "#6c7772", "#6b7771", "#69746f", "#66736e", "#a7b2ad",
+        "#b0bab5", "#6b7772", "#a8b2ae", "#2d9b71", "#8a7a55",
+    )
+    for path in sorted(STATIC.glob("*.css")):
+        if path.name == "print.css":  # 纸面调色板单独验证
+            continue
+        text = _normalized(path)
+        for value in legacy:
+            assert f"color:{value}" not in text, f"{path.name} 仍在使用 {value}"
+
+
+def test_tokens_carry_the_measured_contrast_values() -> None:
+    """令牌旁边写实测值，改色的人才知道下界在哪里。"""
+
+    tokens = _normalized(STATIC / "tokens.css")
+
+    assert "对比度按 WCAG 2.1" in tokens
+    # 归一化后空白会被折叠成单个空格
+    assert "--ink-secondary 4.87 / 5.38" in tokens
+    assert "--ink-muted 5.09 / 5.62" in tokens
+    # 装饰性大数字只需 3:1，其余小字必须 ≥4.5:1
+    assert "装饰性大数字" in tokens
+    assert "低于 4.5 的灰色一律不再新增" in tokens
+
+
+def test_reduced_motion_and_focus_are_handled_centrally() -> None:
+    """动效与焦点环必须在最后一层统一，否则每个组件都要各写一遍。"""
+
+    a11y = _normalized(STATIC / "accessibility.css")
+
+    assert "@media (prefers-reduced-motion:reduce)" in a11y
+    assert "transition-duration:.001ms!important" in a11y
+    assert "animation-duration:.001ms!important" in a11y
+    assert "transform:none!important" in a11y
+    # 焦点环：深浅底各一套，且在深色页头里换成浅色
+    assert ":focus-visible" in a11y
+    assert "outline:var(--focus-width) solid var(--focus-ring)" in a11y
+    assert ".site-header a:focus-visible" in a11y
+
+
+def test_touch_targets_use_the_shared_token() -> None:
+    """44px 只能来自 --tap，散落的魔法数字会让下次改版重新漏掉控件。"""
+
+    a11y = _normalized(STATIC / "accessibility.css")
+
+    assert "--tap" in _normalized(STATIC / "tokens.css")
+    assert ".skip-link,.bottom-nav a{min-height:var(--tap)}" in a11y
+    assert "a[href]{min-height:24px}" in a11y
+    assert "@media (max-width:900px){" in a11y
+    assert "a[href]{min-height:var(--tap);min-width:var(--tap)}" in a11y
+    assert ".practice-arrow,.button,button,input[type=\"submit\"]{min-height:var(--tap)}" in a11y
+    # 段落里的行内链接按 WCAG 豁免，不能被撑成 44px 高的行内块
+    assert "p .text-link,li .text-link{display:inline;min-width:0;min-height:0" in a11y
+
+
+def test_danger_text_link_does_not_inherit_the_button_red() -> None:
+    """<a class="text-link danger"> 曾经同时拿到按钮红底与深红字，实测 1.18:1。"""
+
+    corpora = _normalized(STATIC / "corpora.css")
+
+    assert ".text-link.danger{color:#a8431f;background:none}" in corpora
+
+
 def test_tablet_navigation_wraps_between_links_not_inside_them() -> None:
     css = _normalized(STATIC / "app.css")
 

@@ -34,7 +34,7 @@
 }
 .kn-totals dt { font-size: .78rem; letter-spacing: .04em; color: #4b6e66; font-weight: 700; }
 .kn-totals dd { font: 700 1.7rem/1.1 Georgia, "Songti SC", serif; margin: .25rem 0 .15rem; }
-.kn-totals small { display: block; color: #6b7772; font-size: .74rem; line-height: 1.45; }
+.kn-totals small { display: block; color: var(--ink-secondary); font-size: .74rem; line-height: 1.45; }
 .kn-totals-note { grid-column: 1 / -1; color: #586662; font-size: .82rem; margin: 0; }
 
 .kn-note {
@@ -132,7 +132,7 @@
   font-size: .82rem;
   color: #55635e;
 }
-.kn-legend-hint { color: #7b8783; }
+.kn-legend-hint { color:var(--ink-muted); }
 
 
 /* 条目列表：宽屏两列，窄屏一列 */
@@ -164,7 +164,7 @@
 }
 .kn-phrase { font-size: 1.32rem; }
 .kn-sub-title { font-size: 1.05rem; font-family: inherit; font-weight: 700; }
-.kn-phonetic { color: #6d7a75; font-size: .9rem; font-family: Georgia, serif; }
+.kn-phonetic { color:var(--ink-secondary); font-size: .9rem; font-family: Georgia, serif; }
 .kn-chip {
   font-size: .74rem;
   font-weight: 700;
@@ -190,7 +190,7 @@
 .kn-level-c1 { background: #f3ecf9; color: #5b3f7d; border-color: #ddd0ee; }
 
 .kn-meaning { font-size: 1rem; color: #2b3a36; margin: .1rem 0 .6rem; line-height: 1.6; }
-.kn-meaning-empty { color: #8a7a55; font-size: .9rem; }
+.kn-meaning-empty { color:var(--warning-ink); font-size: .9rem; }
 .kn-collocs { display: flex; flex-wrap: wrap; gap: .35rem; margin: 0 0 .7rem; }
 .kn-colloc {
   font-family: Georgia, serif;
@@ -212,8 +212,8 @@
 }
 .kn-contexts { margin: 0 0 .7rem; font-size: .88rem; color: #45524e; display: flex; flex-wrap: wrap; gap: .3rem .9rem; }
 .kn-contexts-label { font-weight: 700; color: #4b6e66; }
-.kn-context small { color: #8b9691; }
-.kn-arrow { color: #9aa5a1; }
+.kn-context small { color:var(--ink-muted); }
+.kn-arrow { color:var(--ink-muted); }
 
 
 .kn-sources {
@@ -227,7 +227,7 @@
 }
 .kn-sources a { color: #1d6658; text-decoration: none; border-bottom: 1px dotted #9dbfb5; }
 .kn-sources a:hover { border-bottom-style: solid; }
-.kn-counts { color: #7b8783; margin-left: auto; }
+.kn-counts { color:var(--ink-muted); margin-left: auto; }
 .kn-owner { margin: 0 0 .55rem; font-size: .86rem; color: #4c5b56; }
 .kn-owner a { color: #1d6658; }
 
@@ -267,10 +267,10 @@ mark.kw-src { background: #d9edf0; color: inherit; padding: 0 .12em; border-radi
   text-decoration: none;
   font-weight: 650;
 }
-.kn-page-button.disabled { color: #a8b2ae; border-style: dashed; }
+.kn-page-button.disabled { color: var(--ink-decor); border-style: dashed; }
 .kn-page-info { color: #5d6c68; font-size: .88rem; }
 
-.kn-foot-note { margin: 1.4rem 0 0; color: #6b7772; font-size: .82rem; line-height: 1.7; }
+.kn-foot-note { margin: 1.4rem 0 0; color: var(--ink-secondary); font-size: .82rem; line-height: 1.7; }
 .kn-foot-note a { color: #1d6658; }
 
 @media (max-width: 980px) {

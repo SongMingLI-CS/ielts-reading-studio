@@ -1,0 +1,90 @@
+/* ---------------------------------------------------------------------------
+   跨页面无障碍层，必须最后加载：这里的规则要盖过组件样式表。
+   只做四件事——跳转链接、可见焦点、触控尺寸、减少动态效果，不参与版面排版，
+   以免和前面几层抢布局。颜色依旧由 tokens.css 提供。
+   --------------------------------------------------------------------------- */
+
+/* 1. 键盘用户跳过 13 个导航项：默认移出视口，获得焦点时落到左上角 */
+.skip-link{
+  position:absolute;
+  left:.5rem;
+  top:-3rem;
+  z-index:60;
+  background:var(--surface);
+  color:var(--forest);
+  font-weight:800;
+  padding:.6rem 1rem;
+  border-radius:.5rem;
+  box-shadow:0 10px 26px #123c3526;
+  text-decoration:none;
+  transition:top var(--motion-fast) var(--motion-ease);
+}
+.skip-link:focus{top:.5rem}
+/* 跳转目标获得焦点时不显示整块描边（它本身不是控件） */
+main:focus{outline:none}
+
+/* 2. 可见焦点：统一 3px 深绿 + 2px 浅色外环，深底浅底都有 ≥3:1 的反差 */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,
+textarea:focus-visible,summary:focus-visible,[tabindex]:focus-visible{
+  outline:var(--focus-width) solid var(--focus-ring);
+  outline-offset:var(--focus-offset);
+  box-shadow:0 0 0 calc(var(--focus-width) + var(--focus-offset)) var(--focus-halo);
+}
+/* 深色页头/底栏里的控件改用浅色环，深绿在深绿上等于没有 */
+.site-header a:focus-visible,.site-header button:focus-visible,
+.bottom-nav a:focus-visible,.hero-copy a:focus-visible,.hero-copy button:focus-visible{
+  outline-color:var(--focus-halo);
+  box-shadow:0 0 0 calc(var(--focus-width) + var(--focus-offset)) #123c3566;
+}
+
+/* 3. 触控尺寸：视觉尺寸保持不变——先给足 44px 的最小高度，再用等量负外边距抵消占位。
+      页头在手机上会折成三行，直接撑高会把首屏内容整段往下推。 */
+.site-header a,.site-header button{
+  display:inline-flex;
+  align-items:center;
+  min-height:var(--tap);
+  margin-block:-3.5px;
+}
+/* 品牌行原本 32px 高，补偿量不同，用两级选择器盖过上面的规则 */
+.site-header a.site-brand{min-height:var(--tap);margin-block:-6px}
+/* 表单控件、行内操作按钮直接给高度，它们本来就不受行高限制 */
+input[type="checkbox"],input[type="radio"]{width:1.15rem;height:1.15rem;min-height:0}
+label:has(> input[type="checkbox"]),label:has(> input[type="radio"]){min-height:var(--tap);display:flex;align-items:center;gap:.5rem}
+select,.practice-arrow,.button,button,input[type="submit"]{min-height:var(--tap)}
+summary{min-height:var(--tap);display:flex;align-items:center}
+.skip-link,.bottom-nav a{min-height:var(--tap)}
+/* 块级/行内块链接：桌面按 WCAG 2.5.8 的 24px 下限，触屏按 44px。
+   行内正文链接（display:inline）不受影响——min-height 对它们无效，这正合规范豁免。 */
+a[href]{min-height:24px}
+@media (max-width:900px){
+  /* 触屏：块级链接两个方向都要够大（实测「重置」只有 27×44） */
+  a[href]{min-height:var(--tap);min-width:var(--tap)}
+  /* 页头与底栏的导航项至少 44px 宽（实测 43.5px，差一点点也会被触屏漏点） */
+  .site-header nav a,.bottom-nav a{min-width:var(--tap)}
+  /* 独立的动作链接补到 44×44；负外边距抵消左右占位 */
+  .text-link,table a,td a,.corpus-actions a,.corpus-foot a,.actions a,.file-list a{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:var(--tap);
+    min-height:var(--tap);
+    padding-inline:.3rem;
+    margin-inline:-.3rem;
+  }
+  /* 段落/列表里的行内链接按 WCAG 2.5.8 豁免，也不应该把行距撑高 */
+  p .text-link,li .text-link{display:inline;min-width:0;min-height:0;padding-inline:0;margin-inline:0}
+}
+
+/* 4. 减少动态效果：位移、缩放与脉冲一律取消，只保留颜色变化 */
+@media (prefers-reduced-motion:reduce){
+  .skip-link{transition:none}
+  *,*::before,*::after{
+    animation-duration:.001ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.001ms!important;
+    scroll-behavior:auto!important;
+  }
+  a:hover,button:hover,.button:hover,.practice-book-card:hover,.review-tabs a:hover{
+    transform:none!important;
+  }
+}

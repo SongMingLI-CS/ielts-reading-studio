@@ -1,0 +1,52 @@
+/* ---------------------------------------------------------------------------
+   设计令牌：颜色、触控尺寸、动效与断点。
+   这个文件在其他样式表之前加载，是可调色板的唯一来源——组件里出现的
+   var(--ink-muted) 之类的名字都由这里定义，改一处即可全站生效。
+
+   对比度按 WCAG 2.1 相对亮度公式计算，括号内是实测值（浅色底 #f3f4f0 / #fff）：
+     --ink           15.4 / 16.4
+     --ink-secondary  4.87 / 5.38   次级正文（段落、说明）
+     --ink-muted      5.09 / 5.62   小字标签、表头、脚注
+     --ink-decor      3.24 / 3.58   装饰性大数字（24px 以上，阈值是 3:1）
+     --success-ink    4.78（on #edf6f2）
+     --warning-ink    6.16（on #fff）
+     --danger-ink     7.36（on #f3f4f0）
+   低于 4.5 的灰色一律不再新增：字面量色值只能从这里取。
+   --------------------------------------------------------------------------- */
+:root{
+  /* 文字 */
+  --ink:#172029;
+  --ink-secondary:#626d67;
+  --ink-muted:#5b6660;
+  --ink-decor:#7f8a84;
+  --success-ink:#1f7a58;
+  --warning-ink:#6f6039;
+  --danger-ink:#8f2f13;
+  /* 品牌与表面 */
+  --forest:#123c35;
+  --green:#1d6658;
+  --mint:#dcebe5;
+  --cream:#faf8f2;
+  --canvas:#f3f4f0;
+  --surface:#ffffff;
+  --line:#d9dfda;
+  --orange:#df7049;
+  /* 焦点：深绿实线 + 浅色外环，深浅底都看得见（2.4.11 需要 ≥3:1） */
+  --focus-ring:#123c35;
+  --focus-width:3px;
+  --focus-offset:2px;
+  --focus-halo:#ffffff;
+  /* 触控：可点区域的统一下限（Apple HIG / Material 都用 44px 这一档） */
+  --tap:44px;
+  /* 动效：过渡时长与曲线集中取值，减少动态效果时统一归零 */
+  --motion-fast:.15s;
+  --motion-base:.2s;
+  --motion-ease:cubic-bezier(.2,.7,.3,1);
+}
+/* 断点（CSS 变量不能用在 media 查询里，这里只作约定，改版时按这套对齐）：
+     --bp-sm   560px  窄手机：单列、隐藏次要说明
+     --bp-md   700px  手机横屏 / 大手机：底栏出现、库工具栏隐藏
+     --bp-lg   900px  平板：练习双栏塌成单列
+     --bp-xl  1280px  桌面：导航收成一行、内容 1120px
+   历史上的 420 / 600 / 880 / 1024 已并入上面最接近的一档，见 accessibility.css 与
+   各组件样式表里的 @media。 */
