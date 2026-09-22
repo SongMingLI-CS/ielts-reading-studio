@@ -140,6 +140,33 @@ curl -fsS http://127.0.0.1:8766/healthz
 命中就是 304），改动上线后刷新即可看到，不需要用户手动清缓存或强刷。改完 `static/` 下的文件后
 顺手把 `templates/base.html` 里对应的 `?v=` 加一即可双保险。
 
+### 8.2 任务页上的「失败」怎么看（`/jobs/<job-id>`）
+
+任务页以前只会写一行「错误码 `handler_failed:RuntimeError`」，再配一张空的单元表——看不出
+到底哪儿错了。现在失败任务会多出一块 **失败原因**：
+
+- 错误码翻译成人话：`handler_failed:RuntimeError` → 「组件抛出了异常（RuntimeError）」。
+- 小说作业（`novel_component`）会读组件自己的运行报告
+  `output/context-novel/books/<book-id>/run_status.json`，直接写出 **这次运行的说明、完成几章、
+  失败几章、失败原因（中文说法 + 原始标识）**，以及「下一步」。
+- 阅读作业会列出失败的单元：**第几个单元 · 哪一步（写作/出题）· 第几次尝试 · 阶段错误原文**
+  （来自 `stage_attempts.error`）。
+- 两块都给出**日志位置**：组件日志 `.../reports/web-generation.log`，worker 完整堆栈用
+  `journalctl -u ielts-reading-studio-worker --since '-1 day' | grep -F <job-id>`。
+
+常见组合与处理：
+
+| 页面上的说法 | 真实含义 | 下一步 |
+|---|---|---|
+| 组件抛出了异常（RuntimeError）+ 组件退出码 1 | 组件自己以非零码退出（内部有章节失败、密钥问题、余额不足等） | 看同一个面板里的「完成 N 章、失败 M 章 + 失败原因」，按 8.1 的表处理 |
+| 认不出的作业类型 | 代码版本与作业类型对不上（升级/回滚遗留） | 确认版本后再提交一次，这个作业不会自己重试 |
+| worker 租约过期 | worker 被重启/卡住，作业被回收后重排 | 一般会自己重跑；反复出现先看服务是否稳定 |
+| 第 N 个单元 · 写作/出题 · 第 K 次尝试：`<原文>` | 阅读作业里某个单元的阶段错误 | 按错误原文（`authentication_failed`、`agent_schema_error` 等）处理，再「仅重试失败」 |
+
+页面按钮只在状态真的允许时出现：`排队中/生成中` 才有「暂停」，`已暂停/已阻塞` 才有「继续」，
+只有 `已失败/部分失败` 才有「仅重试失败」。小说作业本来就没有生成单元，所以单元表会换成一句
+解释，进度以运行报告为准。
+
 运行 `scripts/verify.sh`（Linux / macOS，服务器上用这个）或 `scripts/verify.ps1`（Windows）可确认本地代码、依赖和离线路径完整：两个测试套件、`app/` 与组件源码的字节编译、四处 Ruff 检查与 CLI 帮助烟雾测试。`verify.sh` 默认使用项目里的 `.venv/bin/python`（systemd 启动服务的同一个解释器），可用 `PYTHON=` 覆盖。真实样篇之前还应核对 DeepSeek 官方当前模型名与价格，并保持模型名由配置提供。
 
 ## 9. 远程部署（服务器）

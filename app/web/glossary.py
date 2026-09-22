@@ -26,6 +26,82 @@ JOB_KIND_LABELS = {
     "novel_component": "小说组件",
 }
 
+#: 队列与 worker 的错误码 → 人话。页面只显示「handler_failed:RuntimeError」等于什么都没说：
+#: 操作者既不知道是哪一类问题，也不知道下一步该看哪儿。新增错误码时补在这里。
+JOB_ERROR_LABELS = {
+    "unknown_job_kind": "认不出的作业类型（通常是升级或回滚留下的旧作业）",
+    "worker_lease_expired": "worker 租约过期，作业被回收后重排",
+}
+JOB_ERROR_HINTS = {
+    "unknown_job_kind": "确认代码版本和作业类型对得上，再提交一次；这个作业不会自己重试。",
+    "worker_lease_expired": "一般会自动重跑；反复出现说明 worker 被反复重启，先看服务是否稳定。",
+}
+#: `handler_failed:` 后面跟的是 Python 异常类名，单独成句才能指出错在哪一层。
+HANDLER_FAILED_LABEL = "组件抛出了异常"
+HANDLER_FAILED_HINT = (
+    "异常来自生成组件本身：下面列出这次运行的摘要，完整堆栈在 worker 日志里。"
+)
+#: 小说组件 run_status.json 的 outcome → 人话（任务页与情境小说页共用一套说法）。
+NOVEL_OUTCOME_LABELS = {
+    "completed": "本次全部成功",
+    "no_chapters": "本次没有章节通过质量检查",
+    "failed": "本次有章节失败",
+}
+
+
+def job_error_label(code: str | None) -> str:
+    """错误码的中文说法；`handler_failed:RuntimeError` 会点出具体的异常类名。"""
+
+    if not code:
+        return ""
+    if code.startswith("handler_failed:"):
+        return f"{HANDLER_FAILED_LABEL}（{code.split(':', 1)[1]}）"
+    return JOB_ERROR_LABELS.get(code, code)
+
+
+def job_error_hint(code: str | None) -> str:
+    if not code:
+        return ""
+    if code.startswith("handler_failed:"):
+        return HANDLER_FAILED_HINT
+    return JOB_ERROR_HINTS.get(code, "")
+
+
+#: 阶段名 → 人话。任务页说「哪一步失败」时不能只给 author_passage 这种内部名。
+STAGE_LABELS = {
+    "author_brief": "写作：文章提纲",
+    "author_passage": "写作：生成 Passage",
+    "author_passage_revision": "写作：修订 Passage",
+    "examiner_passage_review": "出题：复核 Passage",
+    "examiner_assessment": "出题：题目与解析",
+    "examiner_assessment_revision": "出题：修订题目",
+}
+
+
+def stage_label(stage: str) -> str:
+    return STAGE_LABELS.get(stage, stage or "生成")
+
+
+#: 单元状态 → 人话。任务表的「状态」列此前直接显示 indexed / needs_review 这类内部枚举。
+UNIT_STATUS_LABELS = {
+    "indexed": "待生成",
+    "author_generating": "正在写 Passage",
+    "passage_reviewing": "正在复核 Passage",
+    "examiner_generating": "正在出题",
+    "validating": "正在校验",
+    "completed": "已完成",
+    "author_revision_required": "需要重写 Passage",
+    "examiner_revision_required": "需要重出题",
+    "needs_review": "待人工确认",
+    "failed": "失败",
+    "paused": "已暂停",
+    "cancelled": "已取消",
+}
+
+
+def unit_status_label(status: str) -> str:
+    return UNIT_STATUS_LABELS.get(status, "状态未知")
+
 
 def job_status_label(status: str) -> str:
     """状态的中文说法；未知状态说"状态未知"，而不是把英文枚举漏到界面上。"""

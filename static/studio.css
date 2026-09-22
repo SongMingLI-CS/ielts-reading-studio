@@ -110,6 +110,9 @@
 .failure-panel li{margin:0}
 .failure-panel code{margin-left:.25rem;padding:.05rem .3rem;border-radius:.25rem;background:#f3e6c8;color:#6f5015;font-size:.78rem}
 .failure-next{margin:.6rem 0 0;padding-top:.5rem;border-top:1px dashed #e2cf9f;color:#5d4a22;font-size:.83rem}
+.failure-code{margin:.1rem 0 .5rem;color:#5d4a22;font-size:.84rem}
+.failure-where{margin:.5rem 0 0;color:var(--ink-secondary);font-size:.78rem;overflow-wrap:anywhere}
+.failure-units code{overflow-wrap:anywhere}
 .run-summary{margin:.75rem 0 0;color:var(--ink-secondary);font-size:.82rem;line-height:1.6;overflow-wrap:anywhere}
 .chapter-pagination{flex-direction:column;gap:.5rem}
 /* 统计有 4 格或 5 格（多一个「待重试」）：用 auto-fit 让每格等宽，不会有一格被拉长 */

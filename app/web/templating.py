@@ -44,10 +44,14 @@ def csp_nonce(context) -> str:
 def templates() -> Jinja2Templates:
     """A Jinja2Templates instance with the security globals registered."""
 
+    from .glossary import unit_status_label
+
     environment = Jinja2Templates(directory=TEMPLATES_DIR)
     environment.env.globals.update(
         csrf_field=csrf_field,
         csrf_token=csrf_token,
         csp_nonce=csp_nonce,
+        # 任务表的「状态」列要显示人话，模板里不该出现 indexed / needs_review 这类枚举。
+        unit_status_label=unit_status_label,
     )
     return environment

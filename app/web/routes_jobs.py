@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from hashlib import sha256
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query
@@ -10,6 +11,7 @@ from starlette.requests import Request
 
 from app.cli import parse_range
 from app.models import Difficulty, QuestionType, UnitStatus
+from app.pipeline.novel_runner import failure_hint, failure_label
 from app.pipeline.queue import QueueLimitError
 from app.pipeline.service import ReadingStudioService
 from app.pipeline.tasks import queue_sample, queue_status_for, sample_status_path
@@ -19,11 +21,16 @@ from app.security.budget import BudgetError
 from .dependencies import get_service
 from .glossary import (
     ACTIVE_JOB_STATUSES,
+    NOVEL_OUTCOME_LABELS,
     difficulty_rows,
+    job_error_hint,
+    job_error_label,
     job_kind_label,
     job_status_class,
     job_status_label,
+    stage_label,
     type_rows,
+    unit_status_label,
 )
 from .templating import templates
 
@@ -346,10 +353,104 @@ def _job_row(service: ReadingStudioService, job: dict[str, Any]) -> dict[str, An
         "question_types": payload.get("question_types") or [],
         "attempts": job.get("attempts") or 0,
         "error_code": job.get("error_code"),
+        "error_label": job_error_label(job.get("error_code")),
         "updated_at": job.get("updated_at"),
         "created_at": job.get("created_at"),
         "updated_label": _moment_label(job.get("updated_at")),
         "created_label": _moment_label(job.get("created_at")),
+    }
+
+
+def _novel_run_report(service: ReadingStudioService, payload: dict[str, Any]) -> dict[str, Any] | None:
+    """小说作业的失败细节写在组件自己的 run_status.json 里，任务页要把它读出来。
+
+    payload 里的路径由后端入队时写入，但仍然只在 output 目录内、且文件名必须是
+    run_status.json：路径写错或越界时这一块直接不显示，不会读到任意文件。
+    """
+
+    status_path = payload.get("status_path")
+    if not status_path:
+        return None
+    path = Path(str(status_path))
+    try:
+        resolved = path.resolve()
+        root = service.config.output_dir.resolve()
+    except OSError:  # pragma: no cover - 路径解析失败只可能是权限或符号链接问题
+        return None
+    if resolved.name != "run_status.json":
+        return None
+    if not resolved.is_relative_to(root) or not resolved.is_file():
+        return None
+    try:
+        data = json.loads(resolved.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    reason = str(data.get("failure_reason") or "")
+    return {
+        "description": str(data.get("description") or "情境小说生成"),
+        "outcome": str(data.get("outcome") or ""),
+        "outcome_label": NOVEL_OUTCOME_LABELS.get(str(data.get("outcome") or ""), ""),
+        "chapters_completed": data.get("chapters_completed"),
+        "chapters_failed": data.get("chapters_failed"),
+        "return_code": data.get("return_code"),
+        "failure_reason": reason,
+        "failure_label": str(data.get("failure_label") or "") or (failure_label(reason) if reason else ""),
+        "failure_hint": str(data.get("failure_hint") or "") or failure_hint(reason),
+        "log_path": str(resolved.parent / "reports" / "web-generation.log"),
+    }
+
+
+def _failure_summary(
+    service: ReadingStudioService,
+    job: dict[str, Any],
+    units: list[Any],
+    error_code: str | None,
+) -> dict[str, Any] | None:
+    """失败时给任务页一份「为什么失败」：人话错误码 + 组件运行摘要 + 单元阶段错误 + 看日志的命令。
+
+    没有这份东西，任务页只剩「handler_failed:RuntimeError」加一张空表——小说作业本来就没有
+    生成单元，等于让人去猜。错误码从队列状态里拿（`get_job()` 不返回它）。只有真的失败了
+    （或部分失败）才显示。
+    """
+
+    unit_errors = service.repository.latest_unit_errors(job["id"])
+    novel = _novel_run_report(service, job.get("payload") or {})
+    rows = []
+    for unit in units:
+        error = unit_errors.get(unit.id)
+        if error is None:
+            continue
+        rows.append(
+            {
+                "unit_id": unit.id,
+                "ordinal": unit.ordinal,
+                "stage": stage_label(str(error.get("stage") or "")),
+                "attempt": error.get("attempt"),
+                "error": str(error.get("error") or "").strip()[:300],
+            }
+        )
+    partial = job["status"] == "completed_with_errors"
+    if not (error_code or novel or rows):
+        return None
+    failed_units = sum(1 for unit in units if unit.status.value == "failed")
+    title = (
+        f"这个任务有 {failed_units} 个单元没成功，原因如下"
+        if partial and failed_units
+        else ("这个任务部分失败" if partial else "这个任务失败了，原因如下")
+    )
+    return {
+        "title": title,
+        "error_code": error_code,
+        "code_label": job_error_label(error_code),
+        "code_hint": job_error_hint(error_code),
+        "novel": novel,
+        "unit_errors": rows,
+        "log_hint": (
+            f"在服务器上看完整堆栈：journalctl -u ielts-reading-studio-worker --since '-1 day' "
+            f"| grep -F {job['id']}"
+        ),
     }
 
 
@@ -366,13 +467,23 @@ def job_detail(
     job = service.repository.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
+    units = service.repository.list_job_units(job_id)
+    queue_state = queue_status_for(service, job_id)
+    status = str(job["status"])
     return TEMPLATES.TemplateResponse(
         request,
         "jobs/detail.html",
         {
             "job": job,
-            "units": service.repository.list_job_units(job_id),
-            "queue_state": queue_status_for(service, job_id),
+            "units": units,
+            "queue_state": queue_state,
+            "status_label": job_status_label(status),
+            # 按钮只在该状态真的能用时出现：对已失败的任务显示「暂停/继续」只会让人误点。
+            "can_pause": status in {"queued", "running"},
+            "can_resume": status in {"paused", "blocked"},
+            "can_retry": status in {"failed", "completed_with_errors"},
+            "can_cancel": status in ACTIVE_JOB_STATUSES,
+            "failure": _failure_summary(service, job, units, queue_state.get("error_code")),
         },
     )
 
@@ -390,8 +501,14 @@ def job_units(
     units = service.repository.list_job_units(job_id)
     return {
         "job_status": job["status"],
+        "job_status_label": job_status_label(str(job["status"])),
         "units": [
-            {"id": unit.id, "ordinal": unit.ordinal, "status": unit.status.value}
+            {
+                "id": unit.id,
+                "ordinal": unit.ordinal,
+                "status": unit.status.value,
+                "status_label": unit_status_label(unit.status.value),
+            }
             for unit in units
         ],
     }

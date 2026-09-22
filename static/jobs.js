@@ -11,10 +11,10 @@
     try {
       const data = await window.AppRequest.requestJson(`/jobs/${encodeURIComponent(window.JOB_ID)}/units`, { timeout: 10000 });
       failures = 0;
-      document.querySelector('#job-status').textContent = data.job_status;
+      document.querySelector('#job-status').textContent = data.job_status_label || data.job_status;
       for (const unit of data.units) {
         const row = document.querySelector(`[data-unit="${CSS.escape(unit.id)}"]`);
-        if (row) row.querySelector('.status').textContent = unit.status;
+        if (row) row.querySelector('.status').textContent = unit.status_label || unit.status;
       }
       if (terminal.has(data.job_status)) {
         connection.textContent = '更新完成';

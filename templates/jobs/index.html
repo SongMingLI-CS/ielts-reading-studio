@@ -24,7 +24,7 @@
         <a class="text-link" href="/jobs/{{ row.id }}">{{ row.title }}</a>
         <small class="jobs-id">{{ row.id[:8] }} · 创建 {{ row.created_label }}</small>
         {% if row.attempts and row.attempts > 1 %}<small class="jobs-flag">第 {{ row.attempts }} 次尝试</small>{% endif %}
-        {% if row.error_code %}<small class="jobs-flag danger">错误码 {{ row.error_code }}</small>{% endif %}
+        {% if row.error_code %}<small class="jobs-flag danger">失败原因 {{ row.error_label or row.error_code }}</small>{% endif %}
       </td>
       <td data-label="材料">{{ row.corpus_name }}</td>
       <td data-label="状态">

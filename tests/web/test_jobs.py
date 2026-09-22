@@ -1,6 +1,9 @@
+import json
+
 from pydantic import SecretStr
 
 from app.models import UnitStatus
+from app.pipeline.queue import FAILED, NOVEL_KIND
 
 
 def test_configuration_page_explains_types_and_the_gate(client, web_service, sample_txt):
@@ -222,6 +225,125 @@ def test_job_index_is_reachable_from_the_navigation_and_the_corpus_card(
     assert "已完成" in corpora.text
 
 
+def test_failed_novel_job_explains_itself_from_the_component_report(
+    client, web_service, sample_txt
+) -> None:
+    """小说作业失败时页面只给「handler_failed:RuntimeError」等于没说：要把组件报告读出来。
+
+    线上真实案例：585338f5 那次「《诡秘之主》失败章节重试」在组件里完成了 1 章、失败 1 章，
+    组件以退出码 1 结束，于是 worker 记 handler_failed:RuntimeError——任务页当时只剩一个
+    错误码和一张空表（小说作业本来就没有生成单元）。
+    """
+
+    book = web_service.config.output_dir / "context-novel" / "books" / "book-x"
+    book.mkdir(parents=True, exist_ok=True)
+    report = book / "run_status.json"
+    report.write_text(
+        json.dumps(
+            {
+                "status": "failed",
+                "return_code": 1,
+                "description": "《诡秘之主》失败章节重试",
+                "outcome": "failed",
+                "chapters_completed": 1,
+                "chapters_failed": 1,
+                "failure_reason": "第 8 章失败：ChapterConversionError（连续失败 1）",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    web_service.queue.enqueue(
+        corpus_id=web_service.import_source(sample_txt).corpus.id,
+        job_id="job-novel",
+        kind=NOVEL_KIND,
+        payload={"description": "《诡秘之主》失败章节重试", "status_path": str(report)},
+    )
+    assert web_service.queue.claim("worker-1", kinds=(NOVEL_KIND,)) is not None
+    web_service.queue.release(
+        "job-novel", "worker-1", status=FAILED, error_code="handler_failed:RuntimeError"
+    )
+
+    page = client.get("/jobs/job-novel")
+
+    assert "这个任务失败了，原因如下" in page.text
+    assert "组件抛出了异常（RuntimeError）" in page.text
+    # 错误码原样保留在「失败原因」块里，队列行只给人话
+    assert "错误码 <code>handler_failed:RuntimeError</code>" in page.text
+    assert "队列：<strong>已失败</strong> · 失败原因 组件抛出了异常（RuntimeError）" in page.text
+    assert "《诡秘之主》失败章节重试 · 本次有章节失败 · 组件退出码 1" in page.text
+    assert "完成 1 章、失败 1 章" in page.text
+    # failure_hint 缺失时回落到关键词表，仍然给得出下一步
+    assert "这一章的正文转换失败" in page.text
+    assert "第 8 章失败：ChapterConversionError" in page.text
+    assert "换一章，或按章节范围分批重试。" in page.text
+    assert "web-generation.log" in page.text
+    assert "journalctl -u ielts-reading-studio-worker" in page.text
+    assert "job-novel" in page.text
+    # 状态与动作跟着状态走：已失败的任务不该出现「暂停/继续」
+    assert "状态：<strong id=\"job-status\">已失败</strong>" in page.text
+    assert "仅重试失败" in page.text
+    assert ">暂停<" not in page.text and ">继续<" not in page.text
+    # 小说作业本来就没有生成单元：空表要换成一句解释，而不是一张「什么都没列」的表格
+    assert "这个任务没有生成单元" in page.text
+    assert "<th>序号</th>" not in page.text
+
+
+def test_job_page_ignores_a_run_status_path_outside_the_output_dir(
+    client, web_service, sample_txt, tmp_path
+) -> None:
+    """payload 里的路径只在 output 目录内生效：越界就当作没有报告，不能读到别的文件。"""
+
+    outside = tmp_path / "run_status.json"
+    outside.write_text(
+        json.dumps({"failure_reason": "不该显示的路径"}, ensure_ascii=False), encoding="utf-8"
+    )
+    corpus_id = web_service.import_source(sample_txt).corpus.id
+    web_service.queue.enqueue(
+        corpus_id=corpus_id,
+        job_id="job-escape",
+        kind=NOVEL_KIND,
+        payload={"description": "越界路径", "status_path": str(outside)},
+    )
+    assert web_service.queue.claim("worker-1", kinds=(NOVEL_KIND,)) is not None
+    web_service.queue.release(
+        "job-escape", "worker-1", status=FAILED, error_code="handler_failed:RuntimeError"
+    )
+
+    page = client.get("/jobs/job-escape")
+
+    assert "不该显示的路径" not in page.text
+    # 越界只影响「组件报告」这一块，错误码本身仍然要解释
+    assert "这个任务失败了，原因如下" in page.text
+    assert "组件抛出了异常（RuntimeError）" in page.text
+
+
+def test_failed_unit_shows_which_stage_failed_and_what_it_said(
+    client, web_service, sample_txt, completed_unit
+) -> None:
+    """单元表只写「失败」看不出哪一步、什么错：阶段错误就在 stage_attempts.error 里。"""
+
+    manifest = web_service.import_source(sample_txt)
+    unit = next(item for item in manifest.units if item.id != completed_unit.id)
+    web_service.repository.transition(unit.id, UnitStatus.INDEXED, UnitStatus.FAILED)
+    web_service.repository.create_job(
+        "job-unit",
+        unit.corpus_id,
+        "failed",
+        {"unit_ids": [unit.id], "ordinals": [unit.ordinal]},
+    )
+    web_service.repository.assign_units_to_job([unit.id], "job-unit")
+    web_service.repository.create_stage_attempt(unit.id, "author_passage", 1, job_id="job-unit")
+    web_service.repository.fail_stage_attempt(
+        unit.id, "author_passage", 1, error="RuntimeError: provider exploded"
+    )
+
+    page = client.get("/jobs/job-unit")
+
+    assert f"第 {unit.ordinal} 个单元 · 写作：生成 Passage · 第 1 次尝试" in page.text
+    assert "RuntimeError: provider exploded" in page.text
+
+
 def test_job_monitor_pause_and_unit_json(client, web_service, completed_unit):
     web_service.repository.create_job(
         "job-1",
@@ -234,15 +356,24 @@ def test_job_monitor_pause_and_unit_json(client, web_service, completed_unit):
     assert detail.status_code == 200
     assert completed_unit.id in detail.text
     assert 'id="job-connection"' in detail.text
+    # 状态与单元状态都给人话：页面与轮询接口都不该漏出 running / completed 这类枚举
+    assert "状态：<strong id=\"job-status\">生成中</strong>" in detail.text
+    assert "已完成" in detail.text
+    assert ">running<" not in detail.text
+    # 只有 truly 可用的动作才出现
+    assert "暂停" in detail.text and "取消" in detail.text
+    assert "仅重试失败" not in detail.text
     assert 'src="/static/request.js?v=1"' in detail.text
-    assert 'src="/static/jobs.js?v=2"' in detail.text
+    assert 'src="/static/jobs.js?v=3"' in detail.text
 
     paused = client.post("/jobs/job-1/pause", follow_redirects=False)
     assert paused.status_code == 303
     assert web_service.repository.get_job("job-1")["status"] == "paused"
     units = client.get("/jobs/job-1/units?after=0").json()
     assert units["job_status"] == "paused"
+    assert units["job_status_label"] == "已暂停"
     assert units["units"][0]["id"] == completed_unit.id
+    assert units["units"][0]["status_label"] == "已完成"
 
 
 def test_start_job_requires_sample_approval(client, web_service, sample_txt):

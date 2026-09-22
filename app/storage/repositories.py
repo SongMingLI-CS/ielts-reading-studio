@@ -508,6 +508,35 @@ class Repository:
             ).mappings()
             return [_model(row, GenerationUnit) for row in rows]
 
+    def latest_unit_errors(self, job_id: str, *, limit: int = 20) -> dict[str, dict[str, Any]]:
+        """失败单元的最后一条阶段错误（一个单元一条）。
+
+        任务页只列「单元 / 状态」，看不出哪一步、错在哪；阶段错误本来就记在
+        ``stage_attempts.error`` 里，把它读出来才能解释失败。
+        """
+
+        with self.database.engine.connect() as connection:
+            rows = connection.execute(
+                select(
+                    stage_attempts.c.unit_id,
+                    stage_attempts.c.stage,
+                    stage_attempts.c.attempt,
+                    stage_attempts.c.error,
+                    stage_attempts.c.updated_at,
+                )
+                .where(
+                    stage_attempts.c.job_id == job_id,
+                    stage_attempts.c.error.is_not(None),
+                )
+                .order_by(stage_attempts.c.updated_at.desc())
+                .limit(limit)
+            ).mappings()
+            # 先到先得：按时间倒序取，每个单元保留最新的一条。
+            latest: dict[str, dict[str, Any]] = {}
+            for row in rows:
+                latest.setdefault(row["unit_id"], dict(row))
+            return latest
+
     def assign_units_to_job(self, unit_ids: Sequence[str], job_id: str) -> int:
         if not unit_ids:
             return 0

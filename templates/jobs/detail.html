@@ -1,10 +1,30 @@
 {% extends "base.html" %}
 {% block title %}任务 {{ job.id }}{% endblock %}
 {% block content %}
-<p class="eyebrow">任务监控</p><h1>{{ job.id }}</h1><p>状态：<strong id="job-status">{{ job.status }}</strong> <span id="job-connection" role="status" aria-live="polite">正在自动更新</span></p>
-{% if queue_state %}<p class="queue-state">队列：<strong>{{ queue_state.label }}</strong>{% if queue_state.worker_id %} · worker {{ queue_state.worker_id }}{% endif %}{% if queue_state.attempts and queue_state.attempts > 1 %} · 第 {{ queue_state.attempts }} 次尝试{% endif %}{% if queue_state.error_code %} · 错误码 {{ queue_state.error_code }}{% endif %}{% if queue_state.queued %} · 队列中还有 {{ queue_state.queued }} 个任务{% endif %}</p>{% endif %}
-<div class="actions"><form action="/jobs/{{ job.id }}/pause" method="post">{{ csrf_field() }}<button>暂停</button></form><form action="/jobs/{{ job.id }}/resume" method="post">{{ csrf_field() }}<button>继续</button></form><form action="/jobs/{{ job.id }}/retry" method="post">{{ csrf_field() }}<button>仅重试失败</button></form><form action="/jobs/{{ job.id }}/cancel" method="post">{{ csrf_field() }}<button class="danger">取消</button></form></div>
-<table><thead><tr><th>序号</th><th>单元</th><th>状态</th></tr></thead><tbody id="unit-rows">{% include "partials/unit_rows.html" %}</tbody></table>
+<p class="eyebrow">任务监控</p><h1>{{ job.id }}</h1><p>状态：<strong id="job-status">{{ status_label }}</strong> <span id="job-connection" role="status" aria-live="polite">正在自动更新</span></p>
+{% if queue_state %}<p class="queue-state">队列：<strong>{{ queue_state.label }}</strong>{% if queue_state.worker_id %} · worker {{ queue_state.worker_id }}{% endif %}{% if queue_state.attempts and queue_state.attempts > 1 %} · 第 {{ queue_state.attempts }} 次尝试{% endif %}{% if queue_state.error_code %} · 失败原因 {{ failure.code_label or queue_state.error_code }}{% endif %}{% if queue_state.queued %} · 队列中还有 {{ queue_state.queued }} 个任务{% endif %}</p>{% endif %}
+{% if failure %}
+<section class="failure-panel" aria-labelledby="job-failure-title">
+  <h3 id="job-failure-title">{{ failure.title }}</h3>
+  {% if failure.code_label %}<p class="failure-code">错误码 <code>{{ failure.error_code }}</code> — {{ failure.code_label }}</p>{% endif %}
+  {% if failure.novel %}
+  <ul>
+    <li>这次运行：{{ failure.novel.description }}{% if failure.novel.outcome_label %} · {{ failure.novel.outcome_label }}{% endif %}{% if failure.novel.return_code is not none %} · 组件退出码 {{ failure.novel.return_code }}{% endif %}</li>
+    {% if failure.novel.chapters_completed is not none or failure.novel.chapters_failed is not none %}<li>完成 {{ failure.novel.chapters_completed or 0 }} 章、失败 {{ failure.novel.chapters_failed or 0 }} 章</li>{% endif %}
+    {% if failure.novel.failure_reason %}<li>{{ failure.novel.failure_label }}{% if failure.novel.failure_label and failure.novel.failure_label != failure.novel.failure_reason %} <code>{{ failure.novel.failure_reason }}</code>{% endif %}</li>{% endif %}
+  </ul>
+  {% if failure.novel.failure_hint %}<p class="failure-next">下一步：{{ failure.novel.failure_hint }}</p>{% endif %}
+  <p class="failure-where">组件日志：<code>{{ failure.novel.log_path }}</code></p>
+  {% endif %}
+  {% if failure.unit_errors %}
+  <ul class="failure-units">{% for item in failure.unit_errors %}<li>第 {{ item.ordinal }} 个单元{{ ' · ' + item.stage if item.stage else '' }}{% if item.attempt %} · 第 {{ item.attempt }} 次尝试{% endif %}：<code>{{ item.error }}</code></li>{% endfor %}</ul>
+  {% endif %}
+  {% if failure.code_hint %}<p class="failure-next">下一步：{{ failure.code_hint }}</p>{% endif %}
+  <p class="failure-where">{{ failure.log_hint }}</p>
+</section>
+{% endif %}
+<div class="actions">{% if can_pause %}<form action="/jobs/{{ job.id }}/pause" method="post">{{ csrf_field() }}<button>暂停</button></form>{% endif %}{% if can_resume %}<form action="/jobs/{{ job.id }}/resume" method="post">{{ csrf_field() }}<button>继续</button></form>{% endif %}{% if can_retry %}<form action="/jobs/{{ job.id }}/retry" method="post">{{ csrf_field() }}<button>仅重试失败</button></form>{% endif %}{% if can_cancel %}<form action="/jobs/{{ job.id }}/cancel" method="post">{{ csrf_field() }}<button class="danger">取消</button></form>{% endif %}</div>
+{% if units %}<table><thead><tr><th>序号</th><th>单元</th><th>状态</th></tr></thead><tbody id="unit-rows">{% include "partials/unit_rows.html" %}</tbody></table>{% else %}<p class="queue-state">这个任务没有生成单元：小说组件按章节自己记账，进度写在它的运行报告里（上面那块）。</p>{% endif %}
 <script nonce="{{ csp_nonce() }}">window.JOB_ID={{ job.id|tojson }};window.JOB_STATUS={{ job.status|tojson }};</script>
 {% endblock %}
-{% block scripts %}<script src="/static/request.js?v=1"></script><script src="/static/jobs.js?v=2"></script>{% endblock %}
+{% block scripts %}<script src="/static/request.js?v=1"></script><script src="/static/jobs.js?v=3"></script>{% endblock %}
