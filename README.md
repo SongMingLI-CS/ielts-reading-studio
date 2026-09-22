@@ -226,6 +226,8 @@ IELTS_WEB_TRUSTED_PROXIES=127.0.0.1
 
 配置不完整时 `ielts-reading serve --host 0.0.0.0` 会**拒绝启动**并列出原因。
 
+口令长度下限默认 12 字符，可用 `IELTS_WEB_PASSWORD_MIN_LENGTH` 显式放宽（最低 8，低于 8 直接被判为配置错误）。这是一处**有意的、可见的**风险取舍，而且只放宽这一项：弱口令阻断列表、登录失败限速、CSRF 与其余闸门都不随之改变。单用户公开部署（服务器的 `.env.web`）当前把下限设为 10 以匹配既有口令；口令轮换后应改回默认 12。判定逻辑与剩余风险见 [docs/security.md](docs/security.md) 第 5 节。
+
 程序化调用需要两步（JSON API 也要 CSRF）：
 
 ```bash
