@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>IELTS Learning Studio · UI 评审与优化方案</title><style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:#243d35;background:#f6f8f5;line-height:1.7;--line:#d7e1d9;--muted:#5a7066;--green:#1d6658}*{box-sizing:border-box}body{margin:0}a{color:var(--green)}main{max-width:1160px;margin:auto;padding:48px 32px 72px}header{border-bottom:1px solid var(--line);padding-bottom:30px}.eyebrow{font-size:12px;color:var(--muted);letter-spacing:.14em}h1{font-size:42px;line-height:1.25;letter-spacing:-.03em;margin:14px 0 20px}h2{font-size:26px;margin:44px 0 18px}h3{font-size:18px;margin:0 0 10px}p{margin:8px 0}small,.muted{color:var(--muted)}.lead{max-width:880px;font-size:18px}.tag{display:inline-block;border:1px solid var(--line);border-radius:30px;padding:3px 12px;margin:12px 6px 0 0;font-size:12px;background:#fff}.summary,.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.summary{margin-top:26px}.box,.finding,.phase{padding:22px;border:1px solid var(--line);border-radius:12px;background:#fff}.box strong{display:block;font-size:19px}.box small{display:block;margin-top:6px}.keep{padding:22px;background:#eaf3ed;border:1px solid #bed8c5;border-radius:12px}.finding{margin:14px 0;display:grid;grid-template-columns:48px 1fr;gap:12px}.priority{font-weight:700;color:#885022}.finding.p0{border-left:4px solid #bc5541}.finding.p1{border-left:4px solid #b68843}.finding.p2{border-left:4px solid #649988}.finding p{font-size:14px}.finding code{font-size:12px;overflow-wrap:anywhere;background:#f2f5f2;padding:2px 4px}.proof{color:#5a7066;border-top:1px solid #e4ebe5;padding-top:10px}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}th,td{padding:14px;text-align:left;border:1px solid var(--line);vertical-align:top}th{background:#edf3ee}.roadmap{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.phase b{font-size:13px;color:var(--green)}.phase ul{padding-left:20px;font-size:14px}.mock{border:1px solid #c6d8cb;border-radius:12px;background:#f4f7f2;overflow:hidden}.mocknav{display:flex;gap:24px;padding:18px 24px;border-bottom:1px solid var(--line);background:#fff;align-items:center;flex-wrap:wrap;font-size:13px}.mocknav strong{margin-right:auto}.mocknav .selected{color:#155847;font-weight:700;border-bottom:2px solid #1d6658}.mockbody{padding:28px}.mocktitle{display:flex;justify-content:space-between;align-items:end;gap:16px;margin-bottom:20px}.mocktitle h3{font-size:25px}.mockcols{display:grid;grid-template-columns:1.55fr 1fr;gap:18px}.continue{border:1px solid #bbd6c7;background:#e9f3ed;border-radius:10px;padding:24px}.continue h4{font-size:23px;margin:14px 0}.btn{display:inline-block;background:#e0eee6;color:#164d3b;border:1px solid #9fbfac;padding:9px 16px;border-radius:7px;font-size:14px;font-weight:650}.thin{height:6px;background:#cfdfd3;border-radius:6px;margin:18px 0}.thin span{display:block;width:58%;height:100%;background:#398268;border-radius:6px}.quick{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}.mocklist{margin-top:20px;background:#fff;padding:20px;border:1px solid var(--line);border-radius:10px}.listitem{display:grid;grid-template-columns:38px 1fr auto;gap:16px;align-items:center;padding:14px 0;border-top:1px solid var(--line)}.listitem p{font-size:13px;margin:0}.caption{font-size:13px;color:#5a7066;margin:12px 0}.screens{display:grid;grid-template-columns:1fr 1fr;gap:16px}.screens figure{margin:0;padding:10px;background:white;border:1px solid var(--line);border-radius:8px}.screens img{max-width:100%;display:block;border:1px solid #e1e6e1}.screens figcaption{padding:10px 2px;font-size:13px}.note{padding:16px;border-left:3px solid #789a85;background:#eef3ee;font-size:14px}footer{margin-top:36px;border-top:1px solid var(--line);padding-top:20px;font-size:13px;color:#5a7066}button{font:inherit;padding:8px 15px;color:#164d3b;background:#fff;border:1px solid var(--line);border-radius:6px;cursor:pointer}button:focus-visible,a:focus-visible{outline:3px solid #987231;outline-offset:4px}button[aria-pressed="true"]{background:#dcece1;border-color:#88ab96}.filters{display:flex;gap:8px;flex-wrap:wrap}.finding[hidden]{display:none}@media(max-width:760px){main{padding:24px 16px}h1{font-size:30px}.summary,.grid,.roadmap,.mockcols,.screens{grid-template-columns:1fr}.mockbody{padding:18px}.mocknav{gap:12px}.finding{grid-template-columns:35px 1fr;padding:17px 12px}.mocktitle{display:block}.listitem{grid-template-columns:26px 1fr}.listitem .btn{grid-column:2}.table-wrap{font-size:13px}}.code-block{background:#eef3ef;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font-size:13px;line-height:1.6;margin:12px 0}@media print{body{background:#fff}main{padding:0}.filters{display:none}.finding{break-inside:avoid}.mock,.keep{break-inside:avoid}h2{break-after:avoid}}
+</style></head><body><main>
+<header><div class="eyebrow">Design review / 2026.09.22</div><h1>从功能入口集合，<br>转向以学习任务为中心的工作台。</h1><p class="lead">IELTS Learning Studio 的设计基础值得保留。真正需要优先改变的，不是配色，而是<strong>入口层级、首屏可操作性和答题布局的可靠性</strong>。</p><span class="tag">现有模板与样式评审</span><span class="tag">桌面 / 平板 / 手机</span><span class="tag">第一轮：只评审、不改代码</span><span class="tag">第二轮：修复已实施并复测</span><div class="summary"><div class="box"><strong>保留视觉识别</strong><small>森林绿、浅底色、阅读排版、清晰卡片</small></div><div class="box"><strong>让下一步显而易见</strong><small>先继续学习，再浏览工具，管理入口下沉</small></div><div class="box"><strong>先可靠，再精致</strong><small>修复响应式与事件绑定，再统一细节</small></div></div></header>
+<section><h2>01 / 评审范围与边界</h2><p>检查站点外壳、首页、材料库、练习中心、在线答题、结果解析、知识点与写作界面；结合路由、表单及样式级联分析。预览使用独立数据库副本，不调用模型，不更改原有学习记录。</p><div id="verification" class="note">代码证据与视觉验证分别标注。本文属于启发式评审，不包含用户访谈、真实转化率测量或完整无障碍认证。方案中的首屏与操作步数属于建议验收目标，不是已证明的收益。</div></section>
+<section><h2>02 / 值得保留的基础</h2><div class="keep"><strong>不要推倒重做。</strong><p>已有语义明确的主按钮与状态标签；练习支持双栏阅读、可调分隔线、浏览器草稿与服务器保存；支持未答题跳转、漏答确认、原文证据和中文解析；材料生成有样篇批准门槛；部分控件已具备焦点样式、触控适配和减少动态效果支持。</p><p>下一版应延续这些能力，优先处理“能力存在但入口难找”与“视觉正常但交互不可用”的问题。</p></div></section>
+<section><h2>03 / 问题清单与优先级</h2><p class="caption">P0：关键任务可靠性，发布前修复；P1：核心体验与信任问题，下一迭代处理；P2：一致性与效率优化。</p><div class="filters" aria-label="按优先级筛选"><button type="button" data-level="all" aria-pressed="true">全部</button><button type="button" data-level="p0" aria-pressed="false">P0</button><button type="button" data-level="p1" aria-pressed="false">P1</button><button type="button" data-level="p2" aria-pressed="false">P2</button></div>
+<article class="finding p0"><div class="priority">P0</div><div><h3>01. 小屏答题布局的 CSS 级联存在冲突</h3><p><b>问题：</b>早期媒体查询设置单栏，但后置通用规则重新定义三列；后面的移动分栏样式只隐藏面板，没有重设网格。实测已确认空列与窄阅读区：390px 视口下容器可用宽 364px，却保留 320 / 12 / 390px 三列；768px 视口下文章区域仅宽 332px，右侧大块留白。此处不是推测，也不应仅靠隐藏横向滚动条处理。</p><p><b>方案：</b>默认单栏，在 ≥1025px 的媒体查询中才开启双栏与分隔条；隐藏的面板不保留轨道。手机保证全文和题目都能使用完整内容宽度；平板另行验证，而不是简单等同手机。</p><p class="proof">代码证据：<code>static/app.css:12–15, 63, 84–94</code>。实际尺寸验证见后文。</p></div></article>
+<article class="finding p0"><div class="priority">P0</div><div><h3>02. 安全策略与内联事件冲突，部分按钮和确认可能失效</h3><p><b>问题：</b>严格脚本策略下，HTML 的 onclick / onchange / onsubmit 不被允许。受影响的是打印、分页自动提交及章节合并/拆分确认，不能仅视为视觉瑕疵。</p><p><b>方案：</b>使用同源外部脚本绑定事件；不要放宽脚本安全策略来迁就旧写法。对章节修改保留明确确认，对打印保留可见按钮及说明。</p><p class="proof">代码证据：<code>app/security/headers.py:42</code>；<code>templates/corpora/preview.html:75, 138, 146</code>；三个独立打印模板的内联 onclick。未实际执行章节修改。</p></div></article>
+<article class="finding p1"><div class="priority">P1</div><div><h3>03. 12 个一级导航混合学习与管理任务</h3><p><b>问题：</b>阅读、写作、知识点和导入、备份、设置处于同一层；移动端隐藏滚动条的横滚导航缺少“还有入口”的提示。用户必须先理解系统模块。</p><p><b>方案：</b>按“学习”与“内容管理”拆分。常驻学习首页、阅读、写作、知识库、情境小说；材料、生成任务、审阅、导出放入内容管理；备份、设置和退出进入账户菜单。手机使用 4 个稳定入口：首页、阅读、复习、更多。</p><p class="proof">代码证据：<code>templates/base.html:19–32</code>；<code>static/app.css:20–24</code>。</p></div></article>
+<article class="finding p1"><div class="priority">P1</div><div><h3>04. 首页像介绍页，练习中心的操作出现得太晚</h3><p><b>问题：</b>首页大标题加大尺寸产品卡，三项产品却采用两列网格，写作入口落到下一行。练习中心先展示介绍、私有存储与统计，再展示篇目；≤390px 又把四个统计格拆为单列。</p><p><b>方案：</b>首页第一屏展示“继续上次学习”；有草稿优先继续，无草稿显示推荐篇目，无内容则引导导入。练习中心压缩标题区域，把统计变为一行摘要，进行中的篇目置顶；增加状态筛选与搜索。</p><p class="proof">代码证据：<code>templates/home.html:4–38</code>；<code>static/studio.css:1</code>；<code>templates/practice/index.html:4–24</code>；<code>static/practice-center.css:17–18</code>。</p></div></article>
+<article class="finding p1"><div class="priority">P1</div><div><h3>05. 无障碍能力不均衡，浅色小字需要校准</h3><p><b>问题：</b>无跳过导航入口；答题页文本输入/下拉框缺少与题干的程序化关联；移动标签缺少完整面板关联与方向键切换；词汇卡用不可聚焦的 article 承担点击展开。</p><p><b>方案：</b>增加 skip link；为题组/输入提供 legend、label 或 aria-labelledby；标签与面板关联，支持方向键；词汇展开改用 button 或 details/summary；保存反馈采用状态播报。辅助文字使用更深的中性色。</p><p class="proof">代码证据：<code>templates/base.html:17–35</code>；<code>templates/practice/session.html:27–32, 51–62</code>；<code>static/practice.js:241–246</code>；<code>templates/practice/analysis.html:34–41</code>。颜色计算：#7d8a85 / 白底约 3.59:1，#8b948f / 白底约 3.12:1；建议常规正文至少 4.5:1。</p></div></article>
+<article class="finding p1"><div class="priority">P1</div><div><h3>06. 状态说明暴露实现细节，任务结束缺少清晰下一步</h3><p><b>问题：</b>任务页直接使用任务 ID 作标题、显示原始状态与 worker 信息；材料卡只展示最近任务文本而非可点击入口。结果页写“这台电脑的 SQLite”，与其他页面“私有服务器”说法混杂；首页还残留“两个工具”的旧文案。</p><p><b>方案：</b>用“某材料 · 第 1–10 章生成任务”命名，显示已完成/总数、失败原因及下一步；完成后主按钮为“开始练习”，失败时提供“重试失败项”。统一“浏览器暂存”与“已同步到私有服务器”，技术详情折叠。</p><p class="proof">代码证据：<code>templates/jobs/detail.html:4–7</code>；<code>templates/corpora/index.html:91</code>；<code>templates/practice/result.html:21</code>；<code>templates/home.html:40</code>。</p></div></article>
+<article class="finding p2"><div class="priority">P2</div><div><h3>07. 多个知识入口命名接近，结果页未突出复习任务</h3><p><b>问题：</b>词汇、知识点、练习生词本与错题分散在不同层；用户容易疑惑内容区别。结果页主操作是“重做本篇”，还未把错题复习作为主线。</p><p><b>方案：</b>统一归到“知识库/复习”，保留错题、已收藏词汇、自动汇总知识三个清晰标签，不合并底层数据语义。结果页先给题型表现与薄弱点，再“复习错题”；全部正确时改为“下一篇”。</p><p class="proof">代码证据：<code>templates/base.html:24–25</code>；<code>templates/practice/index.html:9</code>；<code>templates/practice/result.html:16–24</code>。</p></div></article>
+<article class="finding p2"><div class="priority">P2</div><div><h3>08. 视觉令牌已有雏形，但字号、密度和断点尚未统一</h3><p><b>问题：</b>多个样式文件重复覆盖通用规则；标题装饰、卡片留白、英文辅助标题占据较多空间。小字颜色、圆角、按钮样式分散定义，调整时容易造成跨页回归。</p><p><b>方案：</b>保留绿色品牌，明确中英文角色；中文界面用系统无衬线，英文长文保留阅读字体。统一 4/8px 间距、3 档标题、正文/辅助文本、按钮与状态组件；把断点和覆盖关系收敛到一处。</p><p class="proof">代码证据：<code>static/app.css:1, 9–40, 84–103</code>；<code>static/practice-center.css:1–22, 136–148</code>；<code>static/studio.css:1, 10–11</code>。</p></div></article></section>
+<section><h2>04 / 建议首页：先学习，后管理</h2><p>以下为结构示意，不是已实现页面；数字与题目名称均为布局示例。建议默认按个人学习场景组织，保留内容制作人员进入管理区的直接入口。</p><div class="mock" role="img" aria-label="建议学习首页：上方精简导航，左侧继续练习，右侧复习入口，下方篇目列表"><div class="mocknav"><strong>IELTS Studio</strong><span class="selected">学习首页</span><span>阅读</span><span>写作</span><span>知识库</span><span>情境小说</span><span>内容管理</span></div><div class="mockbody"><div class="mocktitle"><div><small>你的学习工作台</small><h3>从上次停下的地方继续。</h3></div><small>本周进度 · 示例数据</small></div><div class="mockcols"><div class="continue"><small>继续练习 / 已同步</small><h4>Water and urban life</h4><p>已答 7 / 12 题 · 已用时 08:24</p><div class="thin"><span></span></div><span class="btn">继续第 8 题 →</span></div><div class="box"><h3>今天可以复习</h3><div class="quick"><span>错题复习</span><strong>5 题 →</strong></div><div class="quick"><span>已收藏词汇</span><strong>12 词 →</strong></div><div class="quick"><span>最近写作反馈</span><strong>查看 →</strong></div><p class="caption">无记录时展示轻量引导，不展示虚构进度。</p></div></div><div class="mocklist"><h3>阅读篇目</h3><p class="caption">搜索篇名　　全部 · 进行中 · 未开始 · 已完成</p><div class="listitem"><small>01</small><div><strong>Water and urban life</strong><p>进行中 · 标准 · 680 词 · 12 题</p></div><span class="btn">继续</span></div><div class="listitem"><small>02</small><div><strong>Learning from natural systems</strong><p>未开始 · 标准 · 720 词 · 13 题</p></div><span class="btn">开始</span></div></div></div></div><p class="caption">手机端优先显示标题 + 继续练习卡，复习入口紧随；底部四入口固定但避让安全区和页面主要操作。内容管理与账户操作在“更多”中可发现。</p></section>
+<section><h2>05 / 页面级落地方案</h2><div class="table-wrap"><table><thead><tr><th>页面</th><th>建议结构与交互</th><th>验收目标</th></tr></thead><tbody><tr><td>学习首页 / 练习中心</td><td>压缩营销标题；继续练习置顶；统计一行化；状态筛选、篇名搜索；主次按钮统一</td><td>390×844 及 1440×900 下，已有草稿时首屏可见“继续练习”；从首页一步进入草稿</td></tr><tr><td>在线答题</td><td>收起全站复杂导航；顶部仅退出/篇名/计时/保存；正文 17–18px、行高 1.7–1.85；底部题号导航、已答/未答状态和提交</td><td>320/390/768/1024/1440px 无内容裁切；切换视图保留阅读位置；输入不会被底部操作遮挡</td></tr><tr><td>结果 / 解析</td><td>结果摘要 → 题型表现 → 只看错题 → 题干/作答/答案/证据；正确题可折叠；优先复习错题或开始下一篇</td><td>每道错题可定位原文；分数与作答状态清楚；不把单篇正确率冒充正式 IELTS Band</td></tr><tr><td>材料 / 生成</td><td>导入 → 校准 → 样篇 → 批准 → 批量生成 → 练习的连续路径；用文章标题代替 UUID；卡片能重新进入运行任务</td><td>从材料卡找到最近任务；暂停/继续/取消随任务状态改变可用性；失败信息给出可执行下一步</td></tr><tr><td>写作</td><td>精简题目输入与作文编辑区；明确目标考试类型；强调自动保存、字数、提交状态及“AI 参考反馈”边界；补历史记录入口</td><td>刷新或失败不丢作文（需新增持久化验证）；报错定位到字段；范文生成是明确可选项；不把 AI 结果表述为官方成绩</td></tr><tr><td>全局组件</td><td>统一标题、按钮、状态、空态、错误态、反馈；补键盘与屏幕阅读器语义；只在需要时显示技术信息</td><td>主要控件触控区域建议 ≥44px；正文对比度 ≥4.5:1；键盘可完成作答、切换、保存和提交</td></tr></tbody></table></div></section>
+<section><h2>06 / 分阶段执行，而非一次性翻新</h2><div class="roadmap"><article class="phase"><b>阶段 A · 修复可用性</b><h3>先守住核心任务</h3><ul><li>移动/平板网格级联</li><li>内联事件与脚本策略冲突</li><li>输入标签、焦点和保存状态</li><li>补桌面及小屏回归检查</li></ul><p class="caption">完成标志：阅读、答题、确认和打印不再被布局或事件阻断。</p></article><article class="phase"><b>阶段 B · 重构信息层级</b><h3>围绕“下一步”布局</h3><ul><li>学习 / 内容管理分层</li><li>首页继续学习卡</li><li>练习中心压缩、筛选与搜索</li><li>任务重新进入和结果复习路径</li></ul><p class="caption">完成标志：学习主操作在首屏，管理任务可以被找回。</p></article><article class="phase"><b>阶段 C · 统一视觉系统</b><h3>提升一致性与可维护性</h3><ul><li>统一字体、间距、状态色</li><li>组件与断点去重</li><li>知识库命名和帮助文案</li><li>建立页面与状态截图基线</li></ul><p class="caption">完成标志：同种控件跨页面同样呈现、同样操作。</p></article></div><div class="note" style="margin-top:18px">建议指标：进入练习所需步骤、恢复草稿成功率、未答题发现率、移动端横向溢出数量、任务找回成功率。先记录基线，再验证优化效果；不预设“效率提升百分比”。</div></section>
+<section><h2>07 / 实际界面证据（第二轮实测）</h2>
+<p class="caption">数据来自 <code>outputs/ui-review/cdp_measure.py</code>：用 DevTools 协议把视口强制为真实尺寸后读取元素几何。截图同源同期，命名 <code>*-after.png</code>（视口）、<code>*-after-full.png</code>（整页）。</p>
+<div id="measured"><div class="table-wrap"><table><thead><tr><th>视图</th><th>第一轮实测（缺陷）</th><th>第二轮实测（当前）</th><th>判定</th></tr></thead><tbody>
+<tr><td>平板 768×1024 · 练习页阅读区</td><td>332px（右半屏留白，占 43%）</td><td>734px（视口 768 − 两侧 17px）</td><td>已铺满</td></tr>
+<tr><td>手机 390×844 · 练习中心首篇练习卡</td><td>1232px（首屏外）</td><td>771px（首屏内，视口高 844）</td><td>已进首屏</td></tr>
+<tr><td>手机 390×844 · 首页「进入练习中心」</td><td>1208px</td><td>793px</td><td>已进首屏</td></tr>
+<tr><td>桌面 1440×900 · 首页「进入练习中心」</td><td>约 891px（折线下方）</td><td>773px</td><td>已进首屏</td></tr>
+<tr><td>手机 390 · 横向溢出元素</td><td>内容被挤出视口</td><td>文档宽 = 390，等于视口宽</td><td>无溢出</td></tr>
+<tr><td>平板 768 · 一级导航</td><td>逐字竖排</td><td>707px 宽、按链接换行</td><td>已修</td></tr>
+<tr><td>写作页 <code>#writing-result</code></td><td>空结果区先显示（hidden 被 display 覆盖）</td><td>computed display = none</td><td>已修</td></tr>
+<tr><td>知识库 <code>#kn-active-filters</code></td><td>无筛选时仍显示空筛选条</td><td>computed display = none</td><td>已修</td></tr>
+<tr><td>模板内联事件处理器</td><td>打印 / 自动提交 / 确认共 6 处，被 CSP 静默拦截</td><td>8 个页面实测 <code>[onclick],[onchange],[onsubmit]</code> 计数为 0</td><td>已修</td></tr>
+<tr><td>单选 / 复选框宽度</td><td>继承 <code>input{width:100%}</code>，撑满整行</td><td>13px 原生宽度（父容器 386 / 784px）</td><td>已修</td></tr>
+</tbody></table></div></div>
+<div id="screens" class="screens">
+<figure><img src="practice-mobile-after-full.png" alt="390px 练习中心整页：导航横排、概览一行四格、篇目列表靠前"><figcaption>手机 390 · 练习中心整页：概览压成一行 4 格，首篇练习卡 771px 进入首屏。</figcaption></figure>
+<figure><img src="home-mobile-after.png" alt="390px 首页首屏：首个产品卡的操作按钮已在首屏内"><figcaption>手机 390 · 首页首屏：「进入练习中心」793px，无需滚动即可点击。</figcaption></figure>
+<figure><img src="practice-tablet-after.png" alt="768px 练习页：阅读文章标签页，正文占满宽度"><figcaption>平板 768 · 练习页：阅读区 734px 铺满，标签页切换阅读 / 答题。</figcaption></figure>
+<figure><img src="home-desktop-after.png" alt="1440x900 首页：紧凑 hero 与产品卡，CTA 在首屏内"><figcaption>桌面 1440×900 · 首页：hero 收紧后首个 CTA 在 773px，产品卡进入首屏。</figcaption></figure>
+<figure><img src="writing-desktop-after.png" alt="1440px 写作页：未评估时空结果区不显示"><figcaption>写作页 · 未提交评估时空结果区不显示（hidden 契约）。</figcaption></figure>
+<figure><img src="knowledge-desktop-after.png" alt="1440px 知识库：无筛选条件时不显示空筛选条"><figcaption>知识库 · 无筛选条件时不显示空筛选条（hidden 契约）。</figcaption></figure>
+<figure><img src="print-after.png" alt="错题打印页：打印按钮改由外部脚本绑定"><figcaption>打印页 · 打印按钮改由 <code>/static/print.js</code> 绑定，CSP 不再拦截。</figcaption></figure>
+<figure><img src="session-desktop-after.png" alt="1440px 在线答题页双栏布局保持正常"><figcaption>桌面 1440 · 在线答题：宽屏仍是双栏，未被移动端单栏规则波及。</figcaption></figure>
+</div></section>
+<section><h2>08 / 伴随发现：不混入视觉改版</h2><p class="note">部分 GET 筛选表单包含 CSRF 隐藏字段，提交后可能把令牌带入 URL。应单独作为工程修复项移除 GET 表单中的该字段；不能因此削弱 POST 的 CSRF 保护。证据：templates/knowledge/index.html:48、templates/corpora/preview.html:73/81 等。本次未进行完整安全审计。</p></section>
+<section><h2>09 / 第二轮：修复与验收</h2>
+<p>本轮按「先修可用性，再调信息层级」的顺序实施，共四类改动。所有数值来自上面的实测表，不是估算。</p>
+<div class="table-wrap"><table><thead><tr><th>对应问题</th><th>改动</th><th>文件</th></tr></thead><tbody>
+<tr><td>P0-02 内联事件被 CSP 拦截</td><td>打印按钮、分页自动提交、章节合并/拆分确认全部改为同源外部脚本（<code>data-print-trigger</code>、<code>data-auto-submit</code>、<code>data-confirm</code>），不放宽脚本策略</td><td><code>static/print.js</code>（新增）、<code>static/corpora.js</code>（新增）、3 个打印模板、<code>templates/corpora/preview.html</code></td></tr>
+<tr><td>P0-01 平板阅读区只占 53%</td><td>≤1024px 的标签页模式把双栏网格塌成单列（隐藏面板不再保留轨道）；701–1280px 导航改为按链接换行</td><td><code>static/app.css</code></td></tr>
+<tr><td>P1-04 首屏可操作性</td><td>练习中心：概览压成一行 4 格、hero 与工具栏收紧，首卡 1232→771px；首页：≥901px 收紧 hero 与产品卡，CTA 891→773px；手机首页 CTA 1208→793px</td><td><code>static/practice-center.css</code>、<code>static/studio.css</code></td></tr>
+<tr><td>隐藏状态被组件 display 覆盖</td><td><code>[hidden]</code> 兜底（写作结果区、知识库筛选条等），并补单选/复选框宽度与 <code>min-width:0</code> 收缩规则</td><td><code>static/app.css</code></td></tr>
+</tbody></table></div>
+<div class="note" style="margin-top:18px">回归保护：<code>tests/web/test_ui_contracts.py</code> 把这三类缺陷写成契约测试（内联事件为零、<code>[hidden]</code> 兜底齐备、手机首屏与单列网格规则在位），<code>scripts/verify.sh</code> 现为 666 项通过、Ruff 全绿。</div>
+<p class="caption">仍未处理（保留给阶段 B/C，避免本轮扩大改动面）：导航改为「学习 / 内容管理」两层、首页“继续上次学习”卡、练习中心筛选与搜索、任务页命名与下一步、对比度与键盘/读屏语义、GET 表单里的 CSRF 字段。这些属于结构改版，需要先落模板骨架再统一视觉。</p></section>
+<section><h2>10 / 阶段 B1：首页先回答"现在点哪里"（已实施）</h2>
+<p>首页此前是介绍页：返工的用户找不到草稿，也不知道今天该复习什么。现在首屏由三块组成——<strong>继续练习卡</strong>（有草稿时给出"继续第 N 题"）、<strong>今天可以复习</strong>（错题 / 生词本 / 到期复习，全部来自真实记录）、以及下沉到下面的"浏览工具"。</p>
+<div class="table-wrap"><table><thead><tr><th>视图</th><th>第一轮实测</th><th>B1 实测</th><th>判定</th></tr></thead><tbody>
+<tr><td>手机 390×844 · 「继续第 8 题」按钮</td><td>无此入口（只有产品卡 CTA 在 1208px）</td><td>653px</td><td>首屏内</td></tr>
+<tr><td>手机 390×844 · 第一个复习入口（错题复习）</td><td>无此入口</td><td>785px</td><td>首屏内</td></tr>
+<tr><td>手机 390×844 · 工具区标题</td><td>1208px 起是产品卡</td><td>1039px（下沉为次要内容）</td><td>符合预期</td></tr>
+<tr><td>桌面 1440×900 · 继续练习卡 / 复习面板</td><td>无此入口</td><td>431px（并排）</td><td>首屏内</td></tr>
+<tr><td>桌面 1440×900 · 「继续第 8 题」按钮</td><td>产品卡 CTA 891px</td><td>672px</td><td>首屏内</td></tr>
+<tr><td>平板 768×1024 · 「继续第 8 题」按钮</td><td>无此入口</td><td>999px</td><td>首屏内</td></tr>
+<tr><td>横向溢出</td><td>—</td><td>390 视口下文档宽 = 390</td><td>无溢出</td></tr>
+</tbody></table></div>
+<div class="note" style="margin-top:18px">数据来源：<code>outputs/ui-review/seed_draft.py</code> 用与生产同一套 service API 在隔离库里写入一条真实草稿（7/12 题、用时 504 秒），再由 <code>cdp_measure.py</code> 读取几何。没有记录时首页不显示一排 0，而是给出"导入素材"或"去练习中心"的引导——不虚构进度。</div>
+<p class="caption">配套改动：词汇复习状态（box / 到期时间）的判定从 <code>routes_vocabulary</code> 提到 <code>app/vocabulary/collection.py</code>，首页与词汇页共用同一份"今天该复习哪些词"，避免两处给出不同数字；草稿卡<strong>不带</strong> <code>?fresh=1</code>，否则会丢掉已写好的答案（有测试守住）。</p>
+</section>
+<section><h2>11 / 阶段 B2a：任务找得回来，导航按用途分组（已实施）</h2>
+<p>评审里最硬的一条代码证据：<code>/jobs/{id}</code> 在全部 33 个模板中<strong>没有任何入链</strong>——任务页只能从"提交后那一次跳转"进入。一旦离开，进行中、已暂停、已失败的任务就再也回不去，重试、继续、取消全部失去入口，这不是"不好看"而是真断链。B2a 补上入口，并把一级导航从"系统模块清单"改成"按用途分组"。</p>
+<div class="table-wrap"><table><thead><tr><th>项目</th><th>改造前</th><th>B2a 实测</th><th>判定</th></tr></thead><tbody>
+<tr><td>任务页入链（33 个模板）</td><td>0 个</td><td>导航「内容管理 → 生成任务」+ 材料卡「N 个任务 / 最近任务」</td><td>已接通</td></tr>
+<tr><td>任务行文案</td><td>UUID + <code>running</code> / <code>completed_with_errors</code> 等内部枚举</td><td>「第 2–10 章阅读生成任务」+ 材料名 + 进度条 + 中文状态徽章</td><td>可读</td></tr>
+<tr><td>手机 390×844 · <code>/jobs</code> 首张任务卡</td><td>无此入口</td><td>612px</td><td>首屏内</td></tr>
+<tr><td>平板 768×1024 · <code>/jobs</code> 首行</td><td>无此入口</td><td>529px</td><td>首屏内</td></tr>
+<tr><td>桌面 1440×900 · <code>/jobs</code> 首行</td><td>无此入口</td><td>450px</td><td>首屏内</td></tr>
+<tr><td>手机 390 · <code>/jobs</code> 表格</td><td>—</td><td>塌成卡片，行宽 366px，进度与状态不再逐字折行</td><td>可读</td></tr>
+<tr><td>手机 390×844 · 一级导航</td><td>一条隐藏滚动条的横滚导航，视口外的入口要靠猜（头部约 130px）</td><td>三组换行全展开，13/13 个入口可见（头部 234px）</td><td>无隐藏入口</td></tr>
+<tr><td>手机 390×844 · 「继续第 8 题」</td><td>653px（B1）</td><td>691px（导航变高后仍在 844px 首屏内）</td><td>首屏内</td></tr>
+<tr><td>手机 390×844 · 第一个复习入口</td><td>785px（B1）</td><td>821px</td><td>首屏内</td></tr>
+<tr><td>桌面 1440 · 一级导航</td><td>12 个链接平铺一行，看不出哪些属于内容制作</td><td>学习 6 / 内容管理 5 / 账户 3，组间分隔线（头部 75px）</td><td>已分组</td></tr>
+<tr><td>横向溢出（390 / 768 / 1440）</td><td>—</td><td>文档宽 = 视口宽，越界元素 0</td><td>无溢出</td></tr>
+</tbody></table></div>
+<div class="screens">
+<figure><img src="jobs-desktop-after.png" alt="1440px 生成任务页：分组导航、状态筛选标签、任务表格（任务名/材料/状态/进度/更新时间/操作）"><figcaption>桌面 1440 · 生成任务：筛选标签「全部 / 进行中·已暂停 / 有失败单元 / 已完成」，任务名用人话（第 2–10 章阅读生成任务），状态为中文徽章。</figcaption></figure>
+<figure><img src="jobs-mobile-after.png" alt="390px 生成任务页：每行任务塌成一张卡片，材料/状态/进度/更新时间带字段名"><figcaption>手机 390 · 同一份数据塌成卡片：字段名保留在左侧，进度条与「查看并重试」按钮都够宽可点。</figcaption></figure>
+<figure><img src="home-desktop-after.png" alt="1440x900 首页：导航分为学习/内容管理/账户三组，继续练习卡在首屏"><figcaption>桌面 1440 · 导航分组后仍是单行 75px，「继续第 8 题」672px 位于首屏。</figcaption></figure>
+<figure><img src="home-mobile-after.png" alt="390px 首页：三组导航全部展开，长标签换短名，继续练习按钮在首屏内"><figcaption>手机 390 · 三组导航全部展开且无横向滚动：长标签在窄屏换短名（阅读练习→阅读），「继续第 8 题」691px、第一个复习入口 821px 都在首屏内。</figcaption></figure>
+</div>
+<div class="note" style="margin-top:18px">状态文案与真实取值对齐是本轮的一个硬要求：库里存的是 <code>completed</code> / <code>completed_with_errors</code> / <code>blocked</code>，此前界面直接显示英文枚举。现在由 <code>app/web/glossary.py</code> 的 <code>JOB_STATUS_LABELS</code> 统一翻译，并有测试遍历 <code>app.pipeline.queue</code> 的全部 8 个状态与 3 种作业类型，确保"漏一个就露出英文"不会再发生；未知状态显示"状态未知"，不回落成内部值。</div>
+<p class="caption">数据来源：<code>outputs/ui-review/cdp_measure.py</code>（DevTools 协议强制 390/768/1440 真实视口后读取元素几何）、隔离库 <code>preview-data/state.db</code> 中 6 条真实任务（1 条已完成、5 条部分失败）。筛选实测：<code>?status=failed</code> 命中 5 条、<code>?status=finished</code> 命中 1 条、<code>?status=active</code> 无命中时给出空态与「查看全部任务」。</p>
+</section>
+<section><h2>12 / 阶段 B2b：复习收成一个入口，一张清单三张标签（已实施）</h2>
+<p>评审指出的第二类问题不是"入口太深"而是"入口太多且名字相近"：错题本、生词本（练习页的）、生词本（词汇记忆页的）、词汇复习、以及练习解析页里的即时收藏，一共五个近似入口。学习者得先猜"我今天想复习的那个东西叫什么名字"，猜错了就落在另一个页面上，那里还有另一套筛选。</p>
+<p>现在有一个<strong>复习中心</strong>：<code>/practice/review</code>，一张清单三个标签——<strong>错题 / 生词本 / 词汇复习</strong>，每个标签上带着真实条数。导航里的「学习」组用「复习」替换了原本并列的「词汇」，首页"今天可以复习"的三行与练习中心的「错题本 / 生词本」都直接落到对应标签。</p>
+<div class="table-wrap"><table><thead><tr><th>项目</th><th>改造前</th><th>B2b 实测</th><th>判定</th></tr></thead><tbody>
+<tr><td>复习类入口</td><td>5 个近似入口，需先猜名字</td><td>1 个（导航「复习」）+ 首页/练习中心直达对应标签</td><td>已收口</td></tr>
+<tr><td>标签条数</td><td>—</td><td>错题 12 · 生词本 1 · 词汇复习 0（隔离库真实记录）</td><td>真实数字</td></tr>
+<tr><td>壳内筛选会不会被甩出</td><td>—</td><td>筛选链接是 <code>/practice/review?tab=mistakes&amp;type=…</code>，点击后仍留在壳里</td><td>不跳出</td></tr>
+<tr><td>壳内提交回到哪里</td><td>回到独立页面</td><td>白名单内的 <code>return_to</code> 回到壳里；白名单外的值一律忽略</td><td>不开放重定向</td></tr>
+<tr><td>旧地址</td><td>—</td><td><code>/practice/mistakes</code>、<code>/practice/vocabulary</code>、<code>/vocabulary/review</code>、<code>/vocabulary</code> 全部可用</td><td>书签不失效</td></tr>
+<tr><td>横向溢出（390 / 768 / 1440）</td><td>—</td><td>文档宽 = 视口宽，越界元素 0</td><td>无溢出</td></tr>
+</tbody></table></div>
+<div class="screens">
+<figure><img src="review-desktop-after.png" alt="1440px 复习中心：标签条带条数，默认停在错题，下面是错题本内容"><figcaption>桌面 1440 · 复习中心：标签条带真实条数（错题 12 / 生词本 1 / 词汇复习 0），默认停在错题，题型筛选与逐题证据都还在原处。</figcaption></figure>
+<figure><img src="review-mobile-after.png" alt="390px 复习中心：三个标签平分一行，导航里的复习为当前页"><figcaption>手机 390 · 三个标签平分一行并带条数，导航「复习」为当前项且不再有并列的「词汇」。</figcaption></figure>
+<figure><img src="review-due-mobile-after.png" alt="390px 复习中心的词汇复习标签：没有到期词时给出下一步"><figcaption>手机 390 · 词汇复习标签：没有到期词时说明"到点再见面"的原因，并给出「复习全部」与「去生词本」，不显示空表格。</figcaption></figure>
+</div>
+<div class="note" style="margin-top:18px">实现上没有复制三份 UI：错题本、生词本、复习卡各自抽成一份 partial（<code>templates/practice/review/_*.html</code>），独立页面与复习中心<strong>共用同一份模板与同一个上下文构造函数</strong>（<code>mistakes_context</code> / <code>vocabulary_book_context</code> / <code>review_session_context</code>）。因此"两处数字不一致"这类问题不会再出现，也不会因为新增壳而分叉出第二套筛选规则。</div>
+<p class="caption">数据来源：隔离库 <code>preview-data/state.db</code> 与 <code>cdp_measure.py</code>。测试见 <code>tests/web/test_practice_review.py</code>（6 项：默认标签与条数、三个标签各渲染自己的清单、未知标签回落、壳内筛选前缀、<code>return_to</code> 白名单与开放重定向防护、旧地址仍可用、导航与首页指向单入口）。</p>
+</section>
+<section><h2>13 / 阶段 B2c：窄屏底部四个入口（已实施）</h2>
+<p>顶部导航分组后，手机首屏能一次看到全部 13 个入口，但它们都在页面最上方：读长文、答题或翻任务列表时，想换一页必须先把页面滚回顶部。B2c 因此在窄屏加一条固定底栏（<strong>首页 / 阅读 / 复习 / 语料</strong>），只解决"拇指够不到"，不替代顶部导航。</p>
+<div class="table-wrap"><table><thead><tr><th>项目</th><th>改造前</th><th>B2c 实测</th><th>判定</th></tr></thead><tbody>
+<tr><td>390×844 · 底部入口</td><td>无（只能滚回顶部）</td><td>固定底栏，4 个可见入口</td><td>已加</td></tr>
+<tr><td>768×1024 / 桌面 · 同一页面</td><td>无</td><td><code>display:none</code>，可见入口 0</td><td>不上桌面</td></tr>
+<tr><td>底栏占位</td><td>—</td><td><code>body</code> 底部留白 67px，内容不被压住</td><td>不遮内容</td></tr>
+<tr><td>在线答题页（<code>.submit-dock</code>）</td><td>—</td><td>底栏自动隐藏、留白归零，提交栏不被遮挡</td><td>不叠两条底栏</td></tr>
+<tr><td>顶部导航</td><td>13 个入口</td><td>仍是 13 个入口（底栏是补充）</td><td>未削减</td></tr>
+<tr><td>当前项</td><td>—</td><td>首页时「首页」高亮；复习中心时「复习」高亮且「阅读」不高亮</td><td>状态正确</td></tr>
+<tr><td>横向溢出（390 / 768 / 1440）</td><td>—</td><td>文档宽 = 视口宽，越界元素 0</td><td>无溢出</td></tr>
+</tbody></table></div>
+<figure><img src="bottomnav-home-mobile-after.png" alt="390px 首页：底部固定一行四个入口，首页高亮，继续练习按钮不被遮挡"><figcaption>手机 390 · 底部四入口：首页 / 阅读 / 复习 / 语料，当前页高亮；继续练习按钮与复习入口仍在首屏内且不被底栏遮挡。</figcaption></figure>
+<div class="note" style="margin-top:18px">底栏与答题页提交栏的冲突是提前判掉的一条风险：两处都是贴底元素，同时出现会互相遮挡，所以规则写成 <code>body:has(.submit-dock) .bottom-nav{display:none}</code>，用页面自己是否含提交栏来决定，而不是维护一张"哪些页面不要底栏"的清单。打印时同样不显示。</div>
+<p class="caption">数据来源：<code>cdp_measure.py</code> 新增检查项 <code>bottomNavDisplay</code> / <code>bottomNavLinks</code> / <code>bodyPaddingBottom</code>，在 390、768、1440 三个强制视口下读取。测试见 <code>tests/web/test_ui_contracts.py::test_mobile_bottom_nav_adds_four_thumb_reachable_entries</code>。</p>
+</section>
+<section><h2>14 / 阶段 B3：长清单里找得到那一条（搜索、进度筛选、续做入口，已实施）</h2>
+<p>练习中心此前把每一篇完成的章节都渲染成同一张卡片：题号、成绩、状态都藏在卡片内部，想找「我做了一半的那篇」或「上次做砸的那篇」，只能从上往下逐张扫。B3 把三种最基本的定位方式挪到列表上方：<strong>按篇名搜索</strong>、<strong>按进度筛选</strong>、<strong>直接续做</strong>。三者都走 GET，链接可直接分享，不依赖脚本。</p>
+<div class="table-wrap"><table><thead><tr><th>项目</th><th>改造前</th><th>B3 实测</th><th>判定</th></tr></thead><tbody>
+<tr><td>篇目定位</td><td>只能逐张滚动浏览</td><td>服务端搜索 <code>/practice?q=</code>，空结果说明并给「清除」入口</td><td>已加</td></tr>
+<tr><td>进度筛选</td><td>无（状态只以卡片角标呈现）</td><td>四个标签带实时计数：全部 / 进行中 / 未开始 / 已完成，可分享、可组合搜索</td><td>已加</td></tr>
+<tr><td>续做入口</td><td>「继续」，不说是从第几题接着写</td><td>「继续第 N 题」，N = 草稿里第一个未答题，且按钮不带 <code>?fresh=1</code></td><td>更准</td></tr>
+<tr><td>「有草稿 + 有旧成绩」</td><td>判为已完成 → 按钮是「重做」，带 <code>?fresh=1</code>，一点就清空草稿</td><td>判为进行中，走续做路径；<code>test_practice_library_prefers_a_newer_draft_over_an_older_score</code> 固定这条</td><td>修掉丢答案风险</td></tr>
+<tr><td>概览文案</td><td>「已完成」既指篇数又指作答次数</td><td>标签「已完成 N」按篇，概览「已提交 N」按次数，两个口径分开</td><td>不再混淆</td></tr>
+<tr><td>空态</td><td>一句「还没有可练习的篇目」</td><td>三种：没有篇目 → 去语料生成；搜/筛无命中 → 一键清除；全部做完 → 去复习错题</td><td>给出下一步</td></tr>
+<tr><td>390×844 首屏</td><td>首篇卡 771（B2c 未加控件）→ 加控件后一度退回 1050</td><td>搜索 587 / 筛选 641 / 首篇卡 697；底栏 787，互不重叠</td><td>回到首屏且更靠上</td></tr>
+<tr><td>768×1024 首屏</td><td>首篇卡 1147（加控件后）</td><td>搜索 745 / 筛选 823 / 首篇卡 880 &lt; 1024</td><td>收回首屏</td></tr>
+<tr><td>横向溢出（390 / 768 / 1280）</td><td>—</td><td>文档宽 = 视口宽，越界元素 0</td><td>无溢出</td></tr>
+<tr><td>深色 hero 内的链接</td><td><code>--green #1d6658</code> 落在 <code>#173f37</code> 上：1.72:1</td><td>改为 <code>#cfe6dd</code> + 下划线：8.9:1（0,2,0 特异性盖过后加载的 <code>corpora.css</code>）</td><td>顺手修掉</td></tr>
+<tr><td>门禁</td><td>687 passed（B2c 基线）</td><td>693 passed（新增 6 项）· ruff 全过 · CLI 冒烟通过</td><td>全绿</td></tr>
+</tbody></table></div>
+<figure><img src="library-mobile-after.png" alt="390px 练习中心：学习概览一行四格，其下是搜索框、四个进度筛选标签，以及第一张标记为进行中的练习卡"><figcaption>手机 390：搜索框、进度筛选和第一张卡（进行中 7 / 12）同屏；底栏固定在 787px，与筛选行之间留出约 100px 空隙。</figcaption></figure>
+<p class="caption">数据来源：<code>cdp_measure.py</code> 新增检查项 <code>libraryToolbar</code> / <code>librarySearch</code> / <code>stateTabs</code>，复用 <code>toolbarDisplay</code>、<code>stateTabsWrap</code>、<code>offenders</code>，在强制视口 390 / 768 / 1280 下读取；改动的语义见 <code>tests/web/test_practice_library.py</code>（6 项）与共享进度模块 <code>app/web/progress.py</code>。</p>
+<div class="note" style="margin-top:18px">实施中发现并修掉一个静默失效：<code>practice_library_context()</code> 的逐篇循环用了变量名 <code>state</code>，正好覆盖同名的查询参数，于是 <code>?state=</code> 一直不生效——标签看着能点，其实每次都返回全部篇目。为这类「看不见的失效」兜底的正是新的筛选测试（<code>?state=done</code> 只能出已完成，且当前标签带 <code>aria-current</code>）。</div>
+</section>
+<section><h2>15 / 阶段 C1：把颜色、焦点与触控尺寸收进令牌（已实施）</h2>
+<p>评审里最难解释的发现是「同一页面上有十四个不同的灰」。它们不是设计决定，而是每个组件各挑一个的累积结果：<code>#66736e</code> 到 <code>#9aa4a0</code>，实测对比度 <strong>2.18:1 – 4.49:1</strong>，也就是全部低于 WCAG AA 的 4.5:1。另有 <code>&lt;a class="text-link danger"&gt;</code> 同时套上按钮红底 <code>#9c3434</code> 与深红字 <code>#a8431f</code>，实测 <strong>1.18:1</strong>——几乎看不见。C1 把颜色收成一份令牌，并补上跳转链接、可见焦点环与触控尺寸。</p>
+<div class="table-wrap"><table><thead><tr><th>项目</th><th>改造前（实测）</th><th>C1 实测</th><th>判定</th></tr></thead><tbody>
+<tr><td>对比度不达标元素（1280×900，8 个页面）</td><td>12 + 37 + 60 + 37 + 19 + 108 + 24 + 1 = <strong>298</strong></td><td>全部 0</td><td>达标</td></tr>
+<tr><td>对比度不达标元素（768 / 390）</td><td>未逐页测量（390 首页 12 处）</td><td>768 与 390 各 8 页全部 0</td><td>达标</td></tr>
+<tr><td>同一页面出现的灰</td><td>最多 14 个近似值（<code>#66736e… #9aa4a0</code>）</td><td>4 个语义令牌：正文 / 次级 / 小字 / 装饰</td><td>收敛</td></tr>
+<tr><td>调色板定义处</td><td><code>app.css</code> 自带一份（另有 <code>print.css</code> 子集）</td><td>只留 <code>tokens.css</code>，令牌旁标注实测对比度</td><td>单一来源</td></tr>
+<tr><td><code>.text-link.danger</code>（删除）</td><td>1.18:1（撞上按钮红底）</td><td>6.02:1，且不再继承 <code>.danger</code> 的红底</td><td>修掉</td></tr>
+<tr><td>装饰性大数字（<code>01/02/03</code>、书脊序号）</td><td>2.18:1（32px，阈值 3:1）</td><td>3.24–3.58:1，走 <code>--ink-decor</code></td><td>达标</td></tr>
+<tr><td>跳转链接</td><td>无：键盘要按 13 次 Tab 才到内容</td><td><code>跳到主要内容</code> 是 body 第一个可聚焦元素，指向 <code>#main</code></td><td>已加</td></tr>
+<tr><td>焦点环</td><td>仅输入框有 40% 透明浅绿描边（≈1.4:1）</td><td>全站 <code>:focus-visible</code>：3px 深绿 + 2px 浅色外环；深色页头/底栏换成浅色环</td><td>可见</td></tr>
+<tr><td>触控目标（除正文行内链接）</td><td>页头 37px、品牌 32px、表格动作 20px、<code>重置</code> 27px、复选框 13px</td><td>桌面 ≥24px、≤900px ≥44px；页头/底栏 ≥44×44；复选框按包着它的 label 计</td><td>达标</td></tr>
+<tr><td>页头在手机上的高度</td><td>234px（三行导航）</td><td>仍为 234px：放大命中区用负外边距抵消，不改版面</td><td>未回退</td></tr>
+<tr><td>横向溢出（390 / 768 / 1280）</td><td>0</td><td>仍为 0，越界元素 0</td><td>未回退</td></tr>
+<tr><td>减少动态效果</td><td>四处各写一份，且只覆盖部分组件</td><td><code>accessibility.css</code> 一处统一：过渡/动画 0.001ms、位移取消</td><td>统一</td></tr>
+<tr><td>门禁</td><td>702 passed（B3 基线 694 + 新增 7 项契约）</td><td>702 passed · ruff 全过 · CLI 冒烟通过</td><td>全绿</td></tr>
+</tbody></table></div>
+<figure><img src="a11y-home-desktop-after.png" alt="1280px 首页：灰色说明文字整体加深后与背景分离，页头导航项命中区加高但版面高度不变"><figcaption>桌面 1280：说明文字与统计标签加深到 4.87–5.62:1；页头仍是同一行，只是每个入口的可点高度变成 44px。</figcaption></figure>
+<p class="caption">数据来源：审计脚本逐元素读取 computed style，按 WCAG 2.1 相对亮度公式计算每个文本节点与其最近不透明背景的对比度（大字号阈值 3:1，其余 4.5:1），并测量 8 个页面在 1280 / 768 / 390 三个强制视口下的控件尺寸。豁免项单独计数而不是静默忽略：正文行内链接（2.5.8 豁免）每页 0–11 个，失效控件（1.4.3 豁免）按 <code>.disabled</code> / <code>aria-disabled</code> 识别。契约测试见 <code>tests/web/test_ui_contracts.py</code> 新增的 7 项（跳转链接与 <code>#main</code>、样式表加载顺序、调色板单一来源、旧灰色字面量清零、令牌自带实测值、焦点/动效集中定义、危险链接不再继承红底）。</p>
+<div class="note" style="margin-top:18px">加载顺序是这一层的关键：<code>tokens.css</code> 必须最先（所有组件都从它取色），<code>accessibility.css</code> 必须最后（跳转链接、焦点环、命中区要盖过组件）。组件里的颜色字面量已逐个替换为令牌（5 个样式表共 67 处），所以「加深某种灰」以后只需要改一行；<code>print.css</code> 保持自己的纸面调色板，不改动。</div>
+</section>
+<section><h2>16 / 阶段 C2：把十三个断点收敛成六档（已实施）</h2>
+<p>断点散落是「同一个组件在不同宽度忽然变样」的根源：五个样式表里共出现 <strong>390 / 420 / 560 / 600 / 700 / 760 / 880 / 900 / 901 / 980 / 1024 / 1080 / 1280</strong> 十三种宽度，其中 880 与 900、980 与 1024、760 与 700 三组各自管着相邻的一小段区间，改版面时几乎不可能记住哪条在哪生效。C2 把它们归并成六档，并在 <code>tokens.css</code> 顶部写出每一档的语义。</p>
+<div class="table-wrap"><table><thead><tr><th>档位</th><th>宽度</th><th>语义</th><th>并入的旧值</th></tr></thead><tbody>
+<tr><td><code>--bp-xs</code></td><td>420px</td><td>窄手机：单列、隐藏次要说明</td><td>390</td></tr>
+<tr><td><code>--bp-sm</code></td><td>560px</td><td>手机：紧凑 hero、概览压成一行</td><td>600</td></tr>
+<tr><td><code>--bp-md</code></td><td>700px</td><td>手机横屏 / 大手机：底栏出现、库工具栏隐藏</td><td>—</td></tr>
+<tr><td><code>--bp-lg</code></td><td>900px</td><td>平板：双栏塌成单列，触控尺寸补到 44px</td><td>880、901</td></tr>
+<tr><td><code>--bp-xl</code></td><td>1024px</td><td>小笔记本：多列容器收成两列或一列</td><td>980、1080</td></tr>
+<tr><td><code>--bp-2xl</code></td><td>1280px</td><td>桌面：导航收成一行、内容 1120px</td><td>—</td></tr>
+</tbody></table></div>
+<p class="caption">701 / 901 / 1281 保留为对应档位的 <code>min-width</code> 互补写法（<code>@media (min-width:701px) and (max-width:1280px)</code> 一类成对规则需要它们），其余宽度不再出现；<code>print</code> 与 <code>prefers-reduced-motion</code> 与宽度无关，不受影响。</p>
+<div class="table-wrap"><table><thead><tr><th>探测结果（4 个页面 × 12 个边界宽度 = 48 次测量）</th><th>变化</th><th>判定</th></tr></thead><tbody>
+<tr><td><code>/ @ 900</code>、<code>/practice @ 900</code>、<code>/corpora @ 900</code>、<code>/knowledge @ 900</code></td><td>主区留白 48/24 → 32/16px，多列容器各宽 16px</td><td>平板档从 880 挪到 900 的预期结果</td></tr>
+<tr><td><code>/ @ 600</code></td><td>主区上留白 12.8 → 20px（hero 不再走手机紧凑版）</td><td>窄手机档从 600 收到 560 的预期结果</td></tr>
+<tr><td>其余 43 个视口</td><td>无任何变化</td><td>未受影响</td></tr>
+<tr><td>越界元素 / 文档宽度（全部 48 个视口）</td><td>仍为 0 / 等于视口宽</td><td>无横向溢出</td></tr>
+<tr><td>600 与 900 两个变化宽度上的对比度与触控复测</td><td>4 个页面各 0 处不达标</td><td>收敛未回退 C1</td></tr>
+</tbody></table></div>
+<figure><img src="breakpoint-home-600-after.png" alt="600px 宽首页：页头三行、hero 竖排、统计块独立成行，底部四入口固定"><figcaption>600px：窄手机档在 560 结束，这里走平板档——hero 竖排、留白放宽，版面仍然正常。</figcaption></figure>
+<p class="caption">探测脚本对每个视口记录文档宽度、越界元素数、页头高度、主区留白，以及多列容器解析后的 <code>grid-template-columns</code>，改动前后各跑一遍逐键对比。新增契约测试 <code>test_breakpoints_come_from_the_documented_set</code>：只允许六档与三个互补值，且六档必须都仍在使用（防止「收敛」成只剩一两档导致响应式失效）。</p>
+<div class="note" style="margin-top:18px">这一阶段没有再动样式表版本号：C1 把 <code>app.css</code> 提到 v=9 等值尚未随任何一次部署上线，服务器上仍是 B2c 的 v=8，因此本次发布只需带上 C1 已提升的版本即可，无需二次跳号。</div>
+</section>
+<section><h2>17 / 阶段 A：情境小说从「一个输出目录」改成「按书归档」（已实施）</h2>
+<p>这一节修的是最伤信任的一类 bug：页面顶部写着《诡秘之主》，下面的章节列表却是《盗墓笔记》。根因不是显示层，而是磁盘布局——全站只有<strong>一个</strong>输出目录 <code>output/context-novel/</code>，导入新书只替换 <code>active_source.json</code> 与 <code>input/context-novel/active/source.*</code>，上一本的成品要么被同名文件覆盖，要么变成没人认领的孤儿。线上实测：<code>active_source.json</code> 是 15:25 导入的《诡秘之主》，而同目录的 <code>index_entries.json</code> 加 15 个章节 html/docx 全部属于 09:18 导入的《盗墓笔记》。</p>
+<div class="table-wrap"><table><thead><tr><th>维度</th><th>改造前</th><th>改造后</th></tr></thead><tbody>
+<tr><td>源文件</td><td><code>uploads/&lt;sha256&gt;/source.&lt;ext&gt;</code> + <code>active/source.&lt;ext&gt;</code>（只有最后一本）</td><td><code>library/&lt;sha12&gt;/source.&lt;ext&gt;</code>，按 sha256 去重、永不删除，原件名记在 <code>book.json</code></td></tr>
+<tr><td>成品</td><td>全站共用一个目录，同名即覆盖</td><td><code>books/&lt;sha12&gt;/</code>，每本书自己的 html、docx、词汇表、进度库、报告、运行配置</td></tr>
+<tr><td>导入新书</td><td>覆盖 <code>active_source.json</code>，页面换书但章节列表还是旧书</td><td>登记进书库并成为「当前生成目标」，旧书的源文件与成品原地保留</td></tr>
+<tr><td>查看</td><td>只有一个隐含的「当前书」</td><td><code>/novel?book=&lt;id&gt;</code>，页面上「我的书」列出全部书（书名、章节数、大小、已生成、导入时间、当前目标徽章）</td></tr>
+<tr><td>章节列表</td><td>一次铺开全部章节</td><td>每页 20 章 + 页码条（首末页 + 当前±2，其余省略号，当前页 <code>aria-current</code>，越界页码钳到最后页）</td></tr>
+<tr><td>旧数据</td><td>—</td><td>一次性 <code>migrate_legacy()</code>：按章节标题把旧成品归属到匹配度最高的书，<strong>只复制不删除</strong>；匹配不上就留在原地并写 <code>migration_log.json</code></td></tr>
+</tbody></table></div>
+<h3>「生成 0 章却显示成功」的修复</h3>
+<p>第二个问题是失败被当成成功：worker 只看进程退出码。今天《诡秘之主》的样章连续三次被质量检查拦下（<code>density_too_low</code>，要求每 500 字至少 20 个词条），日志里是 <code>completed: []</code>、<code>inserted_total: 0</code>，而 <code>run_status.json</code> 依然写着 <code>status: completed</code>，页面于是显示绿色成功配一个空章节列表。现在运行状态多记一个 <code>outcome</code>：<code>ok</code>（有章节产出）、<code>no_chapters</code>（进程正常但零产出）、<code>failed</code>（非零退出）；同时从日志尾部读出 <code>chapters_completed / chapters_failed / inserted_total / failure_reason</code>，页面直接展示失败原因与下一步建议（例如「换一章更长的，或调低密度下限；已成功的章节不受影响」）。</p>
+<figure><img src="novel-failed-run-after.png" alt="情境小说页输出卡：完成 12 / 进行中 0 / 失败 3 / 可阅读 15，其下一行写着失败原因 billing × 3 与充值后重试的建议"><figcaption>失败不再只是一个数字：统计下面直接写「失败原因：billing × 3」，并给出下一步（充值或换密钥后点「重试失败章节」，只跑失败的那几章）。</figcaption></figure>
+<h3>验收</h3>
+<div class="table-wrap"><table><thead><tr><th>检查项</th><th>结果</th></tr></thead><tbody>
+<tr><td>导入两本不同小说</td><td>书库两行都在；第二本成为当前目标；第一本的成品仍可按书查看</td></tr>
+<tr><td>重复导入同一份文件（sha256 相同）</td><td>只有一本书，<code>imported_at</code> 保持首次导入时间，源文件不被改写</td></tr>
+<tr><td>25 章分页</td><td>第 1 页 20 条、第 2 页 5 条，页码条含 <code>aria-current</code>，<code>page=99</code> 钳到第 2 页</td></tr>
+<tr><td>旧布局迁移</td><td>旧成品被复制到标题匹配的书目录下，旧目录原件保留，写 <code>migration_log.json</code>；匹配不上则只记 note</td></tr>
+<tr><td>失败原因</td><td><code>density_too_low</code> 的原因与建议出现在页面上，不再是绿色成功</td></tr>
+<tr><td>路径安全</td><td>书目录内的 <code>../</code> 穿越、未知 <code>book</code> 一律 403/404，不能借另一本书的 id 读别人的成品</td></tr>
+<tr><td>自动化</td><td><code>scripts/verify.sh</code>：723 passed（书库层 8 条 + 页面/分页 5 条 + 运行状态 2 条 + 迁移容错 1 条 + 失败原因 3 条），ruff 全绿</td></tr>
+</tbody></table></div>
+<figure><img src="novel-library-after.png" alt="情境小说页：我的书列表（两本书，含当前生成目标徽章）、按书统计与页码式章节分页"><figcaption>改造后的情境小说页：先说清「你在看哪本、生成哪本」，再是这本的成品的章节分页。</figcaption></figure>
+<h3>服务器上的真实迁移结果</h3>
+<p>部署后第一次打开书库时迁移自动执行，服务器上原来是两本混在一起的：<code>uploads/</code> 里是《盗墓笔记》（15.1 MB）与《诡秘之主》（28.0 MB），而 <code>output/context-novel/</code> 里的 15 个章节文件实际属于《盗墓笔记》。迁移把它们分成两本书，日志写得很明确：</p>
+<pre class="code-block">notes: 旧成品 15/15 章标题命中，归入《盗墓笔记》
+attributed_to: e9438d3ac78e 盗墓笔记，matched_chapters 15
+copied: html, chapters, chapter_json, chunk_checkpoints, raw_responses, failed,
+        index_entries.json, index.html, glossary.json, glossary.xlsx, state.sqlite3, reports/usage.json</pre>
+<p>迁移后的页面：两本书各一行（《诡秘之主》带「当前生成目标」徽章、《盗墓笔记》显示「已生成 15 章 · 失败 4 章」），《盗墓笔记》的 15 章在它自己的目录里可读（<code>/novel/preview/1?book=e9438d3ac78e</code> 返回 200），《诡秘之主》显示「这本书还没有可阅读的章节」；未知书 id 取文件一律 404。旧的 <code>uploads/</code>、<code>active/</code>、<code>output/context-novel/html</code> 与 15 个文件全部原位保留，需要时可回退核对。</p>
+<div class="note" style="margin-top:18px">旧布局里只记录过<em>最后一次</em>导入的原文件名，所以更早导入的书只剩 <code>source.epub</code> 这样的文件名；取名顺序是 epub/docx 的 <code>dc:title</code> → 文件名 → <code>source</code>，这次两本书都靠 <code>dc:title</code> 认出了《盗墓笔记》与《诡秘之主》。需要改名时直接编辑 <code>input/context-novel/books.json</code> 里对应条目的 <code>name</code> 即可，文件与成品都不会动。迁移后的旧目录、上传缓存与运行日志一律保留。</div>
+</section>
+
+<section><h2>18 / 追问：《诡秘之主》为什么失败 7 章（已查清，并让页面自己说明原因）</h2>
+<p>上线后页面显示《诡秘之主》「完成 4 / 进行中 0 / 失败 7 / 可阅读 4」，点「刷新进度」数字不变。先回答一件事：这些数字本身是对的，也不是两本书串了数据。「刷新进度」就是重新读一次这一本的进度库，而进度库一章一行、记的是<strong>当前状态</strong>。旧的全站共享进度库已经复制给《盗墓笔记》（15 完成 / 4 失败），《诡秘之主》这次生成用的是它自己目录下的 <code>books/cc1ce5ea5bea/state.sqlite3</code>，两本书没有互相污染。</p>
+<p>真正的根因在失败行的 <code>error_type</code> 里：<strong>7 章全是 <code>billing</code></strong>——模型账户余额或配额用尽（DeepSeek 返回余额不足），不是质量门禁、也不是章节内容问题。时间线也很清楚：16:14–16:20 第 1、2、4、5 章正常完成（150 / 171 / 231 / 193 个词条，共插入 745 条）；16:19–16:22 第 3、6 章各撞上一次 <code>ChapterConversionError</code>；16:22 起余额耗尽，连续 5 章 <code>billing</code>，组件按 <code>max_consecutive_failures=5</code> 主动停下批处理，于是「失败 7 章」定格。之后再点「重试失败章节」，又连续 5 次 <code>billing</code> 中止——所以刷新多少次都一样。</p>
+<div class="table-wrap"><table><thead><tr><th>章节</th><th>状态</th><th><code>error_type</code></th><th>更新时间（UTC）</th></tr></thead><tbody>
+<tr><td>1 / 2 / 4 / 5</td><td>completed</td><td>—</td><td>08:16–08:20</td></tr>
+<tr><td>3 / 6</td><td>failed</td><td><code>ChapterConversionError</code></td><td>08:19 / 08:21</td></tr>
+<tr><td>7 / 8 / 9 / 10 / 11</td><td>failed</td><td><code>billing</code></td><td>08:22–08:24</td></tr>
+</tbody></table></div>
+<pre class="code-block">reports/web-generation.log（尾部）
+第 6 章失败：billing（连续失败 1）
+第 8 章失败：billing（连续失败 2）
+…
+连续 5 章失败，已停止批处理
+{"requested": 20, "completed": [1, 2, 4, 5], "failed": {"3": "ChapterConversionError", "6": "…", "7": "billing", …},
+ "inserted_total": 745, "aborted": "连续 5 章失败，已停止批处理"}
+
+run_status.json
+{"status": "failed", "outcome": "failed", "description": "《诡秘之主》失败章节重试",
+ "chapters_completed": 0, "chapters_failed": 5, "failure_reason": "第 3 章失败：billing（连续失败 5）"}</pre>
+<h3>这次改的两件事</h3>
+<p><strong>一、页面要说出「为什么失败」。</strong>以前只给数字，操作者只能猜。<code>progress_counts()</code> 现在顺带按 <code>error_type</code> 汇总失败原因，统计下面多一行「失败原因：billing × 7」加下一步；<code>FAILURE_HINTS</code> 也补齐了组件真实会报的词——<code>billing</code>、<code>authentication</code>、<code>rate_limit</code>、<code>RunLimitError</code>、<code>empty_response</code>，并按「从具体到宽泛」的顺序匹配，避免 <code>authentication</code> 被宽泛的 <code>auth</code> 抢走。<code>billing</code> 的提示特意写明：充好值或换密钥后点「重试失败章节」，<strong>只跑失败的那几章，已完成的不会重跑、也不会重复收费</strong>。</p>
+<p><strong>三、线上验收时又抓到一处「对不上」。</strong>部署后用真实数据核对，进度库里有 11 行（<code>completed 4 / running 2 / pending 2 / failed 3</code>），页面只显示 <code>完成 4 / 进行中 2 / 失败 3</code>——被中断（崩溃恢复重置）的 <code>pending</code> 章节既不算完成也不算失败，看着像凭空少了两章。统计现在会在这类章节存在时多一格「待重试」，四个数字相加即等于进度库的行数；「断点继续」会把它们接着跑完。</p>
+<p><strong>二、修掉上一轮我自己带进来的 CSS 回归。</strong>书库那一节样式被写进了 <code>@media (max-width:560px)</code> 里面，结果是<em>只在窄屏生效</em>：桌面端书库整块没有边框与徽章（「当前生成目标」变成一行纯文本）、页码条也没有样式。现在这节移到媒体查询之外，并加了一条契约测试把这类错误钉住：按花括号深度取出<strong>顶层选择器</strong>，逐个检查 <code>.book-library / .book-row / .book-badge / .pagination-pages .page-number / .failure-reasons</code> 等确实在顶层，再用窄屏专用的 <code>.book-row{flex-direction:column…}</code> 作负面对照。把这条测试拿去跑改动前的 CSS，它会失败（实测顶层缺失这 5 个选择器）。</p>
+<h3>验收</h3>
+<div class="table-wrap"><table><thead><tr><th>检查项</th><th>结果</th></tr></thead><tbody>
+<tr><td>失败原因分布</td><td><code>chapter_progress</code> 里 7 个 failed 全为 <code>billing</code>；页面显示「失败原因：billing × 7」+ 充值/重试建议</td></tr>
+<tr><td>统计对得上进度库</td><td>线上实测一次：<code>completed 4 / running 2 / pending 2 / failed 3</code> = 11 行；页面补上「待重试 2」，四个数字相加正好等于行数（此前 <code>pending</code> 不显示，看着像少了 2 章）</td></tr>
+<tr><td>「可阅读 4」与「完成 4」</td><td>一致：<code>index_entries.json</code> 4 条章节目录、4 个 HTML 文件，与被过滤后的完成数对得上</td></tr>
+<tr><td>桌面端书库样式</td><td>1280 宽下书库整块满宽、行有边框与背景、当前目标为深绿徽章、页码条为方形页码按钮</td></tr>
+<tr><td>窄屏</td><td>390 宽下行内按钮铺满、四个统计块排成 2×2、失败原因块可读</td></tr>
+<tr><td>自动化</td><td><code>scripts/verify.sh</code>：723 passed，ruff 全绿（新增失败原因汇总、页面原因行、billing 提示、CSS 顶层契约共 4 条）</td></tr>
+</tbody></table></div>
+<figure><img src="novel-failed-run-mobile-after.png" alt="390px 情境小说页：四个统计块 2×2 排列，其下是失败原因 billing × 3 与建议，再下面是章节列表"><figcaption>手机 390：《诡秘之主》的成品与进度——统计 2×2，失败原因与下一步紧跟在数字下面，不再需要靠猜。</figcaption></figure>
+<h3>下一次生成前要做的</h3>
+<p>先解决余额（充值或换一个可用的 <code>DEEPSEEK_API_KEY</code>），再点「重试失败章节」：它会只挑这 7 章重跑，按当前用量估算约 7 次模型请求。若仍想换更长的章节重试，用「批量生成」填章节范围即可；两种方式都不会重跑已完成的 4 章。</p>
+<div class="note" style="margin-top:18px">写这份报告之后再核对了一次线上页面：那一轮「失败章节重试」已经跑完，完成数由 4 升到 7（失败仅剩 2 章 <code>ChapterConversionError</code>），旧的 <code>billing</code> 行已在本轮重试中成功——余额问题不再出现，剩下的只是个别章节的转换错误，再点一次「重试失败章节」或换章节即可。说明：失败的章节会被原地重试并覆盖状态，所以「失败 N 章」是当前状态而不是累计次数。</div>
+</section>
+
+<section><h2>19 / 追问：留白难看 + 失败原因不够清楚（已修，含一处缓存坑）</h2>
+<p>你的两点反馈分别是「有些东西只有三块，自然空出一块地方」和「失败原因等等都不够清晰」。第一点查到的是<strong>上一轮修复没真正到达你的浏览器</strong>，第二点确实是文案设计问题。</p>
+<h3>一、留白的根因：浏览器手里还是旧样式</h3>
+<p>第二轮把书库样式从媒体查询里搬到了顶层，线上 CSS 也确实是新的（拿服务器上的 <code>studio.css</code> 按花括号深度取顶层选择器，<code>.book-library / .book-row / .book-badge / .pagination-pages .page-number</code> 都在），可你看到的仍是旧行为。原因有两层：</p>
+<ul>
+<li>样式表地址是 <code>/static/studio.css?v=3</code>，这一轮之前一直是 <code>v=3</code>——<strong>文件改了但 URL 没变</strong>；</li>
+<li>更关键的是 <code>app/security/headers.py</code> 里的 <code>CACHEABLE_PREFIXES</code> 只用来<em>豁免</em>「私有数据不许缓存」，<code>/static/</code> 因此<strong>完全没有 <code>Cache-Control</code></strong>。缺这个头的静态文件，浏览器按启发式规则自己决定保鲜期，于是可以长时间直接用本地那份旧 CSS。</li>
+</ul>
+<p>旧样式（被关在 <code>@media (max-width:560px)</code> 里）意味着桌面端第 1 块「我的书」不是满宽：网格排成「我的书 + 离线估算 / 生成到《…》+ <em>空</em>」——正是你看到的「三个块空出一块」。每轮靠手加 <code>?v=</code> 并不可靠，所以这轮直接改机制：<code>/static/*</code> 一律返回 <code>Cache-Control: no-cache</code>（保留 ETag，命中就是 304，几乎没有带宽成本），后续改动上线后刷新即可见；同时把 <code>studio.css</code> 提到 <code>?v=4</code>，让已缓存旧文件的浏览器立刻换新。</p>
+<h3>二、失败原因：从一个英文关键词 + 两句重复建议，改成一个说明块</h3>
+<p>旧文案是「失败原因：ChapterConversionError × 1」加两块黄条，两块里写的是同一句建议，而且「最近一次运行没有产出完整章节」在<em>完成了 3 章、失败 2 章</em>的那次运行之后是错的。现在的样子：</p>
+<pre class="code-block">这 3 章没生成出来，原因如下
+· 模型账户余额或配额不足  billing × 2 · 第 3、6 章
+· 这一章的正文转换失败  ChapterConversionError × 1 · 第 7 章
+────────────────────────────────────────
+下一步：充值或换一个可用的密钥后点「重试失败章节」：只跑失败的那几章，已完成的章节不会
+重跑、也不会重复收费。 换一章，或按章节范围分批重试。</pre>
+<ul>
+<li><code>FAILURE_LABELS</code>（中文说法）与 <code>FAILURE_HINTS</code>（下一步）共用一份「从具体到宽泛」的关键词表：页面不再直接甩 <code>ChapterConversionError</code> 这种内部标识，认不出的原因原样显示、不编造解释，<code>authentication</code> 也不会再被宽泛的 <code>auth</code> 抢走。</li>
+<li><code>progress_counts()</code> 除了按原因计数，还给出<strong>涉及哪几章</strong>（第 3、6 章这种），超过 10 章显示前 10 章加总数；同一批失败只把建议写一次，不再两块黄条重复同一句。</li>
+<li>「最近一次运行没有产出完整章节」换成事实行：<code>最近一次运行：《诡秘之主》失败章节重试 · 完成 0 章、失败 3 章 · 第 7 章失败：ChapterConversionError（连续失败 2）</code>；只有这一次运行本身没产出任何章节（<code>outcome=no_chapters</code>）时才说「没有章节通过质量检查」。</li>
+<li>顺手收掉两处小留白：统计块改成 <code>auto-fit</code>（4 格或 5 格都等宽，不会被拉长）；章节列表数量为奇数时最后一张卡独占整行（25 章的第 2 页只剩 5 章，实测最后一张铺满）。</li>
+</ul>
+<h3>验收</h3>
+<div class="table-wrap"><table><thead><tr><th>检查项</th><th>结果</th></tr></thead><tbody>
+<tr><td>桌面端不再有空格</td><td>1280 宽：<code>01 我的书</code> 满宽 → <code>02 离线估算</code> + <code>03 生成</code> 并排等高 → <code>04 成品与进度</code> 满宽，无空格</td></tr>
+<tr><td>静态资源缓存策略</td><td><code>GET /static/app.css</code> → <code>Cache-Control: no-cache</code> + <code>ETag</code>（新测试同时断言两者）；页面引用 <code>studio.css?v=4</code></td></tr>
+<tr><td>失败说明块</td><td>两个不同原因分别成行（中文说法 + 原始标识 + 章节号），「下一步」只出现一次；<code>这 3 章没生成出来，原因如下</code> 与统计里的「失败 3」一致</td></tr>
+<tr><td>事实行</td><td><code>最近一次运行：《诡秘之主》失败章节重试 · 完成 0 章、失败 3 章 · 第 7 章失败：…</code>，不再出现与完成数矛盾的「没有产出完整章节」</td></tr>
+<tr><td>章节列表奇数</td><td>25 章第 2 页（5 张卡）最后一张铺满整行，右下角不空</td></tr>
+<tr><td>窄屏</td><td>390 宽：统计自动换行、失败说明块可读、按钮铺满</td></tr>
+<tr><td>自动化</td><td><code>scripts/verify.sh</code>：724 passed，ruff 全绿（失败标签/提示关键词一致性、静态资源必须重新校验、失败说明块含原因与章节号各一条）</td></tr>
+</tbody></table></div>
+<div class="screens">
+<figure><img src="novel-failure-panel-desktop.png" alt="1280px 情境小说页：我的书满宽、离线估算与生成并排、成品与进度满宽，失败说明块列出两种原因与章节号"><figcaption>桌面 1280：不再有空格；「这 3 章没生成出来」下面逐条写原因、章节号和下一步。</figcaption></figure>
+<figure><img src="novel-failure-panel-mobile.png" alt="390px 情境小说页：统计自动换行，失败说明块列出原因与章节号"><figcaption>手机 390：统计自动换行，说明块保持可读。</figcaption></figure>
+</div>
+<figure><img src="novel-odd-chapter-page.png" alt="1280px 第 2 页：5 张章节卡，最后一张铺满整行"><figcaption>章节数为奇数时最后一张卡独占整行，右下角不再空出一格。</figcaption></figure>
+</section>
+
+<section><h2>20 / 追问：「585338f5 这怎么能看出来什么错了？」（已查清 + 任务页自己会说了）</h2>
+
+<p>这位评委/操作者看到的画面是任务页 <code>/jobs/585338f5-aada-46ec-bafe-7c036e346e81</code>：</p>
+
+<pre class="log">任务监控
+585338f5-aada-46ec-bafe-7c036e346e81
+状态：failed 正在自动更新
+队列：已失败 · 错误码 handler_failed:RuntimeError
+[暂停][继续][仅重试失败][取消]
+序号   单元   状态
+（空）</pre>
+
+<p>结论：<strong>从那个页面确实看不出来</strong>——不是他没看懂，是页面没写。原因有三层：</p>
+<ul>
+<li><strong>错误码本身不解释</strong>：worker 只在异常时记 <code>f"handler_failed:{type(exc).__name__}"</code>（<code>app/pipeline/worker.py</code>），真实信息（异常消息、堆栈）只进了 systemd 日志，<code>jobs</code> 表里根本没有存放错误消息的列。</li>
+<li><strong>小说作业没有生成单元</strong>：这个任务的 <code>kind=novel_component</code>（payload：<code>《诡秘之主》失败章节重试</code>、<code>arguments=["--retry-failed"]</code>），进度由组件按章节记在自己的库里，所以 <code>generation_units</code> 一行都没有——「序号 / 单元 / 状态」表必然是空的。</li>
+<li><strong>详情就在旁边却没被读</strong>：组件把这次运行的经过写在 <code>books/cc1ce5ea5bea/run_status.json</code>，任务页从来不读它。</li>
+</ul>
+
+<p>顺着日志把这一次运行查清了（<code>journalctl -u ielts-reading-studio-worker</code>）：</p>
+<pre class="log">作业失败 job_id=585338f5-… error_code=handler_failed:RuntimeError
+Traceback (most recent call last):
+  File "app/pipeline/worker.py", line 176, in run_once
+  File "app/pipeline/worker.py", line 49, in novel_component_handler
+  File "app/pipeline/novel_runner.py", line 154, in run_novel_job
+    raise RuntimeError(f"novel component exited with code {result.returncode}")
+RuntimeError: novel component exited with code 1</pre>
+
+<p>也就是说：<strong>没有崩溃、没有丢数据</strong>。这次重试完成了 1 章、有 1 章失败（<code>第 8 章失败：ChapterConversionError（连续失败 1）</code>），组件按约定以退出码 1 结束，worker 如实记成 <code>handler_failed:RuntimeError</code>。要看懂它，得同时知道「组件报告在哪」和「单元表为什么是空的」——两件都不该让人猜。</p>
+
+<h3>改了什么</h3>
+<ul>
+<li><strong>错误码说人话</strong>（<code>app/web/glossary.py</code>）：<code>handler_failed:RuntimeError</code> → 「组件抛出了异常（RuntimeError）」；<code>unknown_job_kind</code>、<code>worker_lease_expired</code> 各有中文说法与下一步，认不出的原样显示、不编解释。</li>
+<li><strong>失败原因块</strong>（<code>templates/jobs/detail.html</code>，复用上一轮的 <code>.failure-panel</code> 样式）：失败任务显示「这个任务失败了，原因如下」，内容包括这次运行的说明 · 完成 N 章/失败 M 章 · 中文原因 + 原始标识 · 下一步 · 组件日志路径 · worker 日志命令（带这个任务号，可直接复制）。</li>
+<li><strong>任务页读组件报告</strong>（<code>_novel_run_report</code>）：读 payload 里的 <code>status_path</code>，但只认 output 目录内、文件名为 <code>run_status.json</code> 的路径——越界就当作没有报告（有测试守着）；中文说法与「下一步」复用组件的 <code>failure_label/failure_hint</code>，缺了就回落到关键词表。</li>
+<li><strong>阅读作业的单元错误</strong>：新增 <code>repository.latest_unit_errors()</code>，把 <code>stage_attempts.error</code> 里每个失败单元的最后一条错误写到页面上（<code>第 N 个单元 · 写作：生成 Passage · 第 K 次尝试：&lt;原文&gt;</code>），阶段名也译成中文。</li>
+<li><strong>状态与动作对齐</strong>：状态显示中文（<code>状态：已失败</code>，轮询接口同时返回 <code>job_status_label</code>/<code>status_label</code>），按钮只在该状态可用时出现——已失败的任务只剩「仅重试失败」，不再摆着「暂停/继续」让人误点；小说作业没有单元时，空表换成一句解释。</li>
+<li><strong>列表页</strong>：任务列表的 <code>错误码 handler_failed:RuntimeError</code> 换成「失败原因 组件抛出了异常（RuntimeError）」。</li>
+</ul>
+
+<h3>验收</h3>
+<div class="table-wrap"><table><thead><tr><th>检查项</th><th>结果</th></tr></thead><tbody>
+<tr><td>原样复现线上任务</td><td>预览库里的作业 id 就是 <code>585338f5-aada-46ec-bafe-7c036e346e81</code>（kind/payload/错误码一致），截图即修复后的样子</td></tr>
+<tr><td>原因可读</td><td>「这个任务失败了，原因如下」+ <code>组件抛出了异常（RuntimeError）</code> + <code>这次运行：《诡秘之主》失败章节重试 · 本次有章节失败 · 组件退出码 1</code> + <code>完成 1 章、失败 1 章</code> + <code>这一章的正文转换失败 第 8 章失败：ChapterConversionError（连续失败 1）</code></td></tr>
+<tr><td>日志可查</td><td>组件日志完整路径 + <code>journalctl -u ielts-reading-studio-worker --since '-1 day' | grep -F 585338f5-…</code></td></tr>
+<tr><td>路径安全</td><td><code>status_path</code> 指向 output 之外时不显示组件报告，只保留错误码的解释（新增测试）</td></tr>
+<tr><td>阅读作业</td><td>失败单元显示「第 N 个单元 · 写作：生成 Passage · 第 1 次尝试：RuntimeError: provider exploded」（新增测试，数据来自 <code>stage_attempts.error</code>）</td></tr>
+<tr><td>动作按钮</td><td><code>running</code> → 暂停/取消；<code>paused</code> → 继续；<code>failed</code> → 仅重试失败；终态不再出现「暂停/继续」</td></tr>
+<tr><td>自动化</td><td><code>scripts/verify.sh</code>：727 passed（新增 3 条任务页测试）、ruff 全绿</td></tr>
+</tbody></table></div>
+<div class="screens">
+<figure><img src="job-failure-panel-desktop.png" alt="1280px 任务页：状态已失败，失败原因块写出错误码人话、这次运行摘要、完成 1 章失败 1 章、失败原因与下一步、日志路径，单元表换成一句解释"><figcaption>桌面 1280：同一个作业号，页面现在自己说清失败原因、下一步和日志在哪。</figcaption></figure>
+<figure><img src="job-failure-panel-mobile.png" alt="390px 任务页：失败原因块可读，只有仅重试失败按钮，单元表位置是一句解释"><figcaption>手机 390：原因块保持可读，空单元表换成解释，动作只剩可用的那一个。</figcaption></figure>
+</div>
+</section>
+
+<footer>评审对象：本地 IELTS Reading Studio 工作区 · 2026-09-22。第一轮为只读评审、未修改 templates/static/业务逻辑；第二轮按评审结论实施修复并复测。优先级基于可见影响和核心任务，并非用户研究结论。</footer>
+</main><script>document.querySelectorAll('[data-level]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-level]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));document.querySelectorAll('.finding').forEach(f=>f.hidden=b.dataset.level!=='all'&&!f.classList.contains(b.dataset.level))}));</script></body></html>

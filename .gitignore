@@ -9,3 +9,4 @@ __pycache__/
 .pytest_cache/
 *.py[cod]
 *.egg-info/
+outputs/ui-review/preview-data/
