@@ -11,9 +11,16 @@ from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
 from jinja2 import pass_context
+from markdown_it import MarkdownIt
 from markupsafe import Markup, escape
 
 TEMPLATES_DIR = Path(__file__).parents[2] / "templates"
+_MARKDOWN = MarkdownIt('commonmark', {'html': False}).enable('table')
+
+
+def markdown_block(text: str) -> Markup:
+    """Render Markdown formatting while escaping embedded HTML and unsafe links."""
+    return Markup(_MARKDOWN.render(text))
 
 
 def _request_state(context, name: str, default: str = "") -> str:
@@ -63,6 +70,7 @@ def templates() -> Jinja2Templates:
         csrf_token=csrf_token,
         csp_nonce=csp_nonce,
         scholar_url=scholar_url,
+        markdown_block=markdown_block,
         # 任务表的「状态」列要显示人话，模板里不该出现 indexed / needs_review 这类枚举。
         unit_status_label=unit_status_label,
     )

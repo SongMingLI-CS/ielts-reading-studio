@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="/static/corpora.css?v=4">
   <link rel="stylesheet" href="/static/knowledge.css?v=3">
   <link rel="stylesheet" href="/static/technology.css?v=2">
+  <link rel="stylesheet" href="/static/learning.css?v=1">
   <link rel="stylesheet" href="/static/experience.css?v=2">
   <link rel="stylesheet" href="/static/accessibility.css?v=1">
   <script src="/static/experience.js?v=3" defer></script>
@@ -34,6 +35,7 @@
         <a href="/writing"{% if request.url.path.startswith('/writing') %} aria-current="page"{% endif %}><span class="nav-full">写作反馈</span><span class="nav-short">写作</span></a>
         <a href="/practice/review"{% if review_active %} aria-current="page"{% endif %}>复习</a>
         <a href="/knowledge"{% if request.url.path.startswith('/knowledge') %} aria-current="page"{% endif %}>知识库</a>
+        <a href="/learn"{% if request.url.path.startswith('/learn') %} aria-current="page"{% endif %}>技术学习</a>
         <a href="/novel"{% if request.url.path.startswith('/novel') %} aria-current="page"{% endif %}><span class="nav-full">语境阅读</span><span class="nav-short">小说</span></a>
         {% if scholar_url() %}<a href="{{ scholar_url() }}" target="_blank" rel="noopener noreferrer">ScholarKernel ↗</a>{% endif %}
       </div>

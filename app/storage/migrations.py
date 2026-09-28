@@ -127,6 +127,7 @@ def looks_like_legacy_database(engine: Engine | Connection) -> bool:
 #: the shape (extra columns on ``jobs`` and/or extra tables). Detection matters because
 #: stamping the wrong revision makes the next migration re-add existing objects.
 LEGACY_SCHEMA_HINTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    ('0004', (), ('study_documents', 'study_guides', 'study_progress', 'web_sessions', 'rate_limit_hits')),
     ("0003", (), ("web_sessions", "rate_limit_hits")),
     ("0002", ("worker_id", "idempotency_key", "attempts"), ()),
 )

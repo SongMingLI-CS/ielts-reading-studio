@@ -17,6 +17,7 @@ from .routes_exports import router as exports_router
 from .routes_home import router as home_router
 from .routes_jobs import router as jobs_router
 from .routes_knowledge import router as knowledge_router
+from .routes_learning import router as learning_router
 from .routes_novel import router as novel_router
 from .routes_practice import router as practice_router
 from .routes_review import router as review_router
@@ -69,6 +70,7 @@ def create_app(
         return response
 
     application.include_router(home_router)
+    application.include_router(learning_router)
     application.include_router(corpora_router)
     application.include_router(jobs_router)
     application.include_router(practice_router)

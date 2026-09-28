@@ -41,6 +41,16 @@ class ScholarImport(BaseModel):
     text: str = Field(min_length=1, max_length=12_000)
     question: str = Field(min_length=1, max_length=2_000)
     source_path: str = Field(min_length=1, max_length=1_500)
+    document_url: str = Field(default='', max_length=2_000)
+    document_version: str = Field(default='', max_length=100)
+
+    @field_validator('document_url')
+    @classmethod
+    def official_document_source(cls, value: str) -> str:
+        if not value:
+            return ''
+        from app.learning.sources import validate_official_url
+        return validate_official_url(value)
 
     @field_validator("title", "text", "question")
     @classmethod
@@ -77,8 +87,8 @@ def import_context(
                 "requestId": str(body.request_id),
                 "title": body.title,
                 "text": body.text,
-                "question": body.question,
-                "sourceUrl": str(request.base_url).rstrip("/") + body.source_path,
+                "question": body.question + (f"\n\n学习文档版本：{body.document_version}" if body.document_version else ''),
+                "sourceUrl": body.document_url or str(request.base_url).rstrip("/") + body.source_path,
             },
             timeout=httpx.Timeout(20, connect=5),
             follow_redirects=False,

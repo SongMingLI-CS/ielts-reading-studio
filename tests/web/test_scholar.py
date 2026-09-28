@@ -67,3 +67,16 @@ def test_scholar_widget_is_available_on_reading_and_knowledge_pages(client, web_
         page = client.get(path)
         assert 'id="scholar-dialog"' in page.text
         assert "bridge-test-secret" not in page.text
+
+
+def test_technical_handoff_preserves_official_source_and_version(client, web_service, monkeypatch):
+    configure(web_service)
+    calls = []
+    def post(url, **kwargs):
+        calls.append(kwargs['json'])
+        return httpx.Response(201, request=httpx.Request('POST', url), json={'conversationId': 'learning-' + payload()['request_id']})
+    monkeypatch.setattr('app.web.routes_scholar.httpx.post', post)
+    response = client.post('/api/scholar/import', json={**payload(), 'document_url': 'https://numpy.org/doc/stable/', 'document_version': '2.5'})
+    assert response.status_code == 201
+    assert calls[0]['sourceUrl'] == 'https://numpy.org/doc/stable/'
+    assert '2.5' in calls[0]['question']

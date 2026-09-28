@@ -37,6 +37,11 @@
     event.preventDefault();
     if (busy || !form.reportValidity()) return;
     const payload = { title: form.elements.title.value.trim(), text: form.elements.text.value.trim(), question: form.elements.question.value.trim(), source_path: source };
+    const documentReader = document.querySelector('[data-learning-reader]');
+    if (documentReader) {
+      payload.document_url = documentReader.dataset.sourceUrl || '';
+      payload.document_version = documentReader.dataset.version || '';
+    }
     if (!payload.text || payload.text.length > 12000 || !payload.question || payload.question.length > 2000) {
       status.textContent = '请填写原文和问题；原文最多 12,000 字，问题最多 2,000 字。';
       return;

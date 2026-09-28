@@ -23,6 +23,29 @@ from app.storage.migrations import MigrationResult, current_revision, migrate_en
 
 metadata = MetaData()
 
+study_documents = Table(
+    'study_documents', metadata,
+    Column('id', String, primary_key=True),
+    Column('payload', Text, nullable=False),
+    Column('created_at', DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+study_guides = Table(
+    'study_guides', metadata,
+    Column('document_id', String, ForeignKey('study_documents.id'), primary_key=True),
+    Column('section_id', String, primary_key=True),
+    Column('payload', Text, nullable=False),
+    Column('model', String, nullable=False),
+    Column('prompt_version', String, nullable=False),
+    Column('created_at', DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+study_progress = Table(
+    'study_progress', metadata,
+    Column('document_id', String, ForeignKey('study_documents.id'), primary_key=True),
+    Column('section_id', String, primary_key=True),
+    Column('payload', Text, nullable=False),
+    Column('updated_at', DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
 corpora = Table(
     "corpora",
     metadata,

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}技术学习 · Learning Studio{% endblock %}
+{% block content %}
+<div class="learn-shell">
+  <header class="learn-hero"><p class="eyebrow">DOCUMENTS / LEARNING PATH</p><h1>从读懂代码，到理解 AI。</h1><p class="lead">读官方原文，拆解英语与概念，用小练习确认理解。代码、参数和版本信息随文档一起保留。</p><span class="learn-live">原文学习已开放</span></header>
+  {% if error %}<p class="learn-error" role="alert">{{ error }}</p>{% endif %}
+  <section class="learn-path" aria-label="技术学习路径">
+    {% for starter in starters %}<article class="learn-stage"><p class="eyebrow">{{ starter.code }}</p><h2>{{ starter.title }}</h2><p>{{ starter.description }}</p><form method="post" action="/learn/import">{{ csrf_field() }}<input type="hidden" name="url" value="{{ starter.url }}"><button type="submit">导入官方入门文档 →</button></form><a href="{{ starter.url }}" target="_blank" rel="noopener noreferrer">查看官方来源 ↗</a></article>{% endfor %}
+  </section>
+  <section class="learn-library" aria-labelledby="document-library"><div class="learn-section-head"><h2 id="document-library">我的文档</h2><span>{{ documents|length }} 份原文</span></div>
+    {% if documents %}<div class="learn-doc-grid">{% for doc in documents %}<a class="learn-doc-card" href="/learn/{{ doc.id }}"><span class="eyebrow">{{ doc.topic|upper }} / {{ '官方文档' if doc.official else 'Markdown 导入' }}</span><h3>{{ doc.title }}</h3><p>版本 {{ doc.version }} · {{ doc.sections|length }} 节</p><div class="learn-progress-track"><span style="width: {{ (progress[doc.id] / (doc.sections|length) * 100)|int }}%"></span></div><span>{{ progress[doc.id] }} / {{ doc.sections|length }} 节已读</span></a>{% endfor %}</div>{% else %}<div class="learn-empty"><h3>选择一份文档，开始你的第一节。</h3><p>上方可以直接导入官方入门文档；也可以使用下面的地址或 Markdown 文件。</p></div>{% endif %}
+  </section>
+  <section class="learn-import-grid" aria-label="导入技术文档">
+    <form class="learn-import" action="/learn/import" method="post">{{ csrf_field() }}<p class="eyebrow">IMPORT / URL</p><h2>导入官方文档</h2><label for="document-url">文档网址</label><input id="document-url" name="url" type="url" maxlength="2000" required placeholder="https://numpy.org/doc/stable/…"><p class="muted">支持 Python、NumPy、scikit-learn 和 PyTorch。按章节保存原文，不生成改写文章。</p><button type="submit">导入并阅读</button><p class="learn-form-status" role="status" aria-live="polite"></p></form>
+    <form class="learn-import" action="/learn/upload" method="post" enctype="multipart/form-data">{{ csrf_field() }}<p class="eyebrow">IMPORT / MARKDOWN</p><h2>导入文档文件</h2><label>标题<input name="title" maxlength="200" required placeholder="例如 NumPy array reference"></label><div class="learn-field-row"><label>学习阶段<select name="topic"><option value="python">Python</option><option value="numpy">NumPy</option><option value="ai">AI / 机器学习</option></select></label><label>文档版本<input name="version" maxlength="100" required placeholder="例如 2.5；未知填未标注"></label></div><label>官方来源网址（可选）<input name="source_url" type="url" maxlength="2000"></label><label>Markdown 文件<input name="source" type="file" accept=".md,.markdown" required></label><p class="muted">最大 2 MB，UTF-8 编码。版本由你填写，文件内容保留为导入快照。</p><button type="submit">保存原文并阅读</button></form>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/learning.js?v=1" defer></script>{% endblock %}
