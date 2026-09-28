@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 from pydantic import ValidationError
 from sqlalchemy import func, select
@@ -111,8 +112,19 @@ class LearningService:
         )
         try:
             guide = StudyGuide.model_validate(result.payload)
-            if any(q.evidence_quote not in section.text for q in guide.questions):
-                raise ValueError("练习证据不在原文中")
+            for question in guide.questions:
+                pieces = question.evidence_quote.split()
+                match = (
+                    re.search(
+                        r"\s+".join(re.escape(piece) for piece in pieces), section.text
+                    )
+                    if pieces
+                    else None
+                )
+                if not match:
+                    raise ValueError("练习证据不在原文中")
+                # Restore the actual source substring, including its original line breaks.
+                question.evidence_quote = match.group(0)
             if any(
                 w.term.casefold() not in section.text.casefold() for w in guide.glossary
             ):

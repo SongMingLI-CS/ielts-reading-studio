@@ -154,3 +154,27 @@ def test_markdown_formatting_does_not_render_untrusted_html(client):
     assert "<strong>Bold</strong>" in response.text
     assert "<script>alert(1)</script>" not in response.text
     assert 'href="javascript:' not in response.text
+
+
+def test_guide_quotes_can_normalize_whitespace_but_save_the_original_quote(
+    client, web_service
+):
+    service = LearningService(web_service)
+    doc = service.save_document(
+        parse_markdown(
+            "# Arrays\n\nAn ndarray is a\nmultidimensional array.",
+            title="Arrays",
+            topic="numpy",
+            version="2.5",
+            source_url="",
+        )
+    )
+    web_service._provider = SimpleNamespace(
+        complete_json=lambda _: ModelResult(payload=guide_payload(), raw_text="{}")
+    )
+    result = client.post(f"/api/learn/{doc.id}/{doc.sections[0].id}/guide")
+    assert result.status_code == 200
+    assert (
+        result.json()["questions"][0]["evidence_quote"]
+        == "An ndarray is a\nmultidimensional array."
+    )
