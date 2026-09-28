@@ -232,6 +232,20 @@ def guide(document_id: str, section_id: str, service: Learning):
         raise HTTPException(502, redact_secrets(exc)) from None
 
 
+@router.post("/api/learn/{document_id}/{section_id}/vocabulary")
+def vocabulary(document_id: str, section_id: str, service: Learning):
+    try:
+        return service.generate_vocabulary(document_id, section_id)
+    except KeyError:
+        raise HTTPException(404, "文档或章节不存在") from None
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+    except BudgetError as exc:
+        raise HTTPException(exc.status_code, str(exc)) from None
+    except (ProviderError, AgentSchemaError) as exc:
+        raise HTTPException(502, redact_secrets(exc)) from None
+
+
 class ProgressChange(BaseModel):
     completed: bool | None = None
     notes: str | None = Field(None, max_length=4000)

@@ -3,6 +3,6 @@
   {% elif block.kind == 'table' %}<div class="learn-table-scroll"><table>{% for row in block.rows %}{% set header_row = loop.first %}<tr>{% for cell in row %}{% if header_row %}<th scope="col">{{ cell }}</th>{% else %}<td>{{ cell }}</td>{% endif %}{% endfor %}</tr>{% endfor %}</table></div>
   {% elif block.kind == 'heading' %}<h3>{{ block.text }}</h3>
   {% elif block.kind == 'parameter' %}<p class="learn-parameter">{{ block.text }}</p>
-  {% elif block.kind == 'list' %}<p class="learn-list-item">{{ block.text }}</p>
-  {% else %}{% if doc.official %}<p>{{ block.text }}</p>{% else %}<div class="learn-markdown">{{ markdown_block(block.text) }}</div>{% endif %}{% endif %}
+  {% elif block.kind == 'list' %}<p class="learn-list-item">{{ annotations.plain(block.text) }}</p>
+  {% else %}{% if doc.official %}<p>{{ annotations.plain(block.text) }}</p>{% else %}<div class="learn-markdown">{{ annotations.markdown(markdown_block(block.text)) }}</div>{% endif %}{% endif %}
 {% endfor %}</article>

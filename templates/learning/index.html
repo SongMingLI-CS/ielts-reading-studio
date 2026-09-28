@@ -2,7 +2,7 @@
 {% block title %}技术学习 · Learning Studio{% endblock %}
 {% block content %}
 <div class="learn-shell">
-  <header class="learn-hero"><p class="eyebrow">DOCUMENTS / LEARNING PATH</p><h1>从读懂代码，到理解 AI。</h1><p class="lead">读官方原文，拆解英语与概念，用小练习确认理解。代码、参数和版本信息随文档一起保留。</p><span class="learn-live">原文学习已开放</span></header>
+  <header class="learn-hero"><p class="eyebrow">DOCUMENTS / ENGLISH READING</p><h1>用技术原文，练英语阅读。</h1><p class="lead">保留英文原文与代码，重点词汇配中文释义。先读懂句子，再理解技术概念，用原文理解题检验阅读。</p><span class="learn-live">英语阅读辅助已开启</span></header>
   {% if error %}<p class="learn-error" role="alert">{{ error }}</p>{% endif %}
   <section class="learn-path" aria-label="技术学习路径">
     {% for starter in starters %}<article class="learn-stage"><p class="eyebrow">{{ starter.code }}</p><h2>{{ starter.title }}</h2><p>{{ starter.description }}</p><form method="post" action="/learn/collection">{{ csrf_field() }}<input type="hidden" name="topic" value="{{ starter.topic }}"><button type="submit">导入 {{ starter.urls|length }} 篇官方文档 →</button><p class="learn-form-status" role="status" aria-live="polite"></p></form><a href="{{ starter.url }}" target="_blank" rel="noopener noreferrer">查看官方目录 ↗</a></article>{% endfor %}
@@ -16,4 +16,4 @@
   </section>
 </div>
 {% endblock %}
-{% block scripts %}<script src="/static/learning.js?v=2" defer></script>{% endblock %}
+{% block scripts %}<script src="/static/learning.js?v=3" defer></script>{% endblock %}

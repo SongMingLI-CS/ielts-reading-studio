@@ -15,7 +15,7 @@ from markdown_it import MarkdownIt
 from markupsafe import Markup, escape
 
 TEMPLATES_DIR = Path(__file__).parents[2] / "templates"
-_MARKDOWN = MarkdownIt('commonmark', {'html': False}).enable('table')
+_MARKDOWN = MarkdownIt("commonmark", {"html": False}).enable("table")
 
 
 def markdown_block(text: str) -> Markup:
@@ -62,6 +62,8 @@ def scholar_url(context) -> str:
 def templates() -> Jinja2Templates:
     """A Jinja2Templates instance with the security globals registered."""
 
+    from app.learning.annotations import ReadingAnnotations
+
     from .glossary import unit_status_label
 
     environment = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -71,6 +73,7 @@ def templates() -> Jinja2Templates:
         csp_nonce=csp_nonce,
         scholar_url=scholar_url,
         markdown_block=markdown_block,
+        reading_annotations=ReadingAnnotations,
         # 任务表的「状态」列要显示人话，模板里不该出现 indexed / needs_review 这类枚举。
         unit_status_label=unit_status_label,
     )

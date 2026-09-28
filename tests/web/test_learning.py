@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 import httpx
+import pytest
 from bs4 import BeautifulSoup
 from sqlalchemy import update
 
@@ -60,10 +61,162 @@ def test_library_reader_and_duplicate_import(client, web_service):
     assert len(service.list_documents()) == 1
     assert client.get("/learn").status_code == 200
     page = client.get(f"/learn/{doc.id}").text
-    assert "An ndarray is a multidimensional array." in page
+    source = BeautifulSoup(page, "html.parser").select_one(".learn-source-text")
+    assert "An ndarray is a multidimensional array." in source.get_text()
     assert "x = 1" in page
     assert "2.5" in page
     assert client.get("/learn/not-found").status_code == 404
+
+
+def vocabulary_payload(
+    term="multidimensional", quote="An ndarray is a multidimensional array."
+):
+    return {
+        "words": [
+            {
+                "term": term,
+                "chinese": "多维的",
+                "usage_note": "multi- 表示多个，dimensional 表示维度。",
+                "source_quote": quote,
+            }
+        ]
+    }
+
+
+def test_import_immediately_marks_difficult_words_without_model_calls(
+    client, web_service
+):
+    def unexpected_call(_):
+        raise AssertionError("Import and common word lookup must not call the model")
+
+    web_service._provider = SimpleNamespace(complete_json=unexpected_call)
+    response = client.post(
+        "/learn/upload",
+        data={"title": "English reading", "topic": "numpy", "version": "2.5"},
+        files={
+            "source": (
+                "guide.md",
+                b"# Arrays\n\nAn arbitrary array.\n\n```python\narray = 'arbitrary'\n```",
+            )
+        },
+    )
+    assert response.status_code == 200
+    soup = BeautifulSoup(response.text, "html.parser")
+    assert (
+        soup.select_one('[data-reading-word="arbitrary"]')["data-chinese"]
+        == "任意的；未作特定限制的"
+    )
+    assert not soup.select("code [data-reading-word]")
+    assert soup.select_one("pre code").text == "array = 'arbitrary'"
+
+
+def test_contextual_words_are_grounded_cached_and_preserve_existing_progress(
+    client, web_service
+):
+    service = LearningService(web_service)
+    doc = service.save_document(
+        parse_markdown(
+            "# Arrays\n\nAn ndarray is a\nmultidimensional array.\n\n```python\nx = 1\n```",
+            title="Arrays",
+            topic="numpy",
+            version="2.5",
+            source_url="",
+        )
+    )
+    section = doc.sections[0]
+    service.update_progress(
+        doc.id,
+        section.id,
+        {"completed": True, "notes": "Keep this note", "score": 2, "answers": [0, 1]},
+    )
+    calls = []
+
+    def complete(request):
+        calls.append(request)
+        return ModelResult(payload=vocabulary_payload(), raw_text="{}")
+
+    web_service._provider = SimpleNamespace(complete_json=complete)
+    path = f"/api/learn/{doc.id}/{section.id}/vocabulary"
+    response = client.post(path)
+    assert response.status_code == 200
+    assert (
+        response.json()["words"][0]["source_quote"]
+        == "An ndarray is a\nmultidimensional array."
+    )
+    assert client.post(path).json() == response.json()
+    assert len(calls) == 1 and calls[0].stage == "reading_vocabulary"
+    assert "x = 1" not in calls[0].user
+    progress = service.progress(doc.id)[section.id]
+    assert progress["completed"] and progress["notes"] == "Keep this note"
+    assert progress["score"] == 2 and progress["answers"] == [0, 1]
+    assert service.get_document(doc.id).sections[0].text == section.text
+    for query in ("", f"?section={section.id}"):
+        page = BeautifulSoup(client.get(f"/learn/{doc.id}{query}").text, "html.parser")
+        word = page.select_one('[data-reading-word="multidimensional"]')
+        assert word["data-meaning-source"] == "本节语境释义"
+        assert word["data-source-quote"] == "An ndarray is a\nmultidimensional array."
+        assert "x = 1" in page.select_one(".learn-source-text").get_text()
+
+
+@pytest.mark.parametrize(
+    "term,quote",
+    [
+        ("multidimensional", "Invented multidimensional source."),
+        ("view", "The review is conventional."),
+        ("array", "The review is conventional."),
+        ("invented", "An ndarray is a multidimensional array."),
+    ],
+)
+def test_invalid_vocabulary_evidence_is_not_saved(client, web_service, term, quote):
+    service = LearningService(web_service)
+    doc = service.save_document(
+        parse_markdown(
+            "# Arrays\n\nAn ndarray is a multidimensional array.\n\nThe review is conventional.",
+            title="Arrays",
+            topic="numpy",
+            version="2.5",
+            source_url="",
+        )
+    )
+    web_service._provider = SimpleNamespace(
+        complete_json=lambda _: ModelResult(
+            payload=vocabulary_payload(term, quote), raw_text="{}"
+        )
+    )
+    assert (
+        client.post(f"/api/learn/{doc.id}/{doc.sections[0].id}/vocabulary").status_code
+        == 502
+    )
+    assert not service.progress(doc.id)
+
+
+def test_vocabulary_requires_csrf_and_prose_and_known_section(
+    client, raw_client, web_service
+):
+    service, doc = save(web_service)
+    assert (
+        raw_client.post(
+            f"/api/learn/{doc.id}/{doc.sections[0].id}/vocabulary"
+        ).status_code
+        == 403
+    )
+    assert client.post(f"/api/learn/{doc.id}/not-found/vocabulary").status_code == 404
+    code = service.save_document(
+        parse_markdown(
+            "# Code\n\n```python\narray = 'mutable'\n```",
+            title="Code",
+            topic="numpy",
+            version="2.5",
+            source_url="",
+        )
+    )
+    assert (
+        client.post(
+            f"/api/learn/{code.id}/{code.sections[0].id}/vocabulary"
+        ).status_code
+        == 422
+    )
+    assert not service.progress(code.id)
 
 
 def test_guide_is_grounded_cached_and_quiz_scores_persist(client, web_service):

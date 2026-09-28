@@ -106,3 +106,14 @@ class StudyGuide(BaseModel):
     glossary: list[StudyWord] = Field(min_length=1, max_length=12)
     concepts: list[StudyConcept] = Field(min_length=1, max_length=8)
     questions: list[StudyQuestion] = Field(min_length=2, max_length=8)
+
+
+class ReadingWord(BaseModel):
+    term: str = Field(min_length=2, max_length=100, pattern=r"^[A-Za-z][A-Za-z -]*$")
+    chinese: str = Field(min_length=1, max_length=160)
+    usage_note: str = Field(min_length=1, max_length=600)
+    source_quote: str = Field(min_length=1, max_length=1000)
+
+
+class ReadingGlossary(BaseModel):
+    words: list[ReadingWord] = Field(min_length=1, max_length=20)

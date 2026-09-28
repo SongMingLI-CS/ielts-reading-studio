@@ -41,10 +41,87 @@
     try { await work(); } catch (error) { status.textContent = error.name === 'TimeoutError' ? '请求超时，请稍后重试。' : error.message; }
     finally { button.disabled = false; }
   }
-  reader.querySelectorAll('[data-copy-code]').forEach(button => button.addEventListener('click', async () => {
+  reader.addEventListener('click', async event => {
+    const button = event.target.closest('[data-copy-code]');
+    if (!button) return;
     try { await navigator.clipboard.writeText(button.closest('.learn-code').querySelector('code').textContent); button.textContent = '已复制 ✓'; }
     catch { button.textContent = '请选中代码复制'; }
-  }));
+  });
+  const popup = reader.querySelector('#reading-word-popover');
+  const toggleGlosses = reader.querySelector('[data-toggle-glosses]');
+  let activeWord = null;
+  function closeWord(restoreFocus = false) {
+    popup.hidden = true;
+    if (activeWord) {
+      activeWord.setAttribute('aria-expanded', 'false');
+      if (restoreFocus && activeWord.isConnected) activeWord.focus();
+    }
+    activeWord = null;
+  }
+  function setGlosses(enabled) {
+    reader.classList.toggle('learn-glosses-off', !enabled);
+    toggleGlosses.setAttribute('aria-pressed', String(enabled));
+    toggleGlosses.textContent = enabled ? '难词提示：开启' : '难词提示：关闭';
+    reader.querySelectorAll('[data-reading-word]').forEach(button => { button.disabled = !enabled; });
+    if (!enabled) closeWord();
+  }
+  try { setGlosses(localStorage.getItem('learning-word-hints') !== 'off'); } catch { setGlosses(true); }
+  toggleGlosses.addEventListener('click', () => {
+    const enabled = toggleGlosses.getAttribute('aria-pressed') !== 'true';
+    setGlosses(enabled);
+    try { localStorage.setItem('learning-word-hints', enabled ? 'on' : 'off'); } catch { /* Reading works without storage. */ }
+  });
+  reader.addEventListener('click', event => {
+    const button = event.target.closest('[data-reading-word]');
+    if (!button || button.disabled) return;
+    if (activeWord === button && !popup.hidden) { closeWord(true); return; }
+    closeWord();
+    activeWord = button;
+    popup.querySelector('#reading-word-heading').textContent = button.dataset.readingWord;
+    popup.querySelector('[data-word-source]').textContent = button.dataset.meaningSource;
+    popup.querySelector('[data-word-meaning]').textContent = button.dataset.chinese;
+    popup.querySelector('[data-word-note]').textContent = button.dataset.usageNote || '这是常用释义；可补充本节语境释义，查看它在原句中的具体用法。';
+    const quote = popup.querySelector('[data-word-quote]');
+    quote.textContent = button.dataset.sourceQuote || '';
+    quote.hidden = !quote.textContent;
+    popup.hidden = false;
+    const rect = button.getBoundingClientRect();
+    popup.style.left = `${Math.max(16, Math.min(rect.left, window.innerWidth - popup.offsetWidth - 16))}px`;
+    let top = rect.bottom + 10;
+    if (top + popup.offsetHeight > window.innerHeight - 90) top = rect.top - popup.offsetHeight - 10;
+    popup.style.top = `${Math.max(96, Math.min(top, window.innerHeight - popup.offsetHeight - 90))}px`;
+    button.setAttribute('aria-expanded', 'true');
+    popup.querySelector('[data-close-word]').focus();
+  });
+  popup.querySelector('[data-close-word]').addEventListener('click', () => closeWord(true));
+  document.addEventListener('click', event => {
+    if (!popup.hidden && !popup.contains(event.target) && !event.target.closest('[data-reading-word]')) closeWord();
+  });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && !popup.hidden) { event.preventDefault(); closeWord(true); } });
+  window.addEventListener('resize', () => closeWord());
+  reader.querySelectorAll('[data-reading-vocabulary]').forEach(button => button.addEventListener('click', () => action(button, button.parentElement.querySelector('[data-vocabulary-status]'), async () => {
+    const status = button.parentElement.querySelector('[data-vocabulary-status]');
+    status.textContent = '正在结合本节原句整理中文释义与英语用法…';
+    await post('/vocabulary', {}, button.dataset.section);
+    const response = await fetch(`/learn/${reader.dataset.document}?section=${button.dataset.section}`, {credentials:'same-origin',signal:AbortSignal.timeout(30000)});
+    if (!response.ok) throw new Error('释义已保存，刷新页面即可查看更新后的标注。');
+    const updated = new DOMParser().parseFromString(await response.text(), 'text/html');
+    const original = button.closest('[data-learning-section]');
+    const source = updated.querySelector('.learn-source-text');
+    if (!source) throw new Error('释义已保存，刷新页面即可查看更新后的标注。');
+    closeWord();
+    original.querySelector('.learn-source-text').replaceWith(document.importNode(source, true));
+    const oldList = original.querySelector('.learn-reading-glossary');
+    const newList = updated.querySelector('.learn-reading-glossary');
+    if (newList) {
+      const list = document.importNode(newList, true);
+      list.open = true;
+      if (oldList) oldList.replaceWith(list); else button.before(list);
+    }
+    setGlosses(toggleGlosses.getAttribute('aria-pressed') === 'true');
+    status.textContent = '语境释义已保存，原文中的词语标注已更新。';
+    button.textContent = '查看已保存语境释义';
+  })));
   reader.querySelectorAll('[data-mark-read]').forEach(mark => mark.addEventListener('click', () => action(mark, mark.parentElement.querySelector('[data-progress-status]'), async () => {
     const completed = mark.getAttribute('aria-pressed') !== 'true';
     await post('/progress', {completed}, mark.dataset.section);
