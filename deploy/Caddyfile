@@ -33,9 +33,18 @@
 (ielts_site) {
 	encode zstd gzip
 
-	reverse_proxy 127.0.0.1:8768 {
-		# 应用据此判断请求经过 HTTPS（IELTS_WEB_TRUSTED_PROXIES 必须含 127.0.0.1）
-		header_up X-Forwarded-Proto https
+	handle {
+		reverse_proxy 127.0.0.1:8768 {
+			# 学习站只接受来自本机 HTTPS 入口的请求。
+			header_up X-Forwarded-Proto https
+		}
+	}
+
+	# ScholarKernel 按 /scholar basePath 构建；保留前缀，复用已开放的 HTTPS 端口。
+	handle /scholar /scholar/* {
+		reverse_proxy 127.0.0.1:3001 {
+			header_up X-Forwarded-Proto https
+		}
 	}
 
 	# 应用自身已发送 nosniff / X-Frame-Options / Referrer-Policy / CSP，这里只补 HSTS
