@@ -41,7 +41,8 @@
 	}
 
 	# ScholarKernel 按 /scholar basePath 构建；保留前缀，复用已开放的 HTTPS 端口。
-	handle /scholar /scholar/* {
+	@scholar path /scholar /scholar/*
+	handle @scholar {
 		reverse_proxy 127.0.0.1:3001 {
 			header_up X-Forwarded-Proto https
 		}
