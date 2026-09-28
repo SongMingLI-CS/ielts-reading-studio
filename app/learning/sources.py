@@ -9,7 +9,8 @@ from bs4 import BeautifulSoup, Comment, NavigableString
 
 from .models import SourceBlock, StudyDocument, StudySection, Topic
 
-MAX_SOURCE_BYTES = 2 * 1024 * 1024
+MAX_HTML_BYTES = 10 * 1024 * 1024
+MAX_SECTION_CHARACTERS = 12000
 OFFICIAL_HOSTS = {
     "docs.python.org": ("python", ("/",)),
     "numpy.org": ("numpy", ("/doc/",)),
@@ -77,8 +78,10 @@ def fetch_official_document(
             size = 0
             for chunk in response.iter_bytes():
                 size += len(chunk)
-                if size > MAX_SOURCE_BYTES:
-                    raise ValueError("文档超过 2 MB，请选择更具体的章节。")
+                if size > MAX_HTML_BYTES:
+                    raise ValueError(
+                        "单个网页超过 10 MB，请下载 Markdown 后使用文件导入。"
+                    )
                 chunks.append(chunk)
             html = b"".join(chunks).decode("utf-8")
             refresh = BeautifulSoup(html, "html.parser").find(
@@ -130,9 +133,11 @@ def _snapshot(
         )
     if not sections:
         raise ValueError("文档没有可阅读的正文。")
+    sections = _reading_sections(sections)
     digest = sha256(raw.encode()).hexdigest()
+    parser_version = "parts-v1\n" if any("-part" in s.id for s in sections) else ""
     identity = sha256(
-        f"{source_url}\n{title}\n{topic}\n{version}\n{digest}".encode()
+        f"{parser_version}{source_url}\n{title}\n{topic}\n{version}\n{digest}".encode()
     ).hexdigest()[:24]
     return StudyDocument(
         id=identity,
@@ -144,6 +149,65 @@ def _snapshot(
         content_hash=digest,
         sections=sections,
     )
+
+
+def _reading_sections(sections: list[StudySection]) -> list[StudySection]:
+    """Split long chapters without dropping text or changing short section IDs."""
+    result = []
+    for section in sections:
+        if len(section.text) <= MAX_SECTION_CHARACTERS:
+            result.append(section)
+            continue
+        parts: list[list[SourceBlock]] = [[]]
+        size = 0
+        for block in section.blocks:
+            fragments = [block]
+            if block.kind != "table" and len(block.text) > MAX_SECTION_CHARACTERS:
+                fragments = []
+                start = 0
+                while start < len(block.text):
+                    end = min(len(block.text), start + MAX_SECTION_CHARACTERS)
+                    if end < len(block.text):
+                        boundary = block.text.rfind("\n", start, end)
+                        if boundary >= start + MAX_SECTION_CHARACTERS // 2:
+                            end = boundary + 1
+                    fragments.append(
+                        block.model_copy(update={"text": block.text[start:end]})
+                    )
+                    start = end
+            elif block.kind == "table":
+                fragments = []
+                rows = []
+                row_size = 0
+                for row in block.rows:
+                    length = sum(len(cell) for cell in row) + len(row)
+                    if rows and row_size + length > MAX_SECTION_CHARACTERS:
+                        fragments.append(block.model_copy(update={"rows": rows}))
+                        rows, row_size = [], 0
+                    rows.append(row)
+                    row_size += length
+                if rows:
+                    fragments.append(block.model_copy(update={"rows": rows}))
+            for fragment in fragments:
+                length = len(fragment.text) or sum(
+                    len(cell) + 1 for row in fragment.rows for cell in row
+                )
+                if parts[-1] and size + length + 2 > MAX_SECTION_CHARACTERS:
+                    parts.append([])
+                    size = 0
+                parts[-1].append(fragment)
+                size += length + 2
+        for index, blocks in enumerate(parts, 1):
+            result.append(
+                section.model_copy(
+                    update={
+                        "id": f"{section.id}-part{index}",
+                        "title": f"{section.title}（{index}/{len(parts)}）",
+                        "blocks": blocks,
+                    }
+                )
+            )
+    return result
 
 
 def parse_html(html: str, url: str) -> StudyDocument:

@@ -120,3 +120,63 @@ def test_official_meta_redirect_is_validated_and_resolves_version():
             "https://docs.pytorch.org/docs/stable/index.html", client=client
         )
     assert doc.version == "2.14"
+
+
+def test_long_paragraphs_and_code_are_not_truncated_and_fit_study_context():
+    paragraph = "A multidimensional array has shape and dtype. " * 2000
+    code = "x = 1\n\nif x:\n    print(x)\n" * 2000
+    doc = parse_markdown(
+        f"# Long manual\n\n{paragraph}\n\n## Code\n\n```python\n{code}```",
+        title="Long manual",
+        topic="numpy",
+        version="2.5",
+        source_url="",
+    )
+    text_blocks = [b.text for s in doc.sections for b in s.blocks if b.kind == "text"]
+    code_blocks = [b.text for s in doc.sections for b in s.blocks if b.kind == "code"]
+    assert "".join(text_blocks) == paragraph
+    assert "".join(code_blocks) == code.rstrip("\n")
+    assert all(len(section.text) <= 12000 for section in doc.sections)
+    assert len({s.id for s in doc.sections}) == len(doc.sections)
+
+
+def test_large_html_page_can_exceed_the_old_two_megabyte_limit():
+    original = "Complete content.\n" * 125000
+    html = f"<title>Python 3.14</title><main><h1>Long chapter</h1><pre>{original}</pre><p>FINAL PARAGRAPH</p></main>"
+    assert len(html.encode()) > 2 * 1024 * 1024
+    with httpx.Client(
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                200,
+                text=html,
+                headers={"content-type": "text/html"},
+            )
+        )
+    ) as client:
+        doc = fetch_official_document(
+            "https://docs.python.org/3/tutorial/long.html", client=client
+        )
+    assert (
+        "".join(b.text for s in doc.sections for b in s.blocks if b.kind == "code")
+        == original
+    )
+    assert doc.sections[-1].text.endswith("FINAL PARAGRAPH")
+
+
+def test_remote_page_still_has_an_independent_bounded_download_limit(monkeypatch):
+    monkeypatch.setattr("app.learning.sources.MAX_HTML_BYTES", 100)
+    with (
+        httpx.Client(
+            transport=httpx.MockTransport(
+                lambda _: httpx.Response(
+                    200,
+                    text="x" * 101,
+                    headers={"content-type": "text/html"},
+                )
+            )
+        ) as client,
+        pytest.raises(ValueError, match="单个网页"),
+    ):
+        fetch_official_document(
+            "https://docs.python.org/3/tutorial/long.html", client=client
+        )

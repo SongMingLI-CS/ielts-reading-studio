@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, computed_field, model_validator
 
 Topic = Literal["python", "numpy", "ai"]
 
@@ -18,6 +18,8 @@ class StudySection(BaseModel):
     id: str
     title: str
     blocks: list[SourceBlock]
+    source_url: str = ""
+    chapter_title: str = ""
 
     @property
     def text(self) -> str:
@@ -25,6 +27,12 @@ class StudySection(BaseModel):
             b.text if b.kind != "table" else "\n".join("\t".join(row) for row in b.rows)
             for b in self.blocks
         )
+
+
+class StudySourcePage(BaseModel):
+    title: str
+    url: str
+    version: str
 
 
 class StudyDocument(BaseModel):
@@ -37,6 +45,33 @@ class StudyDocument(BaseModel):
     content_hash: str
     imported_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     sections: list[StudySection]
+    source_pages: list[StudySourcePage] = Field(default_factory=list)
+
+    @computed_field
+    @property
+    def content_characters(self) -> int:
+        return sum(len(section.text) for section in self.sections)
+
+    @computed_field
+    @property
+    def page_count(self) -> int:
+        return len(self.source_pages) or 1
+
+    @computed_field
+    @property
+    def section_count(self) -> int:
+        return len(self.sections)
+
+
+class StudyDocumentSummary(BaseModel):
+    id: str
+    title: str
+    topic: Topic
+    version: str
+    official: bool
+    section_count: int
+    page_count: int
+    content_characters: int | None = None
 
 
 class StudyWord(BaseModel):

@@ -4,13 +4,14 @@ import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
 from app.agents.base import AgentSchemaError, ProviderError
 from app.config import redact_secrets
+from app.learning.catalog import CATALOG, fetch_collection
 from app.learning.models import Topic
 from app.learning.service import LearningService
 from app.learning.sources import (
-    MAX_SOURCE_BYTES,
     fetch_official_document,
     parse_markdown,
     validate_official_url,
@@ -23,29 +24,13 @@ from .templating import templates
 
 router = APIRouter(tags=["learning"])
 TEMPLATES = templates()
-STARTERS = [
-    {
-        "topic": "python",
-        "code": "01 / PYTHON",
-        "title": "Python 基础",
-        "description": "从变量、字符串和列表开始，习惯读懂代码与英语说明。",
-        "url": "https://docs.python.org/3/tutorial/introduction.html",
-    },
-    {
-        "topic": "numpy",
-        "code": "02 / NUMPY",
-        "title": "NumPy 数组",
-        "description": "理解 shape、dtype、索引与数组运算，建立数据计算基础。",
-        "url": "https://numpy.org/doc/stable/user/absolute_beginners.html",
-    },
-    {
-        "topic": "ai",
-        "code": "03 / AI",
-        "title": "机器学习入门",
-        "description": "阅读 scikit-learn 的训练、预测与评估流程，连接前两阶段。",
-        "url": "https://scikit-learn.org/stable/getting_started.html",
-    },
-]
+STARTERS = list(CATALOG.values())
+READING_PAGE_CHARACTERS = 60000
+
+
+def upload_limit(service):
+    config = service.studio.config
+    return min(config.web_learning_max_upload_bytes, config.web_max_upload_bytes)
 
 
 def learning(
@@ -71,6 +56,7 @@ def library(request, service, *, error="", status_code=200):
             "starters": STARTERS,
             "progress": progress,
             "error": error,
+            "upload_limit_mb": upload_limit(service) // (1024 * 1024),
         },
         status_code=status_code,
     )
@@ -112,22 +98,37 @@ async def upload(
     try:
         if not (source.filename or "").lower().endswith((".md", ".markdown")):
             raise HTTPException(415, "技术文档文件请使用 .md 或 .markdown 格式。")
-        data = await source.read(MAX_SOURCE_BYTES + 1)
-        if len(data) > MAX_SOURCE_BYTES:
-            raise HTTPException(413, "文档不能超过 2 MB。")
+        limit = upload_limit(service)
+        if source.size is not None and source.size > limit:
+            raise HTTPException(413, f"文档不能超过 {limit // (1024 * 1024)} MB。")
+        chunks = []
+        size = 0
+        while chunk := await source.read(1024 * 1024):
+            size += len(chunk)
+            if size > limit:
+                raise HTTPException(413, f"文档不能超过 {limit // (1024 * 1024)} MB。")
+            chunks.append(chunk)
+        data = b"".join(chunks)
+        chunks.clear()
         if source_url:
             source_url = validate_official_url(source_url)
         if not title.strip() or not version.strip():
             raise ValueError("请填写标题和版本；未知版本可填写“未标注”。")
-        doc = service.save_document(
-            parse_markdown(
-                data.decode("utf-8-sig"),
-                title=title.strip(),
-                topic=topic,
-                version=version.strip(),
-                source_url=source_url,
+
+        def save():
+            return service.save_document(
+                parse_markdown(
+                    data.decode("utf-8-sig"),
+                    title=title.strip(),
+                    topic=topic,
+                    version=version.strip(),
+                    source_url=source_url,
+                )
             )
-        )
+
+        doc = await run_in_threadpool(save)
+    except HTTPException as exc:
+        return library(request, service, error=exc.detail, status_code=exc.status_code)
     except (ValueError, UnicodeError) as exc:
         return library(request, service, error=str(exc), status_code=400)
     finally:
@@ -135,28 +136,86 @@ async def upload(
     return RedirectResponse(f"/learn/{doc.id}", status_code=303)
 
 
+@router.post("/learn/collection")
+def import_collection(
+    request: Request, service: Learning, topic: Annotated[Topic, Form()]
+):
+    try:
+        doc = service.save_document(fetch_collection(topic))
+    except (ValueError, UnicodeError) as exc:
+        return library(request, service, error=str(exc), status_code=400)
+    except httpx.HTTPError:
+        return library(
+            request,
+            service,
+            error="学习路径暂时无法完整下载，未保存不完整内容。请稍后重试。",
+            status_code=502,
+        )
+    return RedirectResponse(f"/learn/{doc.id}", status_code=303)
+
+
 @router.get("/learn/{document_id}")
 def reader(
-    request: Request, document_id: str, service: Learning, section: str | None = None
+    request: Request,
+    document_id: str,
+    service: Learning,
+    section: str | None = None,
+    start: str | None = None,
 ):
     try:
         doc = service.get_document(document_id)
-        _, selected = service.section(document_id, section or doc.sections[0].id)
+        selected = next(
+            s for s in doc.sections if s.id == (section or start or doc.sections[0].id)
+        )
     except KeyError as exc:
         raise HTTPException(404, str(exc)) from None
+    except StopIteration:
+        raise HTTPException(404, "章节不存在") from None
     index = doc.sections.index(selected)
+    continuous = section is None
+    page_sections = [selected]
+    page_start = index
+    if continuous:
+        # Stable windows let the previous-page link recover exactly the same text.
+        windows = []
+        current, count = [], 0
+        for position, item in enumerate(doc.sections):
+            length = len(item.text)
+            if current and (
+                count + length > READING_PAGE_CHARACTERS or len(current) >= 40
+            ):
+                windows.append(current)
+                current, count = [], 0
+            current.append(position)
+            count += length
+        if current:
+            windows.append(current)
+        window_index = next(i for i, w in enumerate(windows) if index in w)
+        window = windows[window_index]
+        page_start = window[0]
+        page_sections = [doc.sections[i] for i in window]
+        previous = doc.sections[windows[window_index - 1][0]] if window_index else None
+        following = (
+            doc.sections[windows[window_index + 1][0]]
+            if window_index + 1 < len(windows)
+            else None
+        )
+    else:
+        previous = doc.sections[index - 1] if index else None
+        following = doc.sections[index + 1] if index + 1 < len(doc.sections) else None
     return TEMPLATES.TemplateResponse(
         request,
         "learning/reader.html",
         {
             "doc": doc,
             "section": selected,
+            "continuous": continuous,
+            "page_sections": page_sections,
+            "page_start": page_start,
             "progress": service.progress(doc.id),
-            "guide": service.get_guide(doc.id, selected.id),
-            "previous": doc.sections[index - 1] if index else None,
-            "next_section": doc.sections[index + 1]
-            if index + 1 < len(doc.sections)
-            else None,
+            "guide": service.get_guide(doc.id, selected.id) if not continuous else None,
+            "previous": previous,
+            "next_section": following,
         },
     )
 

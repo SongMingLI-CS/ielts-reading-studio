@@ -476,6 +476,13 @@ scripts/deploy.sh                  # 正式部署（快照 → 拉取 → 依赖
 
 ## ScholarKernel 学习对话
 
+技术文档入口为 `/learn`。Markdown 文件默认上限为 100 MB，在 `config.yaml` 中设置
+`web_learning_max_upload_bytes` 可调整（字节数，1–500 MB）；最终上传上限取它与
+`web_max_upload_bytes` 的较小值。该限制独立于单篇官方 HTML 下载的 10 MB 限制。
+
+推荐学习路径会下载多篇官方页面并保存为一个原文集合。普通 URL 导入只保存该页面，
+不会递归抓取链接。正文默认连续分页阅读，切换“分节学习”查看讲解、自测和笔记。
+
 配置 `.env.web`（仅保留在服务器，勿提交密钥）：
 
 ```dotenv

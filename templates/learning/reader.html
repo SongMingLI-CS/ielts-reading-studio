@@ -1,31 +1,32 @@
 {% extends "base.html" %}
-{% block title %}{{ section.title }} · 技术学习{% endblock %}
+{% block title %}{{ doc.title if continuous else section.title }} · 技术学习{% endblock %}
 {% block content %}
 {% set current = progress.get(section.id, {}) %}
-<div class="learn-shell" data-learning-reader data-document="{{ doc.id }}" data-section="{{ section.id }}" data-source-url="{{ doc.source_url }}" data-version="{{ doc.version }}">
+<div class="learn-shell" data-learning-reader data-reading-mode="{{ 'continuous' if continuous else 'study' }}" data-document="{{ doc.id }}" data-section="{{ section.id }}" data-source-url="{{ doc.source_url if continuous else (section.source_url or doc.source_url) }}" data-version="{{ doc.version }}">
   <a class="back-link" href="/learn">← 技术文档库</a>
-  <header class="learn-document-head"><p class="eyebrow">{{ doc.topic|upper }} / ORIGINAL DOCUMENT</p><h1>{{ doc.title }}</h1><div class="learn-metadata"><span>{{ '官方原文' if doc.official else 'Markdown 快照' }}</span><span>版本 {{ doc.version }}</span><span>导入于 {{ doc.imported_at.strftime('%Y-%m-%d') }}</span>{% if doc.source_url %}<a href="{{ doc.source_url }}" target="_blank" rel="noopener noreferrer">查看来源 ↗</a>{% endif %}</div></header>
+  <header class="learn-document-head"><p class="eyebrow">{{ doc.topic|upper }} / ORIGINAL DOCUMENT</p><h1>{{ doc.title }}</h1><div class="learn-metadata"><span>{{ '官方原文' if doc.official else 'Markdown 快照' }}</span><span>版本 {{ doc.version }}</span><span>{{ doc.page_count }} 篇原文 · {{ doc.sections|length }} 节 · {{ '{:,}'.format(doc.content_characters) }} 字符</span><span>导入于 {{ doc.imported_at.strftime('%Y-%m-%d') }}</span>{% if doc.source_url %}<a href="{{ doc.source_url }}" target="_blank" rel="noopener noreferrer">查看来源 ↗</a>{% endif %}</div></header>
+  <div class="learn-reader-toolbar"><nav aria-label="阅读模式"><a href="/learn/{{ doc.id }}?start={{ section.id }}#source-{{ section.id }}"{% if continuous %} aria-current="page"{% endif %}>连续阅读</a><a href="/learn/{{ doc.id }}?section={{ section.id }}"{% if not continuous %} aria-current="page"{% endif %}>分节学习</a></nav><p>{{ '按顺序阅读多节原文；点「学习本节」进入讲解、自测与笔记。' if continuous else '正在学习一个小节。切换「连续阅读」可读整篇正文。' }}</p></div>
   <div class="learn-reading-layout">
-    <aside class="learn-toc"><h2>章节</h2><nav aria-label="文档章节">{% for item in doc.sections %}<a href="/learn/{{ doc.id }}?section={{ item.id }}" {% if item.id == section.id %}aria-current="page"{% endif %}><span data-section-marker="{{ item.id }}">{{ '✓' if progress.get(item.id, {}).get('completed') else loop.index }}</span>{{ item.title }}</a>{% endfor %}</nav></aside>
+    <aside class="learn-toc"><h2>完整目录 · {{ doc.sections|length }} 节</h2><nav aria-label="文档章节">{% for item in doc.sections %}{% if item.chapter_title and (loop.first or item.chapter_title != doc.sections[loop.index0 - 1].chapter_title) %}<p class="learn-toc-chapter">{{ item.chapter_title }}</p>{% endif %}<a href="/learn/{{ doc.id }}?{{ 'start' if continuous else 'section' }}={{ item.id }}{{ '#source-' ~ item.id if continuous else '' }}" {% if item in page_sections %}aria-current="{{ 'location' if continuous else 'page' }}"{% endif %}><span data-section-marker="{{ item.id }}">{{ '✓' if progress.get(item.id, {}).get('completed') else loop.index }}</span>{{ item.title }}</a>{% endfor %}</nav></aside>
     <div class="learn-reading-main">
-      <section class="learn-original" aria-labelledby="original-heading"><div class="learn-section-head"><div><p class="eyebrow">SOURCE / 原文</p><h2 id="original-heading">{{ section.title }}</h2></div><span>{{ doc.sections.index(section) + 1 }} / {{ doc.sections|length }}</span></div>
-        <article class="learn-source-text">{% for block in section.blocks %}
-          {% if block.kind == 'code' %}<div class="learn-code"><div class="learn-code-bar"><span>{{ block.language or 'code' }}</span><button type="button" data-copy-code aria-label="复制代码">复制代码</button></div><pre><code>{{ block.text }}</code></pre></div>
-          {% elif block.kind == 'table' %}<div class="learn-table-scroll"><table>{% for row in block.rows %}{% set header_row = loop.first %}<tr>{% for cell in row %}{% if header_row %}<th scope="col">{{ cell }}</th>{% else %}<td>{{ cell }}</td>{% endif %}{% endfor %}</tr>{% endfor %}</table></div>
-          {% elif block.kind == 'heading' %}<h3>{{ block.text }}</h3>
-          {% elif block.kind == 'parameter' %}<p class="learn-parameter">{{ block.text }}</p>
-          {% elif block.kind == 'list' %}<p class="learn-list-item">{{ block.text }}</p>
-          {% else %}{% if doc.official %}<p>{{ block.text }}</p>{% else %}<div class="learn-markdown">{{ markdown_block(block.text) }}</div>{% endif %}{% endif %}
-        {% endfor %}</article>
-        <div class="learn-reading-actions"><button type="button" data-mark-read aria-pressed="{{ 'true' if current.get('completed') else 'false' }}">{{ '已读完 ✓' if current.get('completed') else '标记本节已读' }}</button><p id="learning-progress-status" role="status" aria-live="polite"></p></div>
+      {% if continuous %}<div class="learn-reading-window"><span>连续阅读 · 第 {{ page_start + 1 }}–{{ page_start + page_sections|length }} 节 / 共 {{ doc.sections|length }} 节</span><span>{{ '{:,}'.format(doc.content_characters) }} 字符完整快照</span></div>{% endif %}
+      {% for original in page_sections %}{% set original_progress = progress.get(original.id, {}) %}
+      <section class="learn-original" id="source-{{ original.id }}" data-learning-section="{{ original.id }}" data-source-url="{{ original.source_url or doc.source_url }}" aria-labelledby="heading-{{ original.id }}">
+        <div class="learn-section-head"><div><p class="eyebrow">{{ original.chapter_title or 'SOURCE / 原文' }}</p><h2 id="heading-{{ original.id }}">{{ original.title }}</h2></div><span>{{ '{:,}'.format(original.text|length) }} 字符</span></div>
+        {% if original.source_url %}<a class="learn-chapter-source" href="{{ original.source_url }}" target="_blank" rel="noopener noreferrer">本章官方来源 ↗</a>{% endif %}
+        {% include "learning/blocks.html" %}
+        <div class="learn-reading-actions"><button type="button" data-mark-read data-section="{{ original.id }}" aria-pressed="{{ 'true' if original_progress.get('completed') else 'false' }}">{{ '已读完 ✓' if original_progress.get('completed') else '标记本节已读' }}</button>{% if continuous %}<a href="/learn/{{ doc.id }}?section={{ original.id }}">学习本节：讲解、自测与笔记 →</a>{% endif %}<p data-progress-status role="status" aria-live="polite"></p></div>
       </section>
+      {% endfor %}
+      {% if not continuous %}
       <section class="learn-guide" aria-labelledby="guide-heading"><div class="learn-section-head"><div><p class="eyebrow">UNDERSTAND / 理解</p><h2 id="guide-heading">拆解英语与概念</h2></div><button type="button" data-generate-guide>{{ '查看已保存讲解' if guide else '生成本节讲解与自测' }}</button></div><p class="muted">讲解单独保存，不改变上面的原文。首次生成调用已配置的模型，之后读取保存结果。</p><p id="learning-guide-status" role="status" aria-live="polite"></p><div id="learning-guide-content"></div></section>
       <section class="learn-notes"><h2>我的学习笔记</h2><label for="learning-notes">记录还没弄懂的概念或自己的例子</label><textarea id="learning-notes" rows="4" maxlength="4000">{{ current.get('notes', '') }}</textarea><button type="button" data-save-notes>保存笔记</button><p id="learning-notes-status" role="status" aria-live="polite"></p></section>
-      <nav class="learn-next" aria-label="上下章节">{% if previous %}<a href="/learn/{{ doc.id }}?section={{ previous.id }}">← {{ previous.title }}</a>{% endif %}{% if next_section %}<a href="/learn/{{ doc.id }}?section={{ next_section.id }}">{{ next_section.title }} →</a>{% endif %}</nav>
+      {% endif %}
+      <nav class="learn-next" aria-label="上下章节">{% if previous %}<a href="/learn/{{ doc.id }}?{{ 'start' if continuous else 'section' }}={{ previous.id }}">← {{ '上一页原文' if continuous else previous.title }}</a>{% endif %}{% if next_section %}<a href="/learn/{{ doc.id }}?{{ 'start' if continuous else 'section' }}={{ next_section.id }}">{{ '下一页原文' if continuous else next_section.title }} →</a>{% endif %}</nav>
     </div>
   </div>
 </div>
 <script type="application/json" id="learning-guide-data" nonce="{{ csp_nonce() }}">{{ (guide.model_dump() if guide else none)|tojson }}</script>
 <script type="application/json" id="learning-progress-data" nonce="{{ csp_nonce() }}">{{ current|tojson }}</script>
 {% endblock %}
-{% block scripts %}<script src="/static/learning.js?v=1" defer></script>{% endblock %}
+{% block scripts %}<script src="/static/learning.js?v=2" defer></script>{% endblock %}

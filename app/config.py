@@ -104,6 +104,9 @@ class AppConfig(BaseModel):
     # JSON 请求体积上限（表单与上传各自有更细的限制）。
     web_max_json_body_bytes: int = Field(1_000_000, ge=1024, le=64_000_000)
     web_max_upload_bytes: int = Field(250 * 1024 * 1024, ge=1_048_576, le=2_000_000_000)
+    web_learning_max_upload_bytes: int = Field(
+        100 * 1024 * 1024, ge=1_048_576, le=500 * 1024 * 1024
+    )
     # ------------------------------------------------------------ Provider 预算
     max_prompt_chars: int = Field(60_000, ge=1_000, le=1_000_000)
     max_output_tokens: int = Field(16_000, ge=500, le=64_000)

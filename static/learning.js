@@ -1,16 +1,25 @@
 (() => {
   'use strict';
-  document.querySelectorAll('form[action="/learn/import"], form[action="/learn/upload"]').forEach(form => {
-    form.addEventListener('submit', () => {
+  document.querySelectorAll('form[action="/learn/import"], form[action="/learn/upload"], form[action="/learn/collection"]').forEach(form => {
+    form.addEventListener('submit', event => {
+      const file = form.querySelector('[type="file"]')?.files[0];
+      const maximum = Number(form.dataset.maxUploadBytes);
+      const status = form.querySelector('.learn-form-status');
+      if (file && maximum && file.size > maximum) {
+        event.preventDefault();
+        status.textContent = `文件超过 ${Math.floor(maximum / 1048576)} MB，请选择更小的文件。`;
+        return;
+      }
       const button = form.querySelector('[type="submit"]');
       button.disabled = true;
-      button.textContent = '正在保存原文…';
+      const collection = form.action.endsWith('/learn/collection');
+      button.textContent = collection ? '正在导入整套章节…' : '正在保存原文…';
+      if (status) status.textContent = collection ? '正在下载多篇官方文档，完成后自动打开。请保持页面开启。' : '正在保存完整正文，完成后自动打开。';
       form.setAttribute('aria-busy', 'true');
     });
   });
   const reader = document.querySelector('[data-learning-reader]');
   if (!reader) return;
-  const api = `/api/learn/${reader.dataset.document}/${reader.dataset.section}`;
   const progress = JSON.parse(document.getElementById('learning-progress-data').textContent);
   let guide = JSON.parse(document.getElementById('learning-guide-data').textContent);
   const element = (tag, text, className) => {
@@ -19,8 +28,8 @@
     if (className) node.className = className;
     return node;
   };
-  async function post(path, data) {
-    const response = await fetch(api + path, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': window.IELTS_CSRF?.token || ''}, body: JSON.stringify(data || {}), signal: AbortSignal.timeout(180000)});
+  async function post(path, data, sectionId = reader.dataset.section) {
+    const response = await fetch(`/api/learn/${reader.dataset.document}/${sectionId}` + path, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': window.IELTS_CSRF?.token || ''}, body: JSON.stringify(data || {}), signal: AbortSignal.timeout(180000)});
     let payload;
     try { payload = await response.json(); } catch { throw new Error('服务暂时无法返回结果，请重试。'); }
     if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : '请求未完成，请检查输入后重试。');
@@ -36,15 +45,15 @@
     try { await navigator.clipboard.writeText(button.closest('.learn-code').querySelector('code').textContent); button.textContent = '已复制 ✓'; }
     catch { button.textContent = '请选中代码复制'; }
   }));
-  const mark = reader.querySelector('[data-mark-read]');
-  mark.addEventListener('click', () => action(mark, document.getElementById('learning-progress-status'), async () => {
+  reader.querySelectorAll('[data-mark-read]').forEach(mark => mark.addEventListener('click', () => action(mark, mark.parentElement.querySelector('[data-progress-status]'), async () => {
     const completed = mark.getAttribute('aria-pressed') !== 'true';
-    await post('/progress', {completed});
+    await post('/progress', {completed}, mark.dataset.section);
     mark.setAttribute('aria-pressed', String(completed));
     mark.textContent = completed ? '已读完 ✓' : '标记本节已读';
-    reader.querySelector(`[data-section-marker="${reader.dataset.section}"]`).textContent = completed ? '✓' : '·';
-    document.getElementById('learning-progress-status').textContent = '阅读进度已保存。';
-  }));
+    reader.querySelector(`[data-section-marker="${mark.dataset.section}"]`).textContent = completed ? '✓' : '·';
+    mark.parentElement.querySelector('[data-progress-status]').textContent = '阅读进度已保存。';
+  })));
+  if (reader.dataset.readingMode === 'continuous') return;
   const save = reader.querySelector('[data-save-notes]');
   save.addEventListener('click', () => action(save, document.getElementById('learning-notes-status'), async () => {
     await post('/progress', {notes: document.getElementById('learning-notes').value});

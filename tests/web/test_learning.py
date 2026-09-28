@@ -1,8 +1,13 @@
 from types import SimpleNamespace
 
+import httpx
+from bs4 import BeautifulSoup
+from sqlalchemy import update
+
 from app.agents.base import ModelResult
 from app.learning.service import LearningService
 from app.learning.sources import parse_markdown
+from app.storage.database import study_documents
 
 
 def document():
@@ -177,4 +182,147 @@ def test_guide_quotes_can_normalize_whitespace_but_save_the_original_quote(
     assert (
         result.json()["questions"][0]["evidence_quote"]
         == "An ndarray is a\nmultidimensional array."
+    )
+
+
+def test_upload_above_old_limit_keeps_final_content_and_uses_bounded_sections(
+    client, web_service
+):
+    source = b"# Manual\n\n" + b"Original content. " * 200000 + b"THE VERY LAST WORDS"
+    response = client.post(
+        "/learn/upload",
+        data={"title": "Full manual", "topic": "python", "version": "3.14"},
+        files={"source": ("manual.md", source)},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    service = LearningService(web_service)
+    doc = service.get_document(response.headers["location"].rsplit("/", 1)[-1])
+    assert doc.sections[-1].text.endswith("THE VERY LAST WORDS")
+    assert doc.content_characters >= len(source) - 20
+    assert all(len(s.text) <= 12000 for s in doc.sections)
+    assert "100 MB" in client.get("/learn").text
+
+
+def test_upload_limit_respects_configuration_and_leaves_no_partial_document(
+    client, web_service
+):
+    web_service.config.web_learning_max_upload_bytes = 1024 * 1024
+    response = client.post(
+        "/learn/upload",
+        data={"title": "Manual", "topic": "python", "version": "3.14"},
+        files={"source": ("manual.md", b"x" * (1024 * 1024 + 1))},
+    )
+    assert response.status_code == 413
+    assert "1 MB" in response.text
+    assert LearningService(web_service).list_documents() == []
+    web_service.config.web_learning_max_upload_bytes = 100 * 1024 * 1024
+    web_service.config.web_max_upload_bytes = 1024 * 1024
+    assert "最大 1 MB" in client.get("/learn").text
+
+
+def test_continuous_reader_includes_all_small_sections_and_study_mode_restores_notes(
+    client, web_service
+):
+    service = LearningService(web_service)
+    doc = service.save_document(
+        parse_markdown(
+            "# Intro\n\nFirst original paragraph.\n\n## Middle\n\nMiddle original paragraph.\n\n## End\n\nFinal original paragraph.",
+            title="Three sections",
+            topic="python",
+            version="3.14",
+            source_url="",
+        )
+    )
+    service.update_progress(
+        doc.id, "s2", {"notes": "My existing notes", "completed": True}
+    )
+    page = BeautifulSoup(client.get(f"/learn/{doc.id}").text, "html.parser")
+    assert [
+        s["data-learning-section"] for s in page.select("[data-learning-section]")
+    ] == ["s1", "s2", "s3"]
+    assert (
+        page.select_one('[data-mark-read][data-section="s2"]')["aria-pressed"] == "true"
+    )
+    study = BeautifulSoup(client.get(f"/learn/{doc.id}?section=s2").text, "html.parser")
+    assert [
+        s["data-learning-section"] for s in study.select("[data-learning-section]")
+    ] == ["s2"]
+    assert study.select_one("#learning-notes").text == "My existing notes"
+    assert client.get(f"/learn/{doc.id}?start=unknown").status_code == 404
+
+
+def test_reading_pagination_covers_the_whole_manual_once_in_order(
+    client, web_service, monkeypatch
+):
+    monkeypatch.setattr("app.web.routes_learning.READING_PAGE_CHARACTERS", 45)
+    service = LearningService(web_service)
+    doc = service.save_document(
+        parse_markdown(
+            "\n\n".join(
+                f"## Section {i}\n\nOriginal content number {i}." for i in range(9)
+            ),
+            title="Nine sections",
+            topic="python",
+            version="3.14",
+            source_url="",
+        )
+    )
+    seen = []
+    url = f"/learn/{doc.id}"
+    previous_url = None
+    previous_ids = []
+    while url:
+        soup = BeautifulSoup(client.get(url).text, "html.parser")
+        seen.extend(
+            s["data-learning-section"] for s in soup.select("[data-learning-section]")
+        )
+        links = soup.select(".learn-next a")
+        previous = next((a["href"] for a in links if "上一页" in a.text), None)
+        if previous_url:
+            earlier = BeautifulSoup(client.get(previous).text, "html.parser")
+            assert [
+                s["data-learning-section"]
+                for s in earlier.select("[data-learning-section]")
+            ] == previous_ids
+        previous_url = url
+        previous_ids = [
+            s["data-learning-section"] for s in soup.select("[data-learning-section]")
+        ]
+        url = next((a["href"] for a in links if "下一页" in a.text), None)
+    assert seen == [s.id for s in doc.sections]
+
+
+def test_library_reads_only_summary_and_supports_legacy_payloads(client, web_service):
+    service, doc = save(web_service)
+    summary = service.list_documents()[0]
+    assert summary.content_characters == doc.content_characters
+    assert not hasattr(summary, "sections")
+    payload = doc.model_dump(
+        exclude={"content_characters", "page_count", "section_count", "source_pages"}
+    )
+    import json
+
+    with service.engine.begin() as connection:
+        connection.execute(
+            update(study_documents)
+            .where(study_documents.c.id == doc.id)
+            .values(payload=json.dumps(payload, default=str))
+        )
+    assert service.list_documents()[0].page_count == 1
+    assert client.get("/learn").status_code == 200
+    assert "1 篇原文" in client.get("/learn").text
+
+
+def test_collection_import_failure_never_saves_partial_docs(
+    client, web_service, monkeypatch
+):
+    def fail(_):
+        raise httpx.ConnectError("offline")
+
+    monkeypatch.setattr("app.web.routes_learning.fetch_collection", fail)
+    assert client.post("/learn/collection", data={"topic": "python"}).status_code == 502
+    assert LearningService(web_service).list_documents() == []
+    assert (
+        client.post("/learn/collection", data={"topic": "unknown"}).status_code == 422
     )

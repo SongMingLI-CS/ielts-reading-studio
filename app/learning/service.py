@@ -12,7 +12,7 @@ from app.agents.deepseek import DeepSeekProvider
 from app.security.budget import check_text_length, enforce
 from app.storage.database import study_documents, study_guides, study_progress
 
-from .models import StudyDocument, StudyGuide, StudySection
+from .models import StudyDocument, StudyDocumentSummary, StudyGuide, StudySection
 
 PROMPT_VERSION = "technical-guide-v2"
 GUIDE_PROMPT = """You teach English technical documentation and programming concepts.
@@ -47,16 +47,41 @@ class LearningService:
             )
         return self.get_document(doc.id)
 
-    def list_documents(self) -> list[StudyDocument]:
+    def list_documents(self) -> list[StudyDocumentSummary]:
+        # Return metadata only: a large uploaded manual must not be deserialized
+        # on every library visit, along with every other document's full body.
+        payload = study_documents.c.payload
+        names = (
+            "title",
+            "topic",
+            "version",
+            "official",
+            "content_characters",
+            "section_count",
+            "page_count",
+        )
+        # Multiple paths in one call parse the large JSON only once. Separate
+        # json_extract expressions retain several full parsed copies in SQLite.
         with self.engine.connect() as c:
-            return [
-                StudyDocument.model_validate_json(row[0])
-                for row in c.execute(
-                    select(study_documents.c.payload).order_by(
-                        study_documents.c.created_at.desc()
+            rows = c.execute(
+                select(
+                    study_documents.c.id,
+                    func.json_extract(payload, *(f"$.{name}" for name in names)),
+                ).order_by(study_documents.c.created_at.desc())
+            ).all()
+            summaries = []
+            for document_id, values in rows:
+                data = dict(zip(names, json.loads(values), strict=True))
+                data["id"] = document_id
+                data["page_count"] = data["page_count"] or 1
+                if data["section_count"] is None:
+                    data["section_count"] = c.scalar(
+                        select(func.json_array_length(payload, "$.sections")).where(
+                            study_documents.c.id == document_id
+                        )
                     )
-                )
-            ]
+                summaries.append(StudyDocumentSummary.model_validate(data))
+            return summaries
 
     def get_document(self, document_id: str) -> StudyDocument:
         with self.engine.connect() as c:
@@ -104,7 +129,7 @@ class LearningService:
                     {
                         "title": doc.title,
                         "version": doc.version,
-                        "source_url": doc.source_url,
+                        "source_url": section.source_url or doc.source_url,
                         "section_title": section.title,
                         "section_text": section.text,
                     },

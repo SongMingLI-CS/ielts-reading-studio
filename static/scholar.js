@@ -12,6 +12,7 @@
   let busy = false;
   let requestId = null;
   let previousPayload = '';
+  let selectedSourceUrl = '';
   launch.hidden = false;
   document.addEventListener('selectionchange', () => {
     if (dialog.open) return;
@@ -19,7 +20,13 @@
     if (!selection || !selection.rangeCount || selection.isCollapsed) return;
     const range = selection.getRangeAt(0);
     const main = document.getElementById('main');
-    if (main && main.contains(range.startContainer) && main.contains(range.endContainer)) selected = selection.toString().trim();
+    if (main && main.contains(range.startContainer) && main.contains(range.endContainer)) {
+      selected = selection.toString().trim();
+      const start = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
+      const end = range.endContainer.nodeType === Node.ELEMENT_NODE ? range.endContainer : range.endContainer.parentElement;
+      const chapter = start?.closest('[data-learning-section]');
+      selectedSourceUrl = chapter && chapter.dataset.sourceUrl === end?.closest('[data-learning-section]')?.dataset.sourceUrl ? chapter.dataset.sourceUrl : '';
+    }
   });
   launch.addEventListener('click', () => {
     form.elements.title.value = (document.querySelector('main h1')?.textContent || document.title).trim().slice(0, 200);
@@ -39,7 +46,7 @@
     const payload = { title: form.elements.title.value.trim(), text: form.elements.text.value.trim(), question: form.elements.question.value.trim(), source_path: source };
     const documentReader = document.querySelector('[data-learning-reader]');
     if (documentReader) {
-      payload.document_url = documentReader.dataset.sourceUrl || '';
+      payload.document_url = selectedSourceUrl || documentReader.dataset.sourceUrl || '';
       payload.document_version = documentReader.dataset.version || '';
     }
     if (!payload.text || payload.text.length > 12000 || !payload.question || payload.question.length > 2000) {
