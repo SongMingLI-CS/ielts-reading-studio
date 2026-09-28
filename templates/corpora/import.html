@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}导入材料 · IELTS Reading Studio{% endblock %}
+{% block title %}导入材料 · Learning Studio{% endblock %}
 {% block content %}
 <div class="practice-topbar">
   <a class="back-link" href="/corpora">← 材料库</a>
@@ -7,9 +7,9 @@
 </div>
 
 <header class="preview-head">
-  <p class="eyebrow">Step 1 · Import</p>
-  <h1>导入源文件</h1>
-  <p class="lead">上传一份中文长文或小说，系统只读解析并建立章节索引。这个步骤不会创建模型客户端、不会产生任何费用。同一份文件重复导入会按内容哈希复用已有索引，不会重复占用空间。</p>
+  <p class="eyebrow">MATERIALS / IMPORT</p>
+  <h1>导入学习材料</h1>
+  <p class="lead">上传小说、长文或按标题分节的 Markdown，为阅读训练准备素材。导入会建立章节索引，不调用模型；重复上传同一文件会复用已有材料。</p>
 </header>
 
 <div class="import-layout">
@@ -26,13 +26,13 @@
   </form>
 
   <aside class="import-notes">
-    <h2>导入后会发生什么</h2>
+    <h2>准备阅读内容</h2>
     <ol class="import-steps">
-      <li><strong>解析章节</strong><p>TXT 依次尝试 UTF-8、GB18030 等编码；EPUB 按 spine，DOCX 按标题样式，Markdown 按一至三级标题。</p></li>
-      <li><strong>规划生成单元</strong><p>过长的单章会切成 2,500–4,500 字的单元，过短的相邻章节会合并（一次最多 4 章或 4,000 字）。</p></li>
-      <li><strong>写入索引</strong><p>章节边界与单元写入 <code>output/&lt;材料&gt;/manifest.json</code> 与 SQLite，随后你可以校准边界。</p></li>
+      <li><strong>解析章节</strong><p>识别文本编码与章节标题。EPUB 按书籍顺序，Word 按标题样式，Markdown 按一至三级标题整理。</p></li>
+      <li><strong>划分练习篇目</strong><p>过长的单章会切成 2,500–4,500 字的单元，过短的相邻章节会合并（一次最多 4 章或 4,000 字）。</p></li>
+      <li><strong>写入索引</strong><p>保存章节与篇目索引。导入后可以预览、合并或拆分章节，为生成练习做准备。</p></li>
     </ol>
-    <p class="import-warn">若解析置信度低于 0.6 或可用章节不足两个，单元列表会为空并给出诊断。这时请先人工校准边界，或换一份排版更规整的源文件 —— 系统不会把整本书直接丢给模型。</p>
+    <p class="import-warn">如果章节识别不够可靠，系统会提示你先调整边界。建议上传带明确标题的材料，确认章节后再生成练习。</p>
     <a class="text-link" href="/corpora">看看已有材料 →</a>
   </aside>
 </div>

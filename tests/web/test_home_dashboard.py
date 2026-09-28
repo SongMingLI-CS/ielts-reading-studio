@@ -129,7 +129,7 @@ def test_home_shows_guidance_instead_of_invented_progress(client) -> None:
 
     page = client.get("/")
     assert 'data-kind="empty"' in page.text
-    assert "先导入一份中文素材" in page.text
+    assert "从一份阅读材料开始" in page.text
     assert 'href="/corpora/import"' in page.text
     assert "quick-row" not in page.text
     assert "完成一篇练习后" in page.text
@@ -143,4 +143,4 @@ def test_home_puts_the_next_step_above_the_tool_cards(
     page = client.get("/")
     assert page.text.index('class="next-step"') < page.text.index('class="tools"')
     assert page.text.index('class="tools"') < page.text.index('class="product-grid"')
-    assert "浏览工具" in page.text
+    assert "选择学习方式" in page.text

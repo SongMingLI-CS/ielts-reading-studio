@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}材料库 · IELTS Reading Studio{% endblock %}
+{% block title %}材料库 · Learning Studio{% endblock %}
 {% block content %}
 {% if deleted %}<p class="library-flash">已删除「{{ deleted }}」及其全部产物。索引与练习记录已一并移除，源文件未改动。</p>{% endif %}
 <section class="library-hero">
   <div class="library-copy">
-    <p class="eyebrow">Local corpus library</p>
+    <p class="eyebrow">MATERIALS / LIBRARY</p>
     <h1>材料库</h1>
-    <p class="lead">导入中文小说或长文，解析成章节边界，再生成英文 Passage 与题目。导入与解析只读源文件，全程不调用模型、不产生费用。</p>
+    <p class="lead">把小说、长文与分节 Markdown 整理成学习材料。查看章节、准备英文练习，随时接着上次的进度继续。导入与解析不调用模型。</p>
     <div class="library-actions">
       <a class="button" href="/corpora/import">导入新文件</a>
-      <a class="button ghost" href="/practice">去练习中心</a>
+      <a class="button ghost" href="/practice">开始阅读训练</a>
     </div>
   </div>
   <aside class="library-totals">
@@ -34,7 +34,7 @@
 
 {% if cards %}
 <div class="library-toolbar">
-  <div><p class="eyebrow">Your materials</p><h2>已导入材料</h2></div>
+  <div><p class="eyebrow">YOUR LIBRARY</p><h2>已导入材料</h2></div>
   <p>{{ totals.corpora }} 份 · 源文件缺失的排在最后</p>
 </div>
 <div class="corpus-grid">

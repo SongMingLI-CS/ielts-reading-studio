@@ -1,7 +1,13 @@
 {% set base_url = base_url|default('/practice/vocabulary') %}
 {% set sep = '&' if '?' in base_url else '?' %}
+<header class="preview-head">
+  <p class="eyebrow">Vocabulary</p>
+  {% if in_review_hub %}<h2>生词本</h2>{% else %}<h1>生词本</h1>{% endif %}
+  <p class="lead">收藏阅读中值得记住的词，结合例句与搭配巩固用法。词汇按出现篇数排列，可标记「收藏」或「已掌握」，也可导出 CSV。</p>
+</header>
+
 <div class="practice-topbar">
-  <a class="back-link" href="/practice">← 练习中心</a>
+  <a class="back-link" href="/practice">← 阅读训练</a>
   <div class="practice-meta"><span class="badge status-practice">生词本</span><span class="badge">{{ total }} 个词条</span></div>
   <div class="session-tools">
     <a class="button ghost small" href="/vocabulary">词汇记忆</a>
@@ -11,11 +17,7 @@
   </div>
 </div>
 
-<header class="preview-head">
-  <p class="eyebrow">Vocabulary</p>
-  <h1>生词本</h1>
-  <p class="lead">把已生成篇目里的词汇汇总在一起，按出现过的篇数排序。标「收藏」表示要背，标「已掌握」表示可以跳过；两个按钮互斥，随时可以取消。导出的 CSV 是 UTF-8 带 BOM，Excel 直接打开不会乱码。</p>
-</header>
+
 
 <dl class="preview-facts">
   <div><dt>全部词条</dt><dd>{{ total }}</dd></div>

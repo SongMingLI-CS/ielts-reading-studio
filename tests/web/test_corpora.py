@@ -11,7 +11,7 @@ def test_import_page_explains_the_formats_and_limits(client):
     assert "250 MB" in page.text
     assert "EPUB" in page.text
     assert "drop-zone" in page.text
-    assert "导入后会发生什么" in page.text
+    assert "准备阅读内容" in page.text
 
 
 def test_upload_imports_without_api_key(client, sample_txt, monkeypatch):

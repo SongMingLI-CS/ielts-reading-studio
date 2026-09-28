@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}生成任务 · IELTS Reading Studio{% endblock %}
+{% block title %}生成任务 · Learning Studio{% endblock %}
 {% block content %}
 <div class="page-heading">
   <div>
-    <p class="eyebrow">Content pipeline</p>
+    <p class="eyebrow">CONTENT / GENERATION</p>
     <h1>生成任务</h1>
-    <p class="lead">所有批次都在这里：进行中、已暂停和失败的任务都能回到任务页继续、重试或取消。任务名用材料与章节范围表示，不再只是一串 ID。</p>
+    <p class="lead">查看阅读练习与语境阅读的生成进度。打开任务可查看阶段结果、继续暂停的任务，或根据失败原因重试。</p>
   </div>
   <p class="caption">{{ total }} 个任务{% if corpus_name %} · 仅显示 {{ corpus_name }}{% endif %}</p>
 </div>

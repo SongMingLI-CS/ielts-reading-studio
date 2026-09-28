@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}导出中心 · IELTS Reading Studio{% endblock %}
+{% block title %}导出中心 · Learning Studio{% endblock %}
 {% block content %}
 {% if created_batch %}<p class="library-flash">已生成导出批次「{{ created_batch }}」，共 {{ created_count }} 个文件。在下方「已生成的文件」里点击文件名即可下载。</p>{% endif %}
 
 <section class="library-hero">
   <div class="library-copy">
-    <p class="eyebrow">Take your practice away</p>
+    <p class="eyebrow">LEARNING / EXPORT</p>
     <h1>导出中心</h1>
-    <p class="lead">把已经生成并通过质检的练习变成可以带走的文件：单文件练习页、Word 练习册，或原始 JSON 数据。<b>生成后直接在下方下载，不需要登录服务器取文件。</b></p>
+    <p class="lead">把已通过质检的练习保存为 HTML、Word 练习册或 JSON。用于离线阅读、打印与整理，生成后可直接下载。</p>
     <div class="library-actions">
-      <a class="button ghost" href="/practice">去练习中心</a>
+      <a class="button ghost" href="/practice">进入阅读训练</a>
       <a class="button ghost" href="/corpora">回材料库</a>
     </div>
   </div>

@@ -1,0 +1,26 @@
+[
+  {
+    "file": "library.webp",
+    "author": "Anna Hunko",
+    "source": "https://unsplash.com/photos/grand-library-interior-with-a-glowing-globe-oMtKAzbBunQ",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "code.webp",
+    "author": "Florian Olivo",
+    "source": "https://unsplash.com/photos/lines-of-html-codes-4hbJ-eymZ1o",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "writing.webp",
+    "author": "Aaron Burden",
+    "source": "https://unsplash.com/photos/pen-on-white-lined-paper-selective-focus-photography-CKlHKtCJZKk",
+    "license": "https://unsplash.com/license"
+  },
+  {
+    "file": "knowledge-glass.webp",
+    "source": "Generated with built-in image_gen",
+    "prompt": "hero-prompt.txt",
+    "description": "Translucent knowledge pages, cyan connections and violet glass orb. Original rendered image encoded as WebP for the website."
+  }
+]

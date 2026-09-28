@@ -2,7 +2,7 @@
 {% block title %}{{ package.passage.title }} · 学习解析{% endblock %}
 {% block content %}
 <div class="practice-topbar">
-  <a class="back-link" href="/practice">← 练习中心</a>
+  <a class="back-link" href="/practice">← 阅读训练</a>
   <div class="practice-meta"><span class="difficulty-pill">{{ package.passage.difficulty.value|title }}</span><span>{{ package.passage.word_count }} words</span></div>
   <div class="session-tools">
     <a class="button ghost small" href="/practice/{{ package.unit.id }}{% if graded %}?fresh=1{% endif %}">{% if graded %}重做本篇{% else %}开始练习{% endif %}</a>

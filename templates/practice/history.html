@@ -1,18 +1,18 @@
 {% extends "base.html" %}
-{% block title %}练习历史 · IELTS Reading Studio{% endblock %}
+{% block title %}学习记录 · Learning Studio{% endblock %}
 {% block content %}
 <div class="practice-topbar">
-  <a class="back-link" href="/practice">← 练习中心</a>
-  <div class="practice-meta"><span class="badge status-practice">练习历史</span></div>
+  <a class="back-link" href="/practice">← 阅读训练</a>
+  <div class="practice-meta"><span class="badge status-practice">学习记录</span></div>
   <div class="session-tools">
     <a class="button ghost small" href="/practice/review?tab=mistakes">错题本{% if summary.attempts %} · {{ summary.correct }}/{{ summary.questions }}{% endif %}</a>
   </div>
 </div>
 
 <header class="preview-head">
-  <p class="eyebrow">Practice history</p>
-  <h1>练习历史</h1>
-  <p class="lead">所有已提交的作答都保存在这台服务器的 SQLite 里。下面是总体正确率、按题型的强弱项，以及每一篇的历次成绩；点任意一条可以回到当时的判分结果。</p>
+  <p class="eyebrow">LEARNING / HISTORY</p>
+  <h1>学习记录</h1>
+  <p class="lead">回顾每一次阅读训练，查看总体正确率、题型表现与历次成绩。打开一条记录，就能对照当时的作答与原文证据。</p>
 </header>
 
 <dl class="preview-facts">
@@ -77,6 +77,6 @@
   </table>
 </section>
 {% else %}
-<div class="empty"><h2>还没有提交过作答</h2><p>去练习中心做一篇，提交后这里会记录成绩、用时和正确率。</p><a class="button" href="/practice">去练习</a></div>
+<div class="empty"><h2>还没有提交过作答</h2><p>进入阅读训练做一篇，提交后这里会记录成绩、用时和正确率。</p><a class="button" href="/practice">去练习</a></div>
 {% endif %}
 {% endblock %}

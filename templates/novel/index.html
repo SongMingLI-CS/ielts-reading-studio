@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}情境小说 · IELTS Learning Studio{% endblock %}
+{% block title %}语境阅读 · Learning Studio{% endblock %}
 {% block content %}
 <section class="novel-heading">
-  <div><p class="eyebrow">Vocabulary in context</p><h1>雅思词汇情境小说</h1><p class="lead">不改故事主线，把雅思词汇嵌入中文小说语境，按章生成、复现和导出。每本书各自保存，互不覆盖。</p></div>
+  <div><p class="eyebrow">READING / IN CONTEXT</p><h1>语境阅读</h1><p class="lead">跟随故事学习英语表达。保留中文小说的人物与情节，按章嵌入 B1–C1 词汇，让单词在自然语境中反复出现。</p></div>
   <div class="catalog-badge"><strong>{{ catalog_size }}</strong><span>全局词库</span></div>
 </section>
 
@@ -10,7 +10,7 @@
 
 <div class="workspace-grid">
   <section class="workspace-card book-library">
-    <span class="step-mark">01</span><p class="eyebrow">Library</p><h2>我的书</h2>
+    <span class="step-mark">01</span><p class="eyebrow">Library</p><h2>我的阅读材料</h2>
     {% if books %}
     <p class="muted">上传过的源文件都留在服务器上，重复上传同一本会命中同一份。选一本书作为生成目标，生成与查看都以它为准。</p>
     <div class="book-list">
@@ -36,7 +36,7 @@
 
   {% if selected %}
   <section class="workspace-card estimate-card">
-    <span class="step-mark">02</span><p class="eyebrow">Dry run</p><h2>离线估算</h2>
+    <span class="step-mark">02</span><p class="eyebrow">TOKEN ESTIMATE</p><h2>离线估算</h2>
     <p class="muted">按《{{ selected.name }}》的章节估算，不调用模型。</p>
     <form method="post" action="/novel/estimate" class="range-form">{{ csrf_field() }}<input type="hidden" name="book" value="{{ book_id }}"><label>起始章<input type="number" name="start" min="1" value="{{ selected_start or 1 }}" required></label><label>结束章<input type="number" name="end" min="1" value="{{ selected_end or 1 }}" required></label><button type="submit" {% if not selected.confident %}disabled{% endif %}>计算 Token 与请求</button></form>
     {% if estimate %}<div class="estimate-result"><span><strong>{{ estimate.estimated_chapters }}</strong> 章</span><span><strong>{{ estimate.api_requests }}</strong> 请求</span><span><strong>{{ estimate.estimated_total_tokens }}</strong> Token</span></div>{% endif %}

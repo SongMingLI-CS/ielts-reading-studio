@@ -29,7 +29,7 @@ def test_review_hub_opens_on_mistakes_and_counts_every_tab(
     page = client.get("/practice/review")
 
     assert page.status_code == 200
-    assert "<h1>复习</h1>" in page.text
+    assert "<h1>复习，让知识<br><span>真正留下来。</span></h1>" in page.text
     # 三个标签的数量来自真实记录：错题按未答/答错累计，收藏词 1 个，到期词 0 个
     counts = _tab_counts(page.text)
     assert set(counts) == {"mistakes", "words", "due"}

@@ -1,14 +1,13 @@
 {% extends "base.html" %}
-{% block title %}知识点汇总 · IELTS Reading Studio{% endblock %}
+{% block title %}我的知识库 · Learning Studio{% endblock %}
 {% block content %}
 <section class="kn-hero">
   <div class="kn-hero-copy">
-    <p class="eyebrow">Knowledge digest</p>
-    <h1>知识点汇总</h1>
-    <p class="lead">
-      把已经生成的<b>阅读练习</b>和<b>情境小说</b>重新整理成一份手册：出现过的词、词所在的固定搭配，
-      以及阅读题里"<b>题干怎么说 ↔ 原文怎么说</b>"的同义替换线索。
-      释义、搭配、例句全部取自生成时的原文，每条都标了出处，可以一键跳回篇目或章节。
+    <p class="eyebrow">KNOWLEDGE / COLLECTION</p>
+    <h1>我的知识库</h1>
+    <p class="lead">把读过的内容整理成可以回顾的知识：词汇、固定搭配和同义表达。
+      每条都有例句与出处，连接<b>阅读练习</b>和<b>语境阅读</b>中的学习积累。
+      目前收录英语词汇与表达，技术概念笔记将在文档阅读模式中扩展。
     </p>
     <div class="kn-hero-actions">
       <a class="button" href="/knowledge?{{ base_query }}&size=200" >本页全部展开</a>
@@ -30,8 +29,8 @@
 
 {% if not digest.stats.novel_available %}
 <p class="kn-note">
-  ⚠ 还没有读到情境小说的术语库（<code>output/context-novel/glossary.json</code>）。
-  先去 <a href="/novel">情境小说</a> 生成章节，这里就会自动并入小说侧的词汇与搭配。
+  还没有语境阅读的词汇记录。
+  在 <a href="/novel">语境阅读</a> 生成章节后，相关词汇与搭配会自动收录。
 </p>
 {% endif %}
 
@@ -136,11 +135,11 @@
 {% include "knowledge/_cards.html" %}
 {% else %}
 <section class="kn-empty">
-  <h2>这个筛选条件下没有知识点</h2>
+  <h2>这个筛选条件下没有内容</h2>
   <p>
     可能的原因：只生成了阅读篇目但没选任何词、小说还没生成章节、或者筛选太窄。
     先 <a href="/knowledge">重置筛选</a> 看看全部内容，或者去
-    <a href="/practice">阅读练习</a> 与 <a href="/novel">情境小说</a> 生成更多材料。
+    <a href="/practice">阅读练习</a> 与 <a href="/novel">语境阅读</a> 生成更多材料。
   </p>
 </section>
 {% endif %}

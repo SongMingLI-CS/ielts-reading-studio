@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}写作评估 · IELTS Learning Studio{% endblock %}
+{% block title %}写作反馈 · Learning Studio{% endblock %}
 {% block content %}
 <section class="page-heading writing-heading">
   <div>
-    <p class="eyebrow">AI writing feedback</p>
-    <h1>IELTS 写作评估</h1>
-    <p class="lead">提交 Task 1 或 Task 2 作文，按四项评分标准获得结构化反馈。评估结果会保存在你的服务器。</p>
+    <p class="eyebrow">WRITING / AI FEEDBACK</p>
+    <h1>英文写作反馈</h1>
+    <p class="lead">练习把想法表达清楚。提交 IELTS Task 1 或 Task 2 作文，查看四项标准下的模型估分、修改建议与可选范文。反馈会保存，便于回顾。</p>
   </div>
   <div class="local-badge"><span></span>私有保存</div>
 </section>
@@ -19,7 +19,7 @@
     </fieldset>
 
     <label for="writing-title">标题 <small>（可选）</small></label>
-    <input id="writing-title" name="title" maxlength="300" placeholder="方便以后识别这次评估">
+    <input id="writing-title" name="title" maxlength="300" placeholder="例如：能源转型 · 第二稿">
 
     <label for="writing-question">作文题目</label>
     <textarea id="writing-question" name="question" rows="5" minlength="10" maxlength="10000" required placeholder="粘贴完整题目，包括 Task 1 的图表说明或 Task 2 的写作要求。"></textarea>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}抽样审阅 · IELTS Reading Studio{% endblock %}
+{% block title %}抽样审阅 · Learning Studio{% endblock %}
 {% block content %}
 {% if sampled %}<p class="library-flash">已抽 {{ sampled }} 篇进入审阅队列，请逐篇过一眼内容和答案。</p>{% endif %}
 {% if decided == 'passed' %}<p class="library-flash">已标记为「通过」，这一篇出题质量确认没问题。</p>{% endif %}
@@ -9,7 +9,7 @@
   <div class="library-copy">
     <p class="eyebrow">Quality review</p>
     <h1>抽样审阅</h1>
-    <p class="lead">机器质检只能挡住规则内的错误。一批生成完会自动抽出少量篇目（默认 {{ (review_sample_rate * 100)|round|int }}%，至少 {{ review_sample_min }} 篇）放进这里，<b>由你实际读一遍文章和答案</b>再决定通过或返工。</p>
+    <p class="lead">检查生成内容是否准确、题目是否清楚。每批会自动抽取 {{ (review_sample_rate * 100)|round|int }}% 的篇目（至少 {{ review_sample_min }} 篇），阅读文章与答案后，标记通过或需返工。</p>
     <div class="library-actions">
       <form action="/review/sample" method="post">{{ csrf_field() }}
         <button type="submit">再抽一批样本</button>
@@ -30,7 +30,7 @@
 
 {% if duplicates %}
 <section class="config-block">
-  <header class="config-head"><div><h2>相似题目提醒</h2><p>质检门禁只管住本次生成；这里是全库扫出来的疑似重复，建议顺手看一眼。</p></div></header>
+  <header class="config-head"><div><h2>相似题目提醒</h2><p>这些题目与已有篇目较为相似，请检查是否存在重复内容。</p></div></header>
   <ul class="keep-list">
     {% for pair in duplicates %}
     <li>

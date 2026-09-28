@@ -55,7 +55,7 @@ def test_terms_view_lists_words_from_both_sources(
     page = client.get("/knowledge")
 
     assert page.status_code == 200
-    assert "知识点汇总" in page.text
+    assert "我的知识库" in page.text
     # 阅读侧的词与小说侧的词都在同一份手册里
     assert "conservation" in page.text
     assert "abandon" in page.text
@@ -136,7 +136,7 @@ def test_missing_novel_data_shows_a_note_not_an_error(client, vocabulary_unit):
     page = client.get("/knowledge")
 
     assert page.status_code == 200
-    assert "还没有读到情境小说的术语库" in page.text
+    assert "还没有语境阅读的词汇记录" in page.text
     assert "conservation" in page.text
 
 
@@ -144,7 +144,7 @@ def test_empty_digest_renders_an_explanation(client):
     page = client.get("/knowledge")
 
     assert page.status_code == 200
-    assert "这个筛选条件下没有知识点" in page.text
+    assert "这个筛选条件下没有内容" in page.text
 
 
 def test_markdown_export_contains_the_current_rows(

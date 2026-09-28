@@ -1,0 +1,108 @@
+/* Shared technology theme. Layout, reading progress and accessibility stay in
+   their existing component sheets; this layer supplies the visual language. */
+:root{font-family:var(--font-ui);color:var(--ink);background:var(--canvas)}
+body{background:var(--canvas)}
+body:has(.practice-shell){background:var(--canvas)}
+.site-header{background:linear-gradient(115deg,var(--forest),#182e53);border-bottom:1px solid #365174;box-shadow:0 4px 20px #10213e12;color:var(--header-ink);gap:1.5rem}
+.site-header a.site-brand{gap:.75rem}
+.site-header .brand-mark{font:700 .9rem var(--font-code);width:2.4rem;height:2.4rem;border:1px solid #6587b5;background:#234674;color:#cff6ff;border-radius:.6rem}
+.brand-copy{display:flex;flex-direction:column;gap:.12rem}
+.brand-copy strong{font-size:1.03rem;letter-spacing:-.03em}
+.brand-copy small{font-size:.64rem;letter-spacing:.12em;color:var(--header-muted)}
+.site-header nav a{opacity:1;color:var(--header-muted)}
+.site-header nav a:hover,.site-header nav a[aria-current="page"]{color:var(--header-ink);background:#ffffff12}
+.site-header .nav-group{gap:.9rem}
+.site-header .nav-label{color:var(--header-muted)}
+.site-header .logout-form button{color:var(--header-ink);background:#ffffff12;border:1px solid #ffffff25;box-shadow:none}
+h1,h2,h3{font-family:var(--font-ui);letter-spacing:-.035em}
+h1{line-height:1.18;font-weight:750}
+.eyebrow,.pane-label,.card-kicker{color:var(--accent);font-family:var(--font-code);font-size:.72rem;letter-spacing:.12em}
+.lead{color:var(--ink-secondary);line-height:1.8}
+main a:not(.button):not(.product-link):not(.practice-arrow):not(.difficulty-pill){text-decoration-color:currentColor}
+.button,button{border-radius:.5rem;box-shadow:0 2px 4px #10213e0a}
+.button:hover,button:hover{box-shadow:0 6px 16px #2459cc20}
+input,select,textarea{border-color:var(--line);font-family:var(--font-ui)}
+input:focus,select:focus,textarea:focus{border-color:var(--green);outline-color:#2459cc33}
+code,pre,kbd{font-family:var(--font-code)}
+pre{overflow-x:auto}
+.studio-hero{position:relative;background:linear-gradient(120deg,#edf3ff,#f5faff);border-color:#d0dff4;isolation:isolate}
+.studio-hero::before{content:"";position:absolute;inset:0;z-index:-1;background-image:linear-gradient(#2459cc06 1px,transparent 1px),linear-gradient(90deg,#2459cc06 1px,transparent 1px);background-size:32px 32px;pointer-events:none}
+.studio-hero h1{font-weight:780;line-height:1.17;letter-spacing:-.055em;color:var(--forest)}
+.studio-hero .lead{max-width:42rem}
+.studio-total{border-color:#c4d5ef}
+.studio-total span,.studio-total small{color:var(--ink-secondary)}
+.studio-total strong{font-family:var(--font-code);letter-spacing:-.06em;font-weight:600}
+.product-card,.workspace-card,.resume-card,.review-panel,.corpus-card,.practice-book-card{box-shadow:0 6px 24px #10213e07;border-color:var(--line)}
+.product-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.product-card{padding:1.5rem}
+.product-card::after{background:#2459cc09}
+.product-card.novel-product::after{background:#087e910b}
+.product-card h2{font:700 1.45rem/1.35 var(--font-ui);letter-spacing:-.04em}
+.product-card>p:not(.eyebrow){color:var(--ink-secondary);font-size:.91rem;line-height:1.8}
+.product-number{font:500 1rem var(--font-code);color:var(--ink-muted)}
+.product-stats{gap:1rem}
+.product-stats strong{font:600 1.65rem var(--font-code)}
+.product-link{font-size:.88rem}
+.resume-card,.resume-card[data-kind="empty"]{background:linear-gradient(120deg,#eaf2ff,#f7faff);border-color:#c6d7f1}
+.resume-card::after{background:#2459cc08}
+.resume-card h2{font:700 1.7rem/1.35 var(--font-ui)}
+.resume-meta,.review-empty{color:var(--ink-secondary)}
+.resume-progress{background:#d4e2f8}
+.resume-progress span,.progress-track span{background:linear-gradient(90deg,var(--green),var(--accent))}
+.review-panel h2,.tools-heading h2{font-family:var(--font-ui);font-weight:700}
+.quick-row{background:var(--cream);border-color:var(--line)}
+.quick-row:hover{background:var(--mint);border-color:#b9cdef}
+.quick-row strong{font-family:var(--font-code)}
+.privacy-strip{background:var(--accent-soft);border-color:#c3e4e9}
+.privacy-strip>span{color:var(--accent)}
+.learning-horizon{margin:1.5rem 0;border:1px solid var(--line);border-radius:1rem;background:var(--surface);padding:1.7rem}
+.horizon-heading{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.1rem}
+.horizon-heading .eyebrow{margin:0 0 .45rem}
+.horizon-heading h2{font-size:1.5rem;margin:0}
+.planned-badge{border:1px solid #c7d7ef;background:var(--mint);color:var(--green);border-radius:2rem;font-size:.75rem;font-weight:700;padding:.3rem .75rem;white-space:nowrap}
+.horizon-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5rem}
+.horizon-grid article{min-width:0;padding:1rem 0 0;border-top:1px solid var(--line)}
+.horizon-code{font:.7rem var(--font-code);color:var(--accent);letter-spacing:.09em}
+.horizon-grid h3{font-size:1.07rem;margin:.6rem 0}
+.horizon-grid p{color:var(--ink-secondary);font-size:.88rem;line-height:1.8}
+.horizon-grid .horizon-note{font-size:.78rem;color:var(--ink-muted)}
+.horizon-grid a{display:inline-flex;align-items:center;font-size:.88rem}
+.library-hero,.practice-hero,.kn-hero{background:linear-gradient(125deg,#eef3ff,#f6faff);border-color:var(--line)}
+.library-totals,.study-overview,.kn-totals>div{background:var(--surface);border-color:var(--line)}
+.totals-grid strong,.overview-grid strong,.kn-totals dd,.book-spine span,.book-index,.score-orb strong{font-family:var(--font-code);font-weight:600;letter-spacing:-.04em}
+.book-copy h2,.workspace-card h2,.answer-intro h2,.novel-heading h1{font-family:var(--font-ui);font-weight:700;line-height:1.35}
+.local-badge{color:var(--accent);background:var(--accent-soft);border-color:#c3e4e9}
+.book-spine{background:var(--mint);border-color:#c9d9f2;color:var(--green)}
+.source-summary,.file-list a,.book-row,.estimate-result span,.mini-stats span{background:var(--cream);border-color:var(--line)}
+.source-summary>span{color:var(--ink-secondary)}
+.book-row.is-active{background:var(--mint);border-color:var(--green)}
+.estimate-result strong,.mini-stats strong{font-family:var(--font-code)}
+.catalog-badge strong{font-family:var(--font-code)}
+.catalog-badge span{color:var(--header-muted)}
+.step-mark{color:var(--ink-muted);font-family:var(--font-code);font-style:normal;font-size:1rem}
+.kn-hero-copy .lead,.kn-totals dt{color:var(--ink-secondary)}
+.reading-pane{background:var(--cream)}
+.reading-pane h1{font-family:var(--font-ui);line-height:1.25}
+/* Prose keeps its reading font; titles, metrics and controls use the UI font. */
+.submit-dock{background:var(--forest)}
+.submit-dock button{background:#b4edff;color:var(--forest)}
+.result-panel{background:var(--mint);border-color:#c9d9f2}
+.bottom-nav a{color:var(--ink-secondary)}
+.bottom-nav a[aria-current="page"]{color:var(--green);background:var(--mint)}
+@media(min-width:1281px){.site-header{flex-wrap:wrap}.site-header nav{gap:1rem}.site-header .nav-group+.nav-group{padding-left:1rem}}
+@media(max-width:1024px){.product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.site-header .nav-group{gap:.25rem}.site-header .nav-label{color:var(--header-muted)}.brand-copy strong{font-size:1rem}.horizon-grid,.product-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:560px){.resume-card h2{font-size:1.4rem}.product-card h2{font-size:1.4rem}.learning-horizon{padding:1.1rem}.horizon-heading{align-items:flex-start}.horizon-heading h2{font-size:1.25rem}.horizon-grid{gap:.8rem}.studio-total strong{font-size:2.4rem}.product-card{padding:1.2rem}}
+@media print{.learning-horizon{break-inside:avoid}.studio-hero::before{display:none}}
+/* The reading library has its own dark hero, so it needs a light foreground. */
+.hero-copy{background:linear-gradient(120deg,var(--forest),#1d3964);box-shadow:0 12px 32px #10213e12}
+.hero-copy .eyebrow,.hero-actions{color:var(--header-muted)}
+.hero-copy .lead,.hero-copy .text-link{color:var(--header-ink)}
+.hero-actions .local-badge{color:var(--header-ink)}
+.overview-grid div,.review-group-head,.result-facts span{background:var(--cream);border-color:var(--line)}
+.study-overview::after{background:#2459cc08}
+.library-toolbar h2,.config-head h2,.review-group-head h2,.review-card h3,.vocab-card header strong,.vocabulary-item header strong,.word-tile-word,.review-word{font-family:var(--font-ui);font-weight:700}
+.passage-facts span{color:var(--forest)}
+.source-name,.result-note,.submit-hint{color:var(--ink-secondary)}
+.practice-arrow:hover{background:var(--forest);border-color:var(--forest)}
+.site-header nav a[aria-current="page"]::after{background:#8edff0}

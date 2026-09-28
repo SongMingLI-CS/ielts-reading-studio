@@ -17,7 +17,7 @@
 <header class="preview-head">
   <p class="eyebrow">章节解析</p>
   <h1>{{ display_name }}</h1>
-  <p class="lead">这里显示只读解析得到的章节边界。边界决定后续生成单元怎么划分：过长的单章会被继续切分，几个短章会被合并。这一页只看索引，不改动原文件。</p>
+  <p class="lead">检查材料的章节划分，必要时合并、拆分或重命名。章节过长时会再划分成练习篇目，相邻短章会合并；原文件保持不变。</p>
 </header>
 
 <dl class="preview-facts">
@@ -53,7 +53,7 @@
 {% if frozen_reason %}
 <section class="preview-banner frozen">
   <strong>边界已冻结</strong>
-  <p>{{ frozen_reason }}。为保护已有阶段缓存，边界不再允许修改；如需重新划分，请清理该语料后重新导入同一份源文件。</p>
+  <p>{{ frozen_reason }}。生成开始后章节划分会锁定。需要重新划分时，请先删除这份材料及其练习记录，再重新导入源文件。</p>
 </section>
 {% else %}
 <section class="preview-banner">

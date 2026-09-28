@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}设置 · IELTS Reading Studio{% endblock %}
+{% block title %}设置 · Learning Studio{% endblock %}
 {% block content %}
 <section class="library-hero">
   <div class="library-copy">
-    <p class="eyebrow">Settings &amp; health</p>
-    <h1>设置</h1>
-    <p class="lead">这一页把当前生效的配置、密钥状态和数据位置摊开给你看，并且可以一键测试出题模型是否连得上。<b>网页只读配置、不回写</b>——需要改动时改服务器上的 <code>config.yaml</code> 或 <code>.env</code>，重启服务后这里会显示新值。</p>
+    <p class="eyebrow">WORKSPACE / SETTINGS</p>
+    <h1>模型与工作空间</h1>
+    <p class="lead">查看使用中的模型、用量限制与数据位置，也可以测试模型连接。此页只展示当前配置；修改服务器上的 <code>config.yaml</code> 或 <code>.env</code> 并重启后生效。</p>
     <div class="library-actions">
       <a class="button ghost" href="/backup">备份与恢复</a>
       <a class="button ghost" href="/exports">导出中心</a>

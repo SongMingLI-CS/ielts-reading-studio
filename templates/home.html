@@ -1,16 +1,18 @@
 {% extends "base.html" %}
-{% block title %}IELTS Learning Studio{% endblock %}
+{% block title %}Learning Studio{% endblock %}
 {% block content %}
 <section class="studio-hero">
-  <div>
-    <p class="eyebrow">One private learning workspace</p>
-    <h1>一个入口，完成<br>雅思读写训练。</h1>
-    <p class="lead">做 Academic Reading 题、评估 Task 1 / Task 2 作文，也可以在中文小说语境中积累雅思词汇。学习数据统一留在你的服务器。</p>
+  <img class="studio-cover" src="/static/media/knowledge-glass.webp" alt="" width="1600" height="900" fetchpriority="high" decoding="async">
+  <div class="studio-hero-copy">
+    <p class="eyebrow"><span class="hero-signal" aria-hidden="true"></span> YOUR PERSONAL LEARNING SPACE</p>
+    <h1>读懂英语，<br><span>探索技术。</span></h1>
+    <p class="lead">让每一页阅读，成为新的可能。<br>在故事中积累表达，在练习中深入理解，向技术与 AI 继续探索。</p>
+    <div class="studio-hero-actions"><a class="button" href="{{ next_step.href if next_step.kind != 'empty' else '/corpora/import' }}">{% if next_step.kind == 'resume' %}继续学习{% else %}开始学习{% endif %} <span aria-hidden="true">↗</span></a><a class="hero-secondary" href="/knowledge">打开我的知识库 <span aria-hidden="true">→</span></a></div>
   </div>
-  <div class="studio-total"><span>已准备内容</span><strong>{{ reading_count + novel_chapters }}</strong><small>篇阅读与章节</small></div>
+  <div class="studio-total"><span>学习素材</span><strong>{{ reading_count + novel_chapters }}</strong><small>篇练习与章节</small></div>
 </section>
 
-<section class="next-step" aria-label="下一步">
+<section class="next-step" id="next-step" aria-label="下一步">
   <article class="resume-card" data-kind="{{ next_step.kind }}">
   {% if next_step.kind == 'resume' %}
     <p class="eyebrow">继续上次练习 · 草稿已保存</p>
@@ -30,8 +32,8 @@
     <a class="button resume-action" href="{{ next_step.href }}">{{ next_step.cta }}</a>
   {% else %}
     <p class="eyebrow">还没有可练习的篇目</p>
-    <h2>先导入一份中文素材</h2>
-    <p class="resume-meta">导入后解析章节、生成英文 Passage 与题目，批准样篇后就能在这里开始练习。</p>
+    <h2>从一份阅读材料开始</h2>
+    <p class="resume-meta">导入小说、长文或分节 Markdown，生成英文阅读与题目。检查并批准样篇后，即可开始练习。</p>
     <a class="button resume-action" href="/corpora/import">导入素材 →</a>
   {% endif %}
   </article>
@@ -44,43 +46,62 @@
       <a class="quick-row" href="/practice/review?tab=words"><span>生词本</span><strong>{{ review.words }} 词 →</strong></a>
       <a class="quick-row" href="/practice/review?tab=due"><span>到期待复习</span><strong>{{ review.due }} 词 →</strong></a>
     </div>
-    <p class="caption">错题与生词来自已提交的练习；到期复习按 Leitner 间隔排程。</p>
+    <p class="caption">回顾理解中的盲点，让收藏的表达进入间隔复习。</p>
     {% else %}
-    <p class="review-empty">完成一篇练习后，这里会列出该复习的错题和生词——没有记录时不会显示虚构进度。</p>
-    <a class="button ghost" href="/practice">去练习中心 →</a>
+    <p class="review-empty">完成一篇练习后，在这里回顾错题、收藏生词，逐步建立自己的知识积累。</p>
+    <a class="button ghost" href="/practice">进入阅读训练 →</a>
     {% endif %}
   </aside>
 </section>
 
 <section class="tools">
-  <div class="tools-heading"><h2>浏览工具</h2><p>三个工具的完整说明与入口；从上面的卡片直接开始也可以。</p></div>
-  <section class="product-grid" aria-label="学习工具">
+  <div class="tools-heading"><div><p class="eyebrow">EXPLORE YOUR NEXT CHAPTER</p><h2>选择学习方式</h2></div><div class="carousel-controls" aria-label="学习方式滑动控件"><button type="button" class="carousel-arrow" data-carousel="previous" aria-controls="learning-paths" aria-label="上一组学习方式" disabled>←</button><button type="button" class="carousel-arrow" data-carousel="next" aria-controls="learning-paths" aria-label="下一组学习方式">→</button></div></div>
+  <section class="product-grid" id="learning-paths" tabindex="0" aria-label="学习工具，可横向滑动">
   <article class="product-card reading-product">
+    <div class="product-visual"><img src="/static/media/library.webp" alt="" width="1000" height="600" loading="lazy" decoding="async"><span class="visual-caption">READ THE WORLD</span></div>
     <div class="product-number">01</div>
-    <p class="eyebrow">Academic practice</p>
-    <h2>IELTS 阅读练习</h2>
-    <p>把中文素材转换成英文 Passage、题目和逐题解析，在线计时、自动保存并记录成绩。</p>
-    <div class="product-stats"><span><strong>{{ reading_count }}</strong> 可练习</span><span><strong>{{ corpora_count }}</strong> 语料库</span></div>
-    <a class="product-link" href="/practice">进入练习中心 <span>→</span></a>
+    <p class="eyebrow">READING LAB</p>
+    <h2>英语阅读训练</h2>
+    <p>通过英文文章、理解题与原文证据训练阅读能力。保留 IELTS Academic 题型，自动保存进度与成绩。</p>
+    <div class="product-stats"><span><strong>{{ reading_count }}</strong> 可练习</span><span><strong>{{ corpora_count }}</strong> 份材料</span></div>
+    <a class="product-link" href="/practice">开始阅读训练 <span>→</span></a>
   </article>
   <article class="product-card novel-product">
+    <div class="product-visual"><img src="/static/media/knowledge-glass.webp" alt="" width="1000" height="600" loading="lazy" decoding="async"><span class="visual-caption">WORDS IN CONTEXT</span></div>
     <div class="product-number">02</div>
-    <p class="eyebrow">Vocabulary in context</p>
-    <h2>雅思词汇情境小说</h2>
-    <p>保留中文小说故事与人物，在自然语境中嵌入 B1–C1 雅思词汇，并导出 HTML、Word 和词汇表。</p>
+    <p class="eyebrow">CONTEXT READING</p>
+    <h2>语境阅读</h2>
+    <p>在熟悉的故事中学习 B1–C1 英语词汇。保留人物与情节，通过自然语境理解表达，积累词汇与搭配。</p>
     <div class="product-stats"><span><strong>{{ novel_chapters }}</strong> 已识别章节</span><span><strong>{{ catalog_size }}</strong> 词条</span></div>
-    <a class="product-link" href="/novel">进入情境小说 <span>→</span></a>
+    <a class="product-link" href="/novel">打开语境阅读 <span>→</span></a>
   </article>
   <article class="product-card writing-product">
+    <div class="product-visual"><img src="/static/media/writing.webp" alt="" width="1000" height="600" loading="lazy" decoding="async"><span class="visual-caption">FIND YOUR VOICE</span></div>
     <div class="product-number">03</div>
-    <p class="eyebrow">AI writing feedback</p>
-    <h2>IELTS 写作评估</h2>
-    <p>按官方四项标准分析 Task 1 与 Task 2，获得 Band、具体反馈、优点、改进方向和可选范文。</p>
+    <p class="eyebrow">WRITING LAB</p>
+    <h2>英文写作反馈</h2>
+    <p>提交 IELTS Task 1 / Task 2，查看四项标准下的模型估分、具体反馈与修改建议，练习清晰表达。</p>
     <div class="product-stats"><span><strong>4</strong> 项标准</span><span><strong>0.5</strong> 分档</span></div>
     <a class="product-link" href="/writing">开始评估作文 <span>→</span></a>
   </article>
+  <article class="product-card technology-product">
+    <div class="product-visual"><img src="/static/media/code.webp" alt="" width="1000" height="600" loading="lazy" decoding="async"><span class="visual-caption">UNDERSTAND &amp; BUILD</span></div>
+    <div class="product-number">04</div><p class="eyebrow">TECHNICAL READING · 规划中</p>
+    <h2>从文档走向实践</h2><p>Python、NumPy 与 AI 文档的原文学习模式正在规划，未来将保留示例代码与概念笔记。</p>
+    <div class="product-stats"><span><strong>API</strong> 文档阅读方向</span></div>
+    <a class="product-link" href="#horizon-title">了解下一步 <span>→</span></a>
+  </article>
   </section>
+  <p class="carousel-hint">向右探索更多学习方向 <span aria-hidden="true">⟶</span></p>
 </section>
 
-<section class="privacy-strip"><span aria-hidden="true">●</span><div><strong>同一套登录，同一台服务器</strong><p>三个工具共用同一套登录与私有存储，各自的数据互不覆盖。</p></div></section>
+<section class="learning-horizon" aria-labelledby="horizon-title">
+  <div class="horizon-heading"><div><p class="eyebrow">NEXT / TECHNICAL LEARNING</p><h2 id="horizon-title">下一步，读懂技术。</h2></div><span class="planned-badge">规划中</span></div>
+  <div class="horizon-grid">
+    <article><span class="horizon-code" aria-hidden="true">01 / PY</span><h3>Python → NumPy → AI</h3><p>计划加入官方文档原文阅读，保留代码、参数与版本信息，结合英语解释和概念练习。</p><p class="horizon-note">当前导入流程仍会生成改写文章，尚未提供文档原文学习模式。</p></article>
+    <article><span class="horizon-code" aria-hidden="true">02 / RESEARCH</span><h3>与 ScholarKernel 一起深入理解</h3><p>计划携带阅读片段与问题进入研究对话，把理解整理成可回顾的学习笔记。</p><a class="text-link" href="https://github.com/SongMingLI-CS/ScholarKernel" target="_blank" rel="noopener noreferrer">查看 ScholarKernel 项目 ↗</a><p class="horizon-note">当前仅提供项目链接，上下文传递与笔记同步尚未接入。</p></article>
+  </div>
+</section>
+
+<section class="privacy-strip"><span aria-hidden="true">●</span><div><strong>你的学习记录，持续积累</strong><p>阅读进度、写作反馈与复习记录保存在你的服务器，随时回顾或导出。</p></div></section>
 {% endblock %}

@@ -162,13 +162,13 @@ def test_palette_is_defined_once() -> None:
 
     tokens = _normalized(STATIC / "tokens.css")
     for token in (
-        "--ink:#172029",
-        "--ink-secondary:#626d67",
-        "--ink-muted:#5b6660",
-        "--ink-decor:#7f8a84",
+        "--ink:#142238",
+        "--ink-secondary:#52627a",
+        "--ink-muted:#4d5e75",
+        "--ink-decor:#697a91",
         "--success-ink:#1f7a58",
         "--warning-ink:#6f6039",
-        "--focus-ring:#123c35",
+        "--focus-ring:#10213e",
         "--tap:44px",
     ):
         assert token in tokens, token
@@ -203,8 +203,8 @@ def test_tokens_carry_the_measured_contrast_values() -> None:
 
     assert "对比度按 WCAG 2.1" in tokens
     # 归一化后空白会被折叠成单个空格
-    assert "--ink-secondary 4.87 / 5.38" in tokens
-    assert "--ink-muted 5.09 / 5.62" in tokens
+    assert "--ink-secondary 5.68 / 6.20" in tokens
+    assert "--ink-muted 6.06 / 6.62" in tokens
     # 装饰性大数字只需 3:1，其余小字必须 ≥4.5:1
     assert "装饰性大数字" in tokens
     assert "低于 4.5 的灰色一律不再新增" in tokens
@@ -343,7 +343,7 @@ def test_navigation_is_grouped_with_a_label_per_group(client) -> None:
     # 长标签在窄屏换短名，桌面保留全称（display:none 的那份不会进无障碍树）
     assert ".site-header .nav-short{display:none}" in css
     assert ".site-header .nav-full{display:none}" in css
-    assert '<span class="nav-full">阅读练习</span><span class="nav-short">阅读</span>' in page.text
+    assert '<span class="nav-full">阅读训练</span><span class="nav-short">阅读</span>' in page.text
 
 
 def test_next_step_card_is_a_full_width_single_column_on_small_screens() -> None:
@@ -418,10 +418,10 @@ def test_mobile_bottom_nav_adds_four_thumb_reachable_entries(client, completed_u
     nav = block.group(0)
     assert nav.count("<a ") == 4
     for href, label in (
-        ("/", "首页"),
+        ("/", "工作台"),
         ("/practice", "阅读"),
         ("/practice/review", "复习"),
-        ("/corpora", "语料"),
+        ("/corpora", "材料"),
     ):
         assert f'href="{href}"' in nav, href
         assert f">{label}</a>" in nav, label

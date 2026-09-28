@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}备份与恢复 · IELTS Reading Studio{% endblock %}
+{% block title %}备份与恢复 · Learning Studio{% endblock %}
 {% block content %}
 <div class="practice-topbar">
   <a class="back-link" href="/corpora">← 材料库</a>
@@ -9,7 +9,7 @@
 <header class="preview-head">
   <p class="eyebrow">Backup</p>
   <h1>备份与恢复</h1>
-  <p class="lead">把数据库、生成产物和导入的源文件打成一个 zip 下载。数据库用 SQLite 的在线备份 API 取一致性快照（含 WAL 里尚未合并的内容），所以不用停服务。<b>压缩包里不包含 <code>.env</code> 与 <code>.env.web</code></b>，密钥不会被带走。</p>
+  <p class="lead">下载包含学习记录、生成内容与来源材料的 ZIP 备份，方便迁移和恢复。可以在服务运行时备份；<b>不包含 <code>.env</code> 与 <code>.env.web</code> 中的密钥配置。</b></p>
 </header>
 
 <dl class="preview-facts">

@@ -134,7 +134,7 @@ def test_practice_library_empty_state_points_at_the_corpus(client) -> None:
     page = client.get("/practice")
 
     assert "还没有可练习的篇目" in page.text
-    assert "去语料库导入" in page.text
+    assert "导入阅读材料" in page.text
     assert 'href="/corpora"' in page.text
     # 没有篇目时不显示搜索框，避免搜一个不存在的库
     assert 'id="library-q"' not in page.text

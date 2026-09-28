@@ -6,7 +6,7 @@
 {%- endmacro %}
 {% block content %}
 <div class="practice-topbar">
-  <a class="back-link" href="/practice">← 练习中心</a>
+  <a class="back-link" href="/practice">← 阅读训练</a>
   <div class="practice-meta"><span class="difficulty-pill">{{ package.passage.difficulty.value|title }}</span><span>{{ package.passage.word_count }} words</span><span>{{ package.question_groups|map(attribute='questions')|map('length')|sum }} questions</span></div>
   <div class="session-tools">
     <span id="autosave-status" class="save-status"><i></i> 本机草稿就绪</span>

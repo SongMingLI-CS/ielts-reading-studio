@@ -48,8 +48,8 @@ def test_dashboard_unifies_both_learning_products(client):
     response = client.get("/")
 
     assert response.status_code == 200
-    assert "IELTS 阅读练习" in response.text
-    assert "雅思词汇情境小说" in response.text
+    assert "英语阅读训练" in response.text
+    assert "语境阅读" in response.text
     assert 'href="/practice"' in response.text
     assert 'href="/novel"' in response.text
 

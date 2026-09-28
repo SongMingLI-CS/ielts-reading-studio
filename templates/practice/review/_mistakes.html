@@ -1,19 +1,21 @@
 {% set base_url = base_url|default('/practice/mistakes') %}
 {% set sep = '&' if '?' in base_url else '?' %}
+<header class="preview-head">
+  <p class="eyebrow">Mistake book</p>
+  {% if in_review_hub %}<h2>错题本</h2>{% else %}<h1>错题本</h1>{% endif %}
+  <p class="lead">从 {{ attempt_count }} 次作答中回顾理解偏差。反复出错的题目排在前面，结合原文证据与中文解析重新思考。</p>
+</header>
+
 <div class="practice-topbar">
-  <a class="back-link" href="/practice">← 练习中心</a>
+  <a class="back-link" href="/practice">← 阅读训练</a>
   <div class="practice-meta"><span class="badge status-calibrate">错题本</span><span class="badge">{{ total_items }} 道错题</span></div>
   <div class="session-tools">
-    <a class="button ghost small" href="/practice/history">练习历史</a>
+    <a class="button ghost small" href="/practice/history">学习记录</a>
     <a class="button ghost small" href="/practice/mistakes/print{% if selected_type %}?type={{ selected_type }}{% endif %}" target="_blank" rel="noopener">打印版</a>
   </div>
 </div>
 
-<header class="preview-head">
-  <p class="eyebrow">Mistake book</p>
-  <h1>错题本</h1>
-  <p class="lead">从 {{ attempt_count }} 次已提交作答里汇总出来的错题，同一道题反复错会排在最前面。每题都带原文证据和中文解析，直接对着改。</p>
-</header>
+
 
 {% if type_stats %}
 <ul class="stat-bars compact">

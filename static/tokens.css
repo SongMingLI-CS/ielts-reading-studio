@@ -3,36 +3,42 @@
    这个文件在其他样式表之前加载，是可调色板的唯一来源——组件里出现的
    var(--ink-muted) 之类的名字都由这里定义，改一处即可全站生效。
 
-   对比度按 WCAG 2.1 相对亮度公式计算，括号内是实测值（浅色底 #f3f4f0 / #fff）：
-     --ink           15.4 / 16.4
-     --ink-secondary  4.87 / 5.38   次级正文（段落、说明）
-     --ink-muted      5.09 / 5.62   小字标签、表头、脚注
-     --ink-decor      3.24 / 3.58   装饰性大数字（24px 以上，阈值是 3:1）
+   对比度按 WCAG 2.1 相对亮度公式计算，括号内是实测值（浅色底 #f2f5fb / #fff）：
+     --ink           14.62 / 15.96
+     --ink-secondary  5.68 / 6.20   次级正文（段落、说明）
+     --ink-muted      6.06 / 6.62   小字标签、表头、脚注
+     --ink-decor      4.01 / 4.38   装饰性大数字（24px 以上，阈值是 3:1）
      --success-ink    4.78（on #edf6f2）
      --warning-ink    6.16（on #fff）
-     --danger-ink     7.36（on #f3f4f0）
+     --danger-ink     7.44（on #f2f5fb）
    低于 4.5 的灰色一律不再新增：字面量色值只能从这里取。
    --------------------------------------------------------------------------- */
 :root{
   /* 文字 */
-  --ink:#172029;
-  --ink-secondary:#626d67;
-  --ink-muted:#5b6660;
-  --ink-decor:#7f8a84;
+  --ink:#142238;
+  --ink-secondary:#52627a;
+  --ink-muted:#4d5e75;
+  --ink-decor:#697a91;
   --success-ink:#1f7a58;
   --warning-ink:#6f6039;
   --danger-ink:#8f2f13;
-  /* 品牌与表面 */
-  --forest:#123c35;
-  --green:#1d6658;
-  --mint:#dcebe5;
-  --cream:#faf8f2;
-  --canvas:#f3f4f0;
+  /* 品牌与表面：旧组件保留变量名，共用蓝色科技调色板 */
+  --forest:#10213e;
+  --green:#2459cc;
+  --mint:#e6efff;
+  --cream:#f8faff;
+  --canvas:#f2f5fb;
   --surface:#ffffff;
-  --line:#d9dfda;
+  --accent:#066c7f;
+  --accent-soft:#e6f5f8;
+  --header-ink:#e8f0ff;
+  --header-muted:#adc1df;
+  --font-ui:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  --font-code:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+  --line:#d9e2f1;
   --orange:#df7049;
-  /* 焦点：深绿实线 + 浅色外环，深浅底都看得见（2.4.11 需要 ≥3:1） */
-  --focus-ring:#123c35;
+  /* 焦点：深蓝实线 + 浅色外环，深浅底都看得见（2.4.11 需要 ≥3:1） */
+  --focus-ring:#10213e;
   --focus-width:3px;
   --focus-offset:2px;
   --focus-halo:#ffffff;

@@ -215,7 +215,7 @@ def test_practice_history_lists_attempts_and_type_accuracy(client, completed_uni
     )
     page = client.get("/practice/history")
     assert page.status_code == 200
-    assert "练习历史" in page.text
+    assert "学习记录" in page.text
     assert "提交次数" in page.text and "平均正确率" in page.text
     assert "按题型的正确率" in page.text
     # both attempts appear in the recent list
