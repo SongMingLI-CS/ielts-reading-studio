@@ -473,3 +473,24 @@ scripts/deploy.sh                  # 正式部署（快照 → 拉取 → 依赖
 - **登录返回 429**：触发登录限速（默认 10 次 / 5 分钟，按身份与来源地址同时计数）。
 - **`serve` 拒绝启动**：输出逐条列出缺少的配置，按提示补齐 `IELTS_WEB_*` 变量即可。
 
+
+## ScholarKernel 学习对话
+
+配置 `.env.web`（仅保留在服务器，勿提交密钥）：
+
+```dotenv
+SCHOLAR_KERNEL_URL=https://your-scholar-host
+SCHOLAR_KERNEL_API_URL=http://127.0.0.1:3001
+SCHOLAR_KERNEL_BRIDGE_TOKEN=<独立随机连接密钥>
+```
+
+ScholarKernel 对应配置 `SCHOLAR_BRIDGE_TOKEN` 为相同值，`AUTH_USER_ID` 为接收学习对话的账号。
+公网地址使用 HTTPS；同机 API 地址可以用回环 HTTP。重启网页服务后，导航出现 ScholarKernel 入口。
+选中阅读正文，点击「与 ScholarKernel 讨论」，核对原文和问题后创建对话；进入 ScholarKernel
+登录，原文保存到 Canvas，问题预填在输入框，点击发送后才会调用 AI。两个应用独立登录。
+
+一次创建使用同一个请求 ID；网络失败后重试不会重复创建对话。浏览器 URL 只包含对话 ID，
+连接密钥保留在两个服务端。未配置时隐藏入口，连接失败时保留草稿。
+
+同机部署的 ScholarKernel 使用独立 PostgreSQL 卷，通过 `docker compose up -d --build` 更新，
+不删除数据库卷。备份时同时保留数据库导出和 `.env` 的 `ENCRYPTION_SECRET`，否则保存的模型密钥无法解密。

@@ -1,0 +1,19 @@
+{% if scholar_url() %}
+<button class="scholar-launch" type="button" data-scholar-launch hidden><span aria-hidden="true">↗</span> 与 ScholarKernel 讨论</button>
+<dialog id="scholar-dialog" aria-labelledby="scholar-title">
+  <div class="scholar-dialog-head"><div><p class="eyebrow">LEARNING / RESEARCH</p><h2 id="scholar-title">把阅读变成深入理解</h2></div><button type="button" class="scholar-close" aria-label="关闭讨论窗口">×</button></div>
+  <p class="muted">选中页面中的原文，再带着问题进入 ScholarKernel。你也可以在下面直接粘贴材料。</p>
+  <form id="scholar-form">
+    {{ csrf_field() }}
+    <label>材料标题<input name="title" maxlength="200" required></label>
+    <label>原文片段<textarea name="text" rows="7" maxlength="12000" required placeholder="选中的原文会显示在这里，也可以直接粘贴。"></textarea></label>
+    <label>想弄懂的问题<textarea name="question" rows="3" maxlength="2000" required>请解释这段原文的含义、关键概念和重要表达，并结合例子帮助我理解。</textarea></label>
+    <p class="scholar-source muted"></p>
+    <div class="scholar-dialog-actions"><button type="submit">创建研究对话</button><a class="button ghost scholar-result" href="{{ scholar_url() }}" target="_blank" rel="noopener noreferrer" hidden>打开研究对话 ↗</a></div>
+    <p id="scholar-status" role="status" aria-live="polite"></p>
+    <p class="scholar-note muted">仅发送这里的原文、问题和来源。创建对话不会调用 AI；打开后可编辑问题并发送。ScholarKernel 使用独立登录。</p>
+  </form>
+</dialog>
+<link rel="stylesheet" href="/static/scholar.css?v=1">
+<script src="/static/scholar.js?v=1" defer></script>
+{% endif %}

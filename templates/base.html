@@ -35,6 +35,7 @@
         <a href="/practice/review"{% if review_active %} aria-current="page"{% endif %}>复习</a>
         <a href="/knowledge"{% if request.url.path.startswith('/knowledge') %} aria-current="page"{% endif %}>知识库</a>
         <a href="/novel"{% if request.url.path.startswith('/novel') %} aria-current="page"{% endif %}><span class="nav-full">语境阅读</span><span class="nav-short">小说</span></a>
+        {% if scholar_url() %}<a href="{{ scholar_url() }}" target="_blank" rel="noopener noreferrer">ScholarKernel ↗</a>{% endif %}
       </div>
       <div class="nav-secondary">
       <div class="nav-group">
@@ -63,6 +64,7 @@
     <a href="/practice/review"{% if review_active %} aria-current="page"{% endif %}>复习</a>
     <a href="/corpora"{% if request.url.path.startswith('/corpora') %} aria-current="page"{% endif %}>材料</a>
   </nav>
+  {% include "partials/scholar.html" %}
   {% block scripts %}{% endblock %}
 </body>
 </html>

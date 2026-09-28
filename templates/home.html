@@ -99,7 +99,7 @@
   <div class="horizon-heading"><div><p class="eyebrow">NEXT / TECHNICAL LEARNING</p><h2 id="horizon-title">下一步，读懂技术。</h2></div><span class="planned-badge">规划中</span></div>
   <div class="horizon-grid">
     <article><span class="horizon-code" aria-hidden="true">01 / PY</span><h3>Python → NumPy → AI</h3><p>计划加入官方文档原文阅读，保留代码、参数与版本信息，结合英语解释和概念练习。</p><p class="horizon-note">当前导入流程仍会生成改写文章，尚未提供文档原文学习模式。</p></article>
-    <article><span class="horizon-code" aria-hidden="true">02 / RESEARCH</span><h3>与 ScholarKernel 一起深入理解</h3><p>计划携带阅读片段与问题进入研究对话，把理解整理成可回顾的学习笔记。</p><a class="text-link" href="https://github.com/SongMingLI-CS/ScholarKernel" target="_blank" rel="noopener noreferrer">查看 ScholarKernel 项目 ↗</a><p class="horizon-note">当前仅提供项目链接，上下文传递与笔记同步尚未接入。</p></article>
+    <article><span class="horizon-code" aria-hidden="true">02 / RESEARCH</span><h3>与 ScholarKernel 一起深入理解</h3>{% if scholar_url() %}<p>选中阅读中的原文，点击「与 ScholarKernel 讨论」，带着来源和问题创建研究对话。</p><a class="text-link" href="{{ scholar_url() }}" target="_blank" rel="noopener noreferrer">打开 ScholarKernel ↗</a><p class="horizon-note">已连接 · 原文与问题会保存到研究对话，打开后可继续编辑和提问。</p>{% else %}<p>携带阅读片段与问题进入研究对话，把理解整理成可回顾的学习笔记。</p><a class="text-link" href="https://github.com/SongMingLI-CS/ScholarKernel" target="_blank" rel="noopener noreferrer">查看 ScholarKernel 项目 ↗</a><p class="horizon-note">尚未连接运行实例，请配置 ScholarKernel 地址与连接密钥。</p>{% endif %}</article>
   </div>
 </section>
 

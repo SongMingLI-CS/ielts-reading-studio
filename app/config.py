@@ -47,6 +47,9 @@ class AppConfig(BaseModel):
     deepseek_api_key: SecretStr | None = None
     web_username: str | None = None
     web_password: SecretStr | None = None
+    scholar_kernel_url: str = ""
+    scholar_kernel_api_url: str = ""
+    scholar_kernel_bridge_token: SecretStr | None = None
     # Minimum length enforced for a publicly reachable deployment. Raising it is always
     # safe; lowering it is a deliberate, documented risk decision (docs/security.md 第 4.8
     # 节与第 5 节) - the compensating control is the login rate limit plus the single
@@ -236,8 +239,15 @@ class AppConfig(BaseModel):
             candidate = Path(raw.get(field, cls.model_fields[field].default))
             raw[field] = candidate if candidate.is_absolute() else config_parent / candidate
         # Secrets are accepted only from the process environment/.env.
-        for secret_field in ("deepseek_api_key", "web_username", "web_password", "web_session_secret"):
+        for secret_field in ("deepseek_api_key", "web_username", "web_password", "web_session_secret", "scholar_kernel_bridge_token"):
             raw.pop(secret_field, None)
+        for field, variable in (
+            ("scholar_kernel_url", "SCHOLAR_KERNEL_URL"),
+            ("scholar_kernel_api_url", "SCHOLAR_KERNEL_API_URL"),
+            ("scholar_kernel_bridge_token", "SCHOLAR_KERNEL_BRIDGE_TOKEN"),
+        ):
+            if os.getenv(variable):
+                raw[field] = os.environ[variable].strip()
         if os.getenv("DEEPSEEK_API_KEY"):
             raw["deepseek_api_key"] = os.environ["DEEPSEEK_API_KEY"]
         if os.getenv("IELTS_WEB_USERNAME"):
