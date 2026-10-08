@@ -2,10 +2,9 @@
 {% block title %}{{ package.passage.title }} · 练习结果{% endblock %}
 {% block content %}
 <section class="result-hero">
-  <div class="score-orb"><strong>{{ correct }}</strong><span>/ {{ total }}</span></div>
   <div class="result-copy">
-    <p class="eyebrow">Practice result</p>
-    <h1>{{ package.passage.title }}</h1>
+    <p class="eyebrow">练习结果</p>
+    <div class="result-heading"><h1>{{ package.passage.title }}</h1><div class="result-score" aria-label="答对 {{ correct }} 题，共 {{ total }} 题"><strong>{{ correct }}</strong><span>/ {{ total }} 题</span></div></div>
     <div class="result-facts">
       <span><strong>{{ accuracy }}%</strong> 正确率</span>
       <span>用时 {{ minutes }} 分 {{ seconds }} 秒</span>

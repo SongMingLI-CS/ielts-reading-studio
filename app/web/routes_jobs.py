@@ -264,6 +264,7 @@ def job_index(
     service: Annotated[ReadingStudioService, Depends(get_service)],
     status: str | None = None,
     corpus: str | None = None,
+    page: Annotated[int, Query(ge=1)] = 1,
 ):
     """全部生成任务集中一处。
 
@@ -286,12 +287,22 @@ def job_index(
         ]
     else:
         visible = rows
+    page_size = 25
+    page_count = max(1, (len(visible) + page_size - 1) // page_size)
+    page = min(page, page_count)
+    page_rows = visible[(page - 1) * page_size : page * page_size]
+    filter_href = _jobs_href(selected, corpus_id)
+    page_prefix = f"{filter_href}{'&' if '?' in filter_href else '?'}page="
     return TEMPLATES.TemplateResponse(
         request,
         "jobs/index.html",
         {
-            "rows": visible,
+            "rows": page_rows,
             "total": len(rows),
+            "filtered_total": len(visible),
+            "page": page,
+            "page_count": page_count,
+            "page_prefix": page_prefix,
             "selected_status": selected,
             "corpus_filter": corpus_id,
             "corpus_name": rows[0]["corpus_name"] if corpus_id and rows else None,
@@ -468,6 +479,10 @@ def job_detail(
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     units = service.repository.list_job_units(job_id)
+    summary_job = next(
+        (item for item in service.repository.list_jobs(job["corpus_id"]) if item["id"] == job_id),
+        job,
+    )
     queue_state = queue_status_for(service, job_id)
     status = str(job["status"])
     return TEMPLATES.TemplateResponse(
@@ -475,6 +490,7 @@ def job_detail(
         "jobs/detail.html",
         {
             "job": job,
+            "summary": _job_row(service, summary_job),
             "units": units,
             "queue_state": queue_state,
             "status_label": job_status_label(status),

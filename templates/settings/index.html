@@ -3,19 +3,19 @@
 {% block content %}
 <section class="library-hero">
   <div class="library-copy">
-    <p class="eyebrow">WORKSPACE / SETTINGS</p>
+    <p class="eyebrow">工作区设置</p>
     <h1>模型与工作空间</h1>
     <p class="lead">查看使用中的模型、用量限制与数据位置，也可以测试模型连接。此页只展示当前配置；修改服务器上的 <code>config.yaml</code> 或 <code>.env</code> 并重启后生效。</p>
-    <div class="library-actions">
-      <a class="button ghost" href="/backup">备份与恢复</a>
-      <a class="button ghost" href="/exports">导出中心</a>
-    </div>
   </div>
-  <aside class="library-totals">
-    <p class="eyebrow">连接状态</p>
+</section>
+<section class="connection-check" aria-labelledby="connection-title">
+  <div>
+    <h2 id="connection-title">连接检查</h2>
+    <p class="probe-hint">向 {{ groups[0].rows[0].value }} 发送一次极小的真实请求，确认密钥、余额和模型名可用。</p>
+  </div>
+  <div>
     <form class="probe-form" action="/settings/test-provider" method="post">{{ csrf_field() }}
-      <p class="probe-hint">向 {{ groups[0].rows[0].value }} 发一次极小的真实请求（约几十 token），确认密钥、余额和模型名都可用。</p>
-      <button type="submit">测试模型连接</button>
+      <button type="submit" class="button ghost">测试模型连接</button>
     </form>
     {% if probe %}
     <p class="probe-result {{ 'ok' if probe.ok else 'bad' }}">
@@ -23,7 +23,7 @@
     </p>
     <p class="probe-detail">{{ probe.detail }}</p>
     {% endif %}
-  </aside>
+  </div>
 </section>
 
 <section class="config-block">

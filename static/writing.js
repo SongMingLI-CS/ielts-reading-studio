@@ -96,6 +96,7 @@
     status.textContent = "模型正在阅读并评分；你的题目和作文会保留在页面中。";
     loading.hidden = false;
     loading.setAttribute("aria-hidden", "false");
+    loading.scrollIntoView({ block: "start" });
     startStages();
     try {
       const data = await window.AppRequest.requestJson("/api/writing/evaluate", {
@@ -115,8 +116,15 @@
       status.textContent = "评估完成，结果已保存。";
     } catch (error) {
       status.className = "is-error";
-      if (error.status === 422) status.textContent = "请检查题目和作文是否完整，并满足最小长度。";
-      else status.textContent = `${error.message || "评估失败。"} 作文内容仍在，可直接重试。`;
+      if (error.status === 422) status.textContent = "请检查题目和作文是否完整，并满足最小长度。内容仍保留在页面中。";
+      else if (error.message && error.message.includes("DEEPSEEK_API_KEY")) {
+        status.textContent = "尚未配置模型密钥，当前无法生成反馈。作文仍保留在页面中。";
+        const settings = document.createElement("a");
+        settings.href = "/settings";
+        settings.textContent = "检查设置";
+        status.append(" ", settings);
+      } else status.textContent = "模型暂时无法完成评估。作文仍保留在页面中，请稍后重试；若持续失败，请检查设置中的连接状态。";
+      status.scrollIntoView({ block: "center" });
     } finally {
       stopStages();
       loading.hidden = true;

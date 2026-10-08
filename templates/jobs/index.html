@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-heading">
   <div>
-    <p class="eyebrow">CONTENT / GENERATION</p>
+    <p class="eyebrow">内容管理</p>
     <h1>生成任务</h1>
     <p class="lead">查看阅读练习与语境阅读的生成进度。打开任务可查看阶段结果、继续暂停的任务，或根据失败原因重试。</p>
   </div>
@@ -42,6 +42,16 @@
   {% endfor %}
   </tbody>
 </table></div>
+{% if page_count > 1 %}
+<nav class="jobs-pagination" aria-label="任务分页">
+  <span>显示 {{ (page - 1) * 25 + 1 }}–{{ [page * 25, filtered_total]|min }} / {{ filtered_total }} 个任务</span>
+  <div>
+    {% if page > 1 %}<a href="{{ page_prefix }}{{ page - 1 }}">上一页</a>{% endif %}
+    <strong>第 {{ page }} / {{ page_count }} 页</strong>
+    {% if page < page_count %}<a href="{{ page_prefix }}{{ page + 1 }}">下一页</a>{% endif %}
+  </div>
+</nav>
+{% endif %}
 {% else %}
 <div class="empty">
   <span class="empty-icon">✦</span>

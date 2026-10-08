@@ -44,7 +44,7 @@ def test_home_offers_the_draft_with_the_question_to_continue_from(
     assert "继续第 3 题 →" in page.text
     assert "已答 2 / 12 题" in page.text
     assert "8:24" in page.text
-    assert 'class="resume-card" data-kind="resume"' in page.text
+    assert 'class="home-next" data-kind="resume"' in page.text
 
 
 def test_home_never_restarts_a_draft_that_still_has_answers(
@@ -119,9 +119,9 @@ def test_home_review_counts_come_from_real_records(
     )
 
     page = client.get("/")
-    assert "<span>错题复习</span><strong>1 题 →</strong>" in page.text
-    assert "<span>生词本</span><strong>2 词 →</strong>" in page.text
-    assert "<span>到期待复习</span><strong>1 词 →</strong>" in page.text
+    assert "<span>错题复习</span><strong>1 题</strong>" in page.text
+    assert "<span>生词本</span><strong>2 词</strong>" in page.text
+    assert "<span>到期待复习</span><strong>1 词</strong>" in page.text
 
 
 def test_home_shows_guidance_instead_of_invented_progress(client) -> None:
@@ -131,16 +131,15 @@ def test_home_shows_guidance_instead_of_invented_progress(client) -> None:
     assert 'data-kind="empty"' in page.text
     assert "从一份阅读材料开始" in page.text
     assert 'href="/corpora/import"' in page.text
-    assert "quick-row" not in page.text
+    assert "home-review-row" not in page.text
     assert "完成一篇练习后" in page.text
 
 
-def test_home_puts_the_next_step_above_the_tool_cards(
+def test_home_puts_the_next_step_above_secondary_tools(
     client, web_service, completed_unit
 ) -> None:
     """评审 P1-04：学习入口必须在工具介绍之前，否则首屏又变成介绍页。"""
 
     page = client.get("/")
-    assert page.text.index('class="next-step"') < page.text.index('class="tools"')
-    assert page.text.index('class="tools"') < page.text.index('class="product-grid"')
-    assert "选择学习方式" in page.text
+    assert page.text.index('class="home-priority"') < page.text.index('class="home-tools"')
+    assert "选择工作区" in page.text
