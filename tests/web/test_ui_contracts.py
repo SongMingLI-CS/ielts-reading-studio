@@ -324,8 +324,9 @@ def test_navigation_is_grouped_with_a_label_per_group(client) -> None:
     page = client.get("/")
 
     assert page.text.count('class="nav-group"') == 3
-    for label in ("学习", "内容管理", "账户"):
+    for label in ("日常学习", "内容管理", "账户"):
         assert f'<span class="nav-label">{label}</span>' in page.text
+    assert '<details class="nav-more"' in page.text
     # 任务页此前没有任何入链，导航里必须有入口
     assert '<a href="/jobs"' in page.text
 

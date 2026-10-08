@@ -62,8 +62,22 @@ def test_practice_center_lists_completed_packages(client, completed_unit):
     assert completed_unit.package.passage.title in response.text
     assert f'/practice/{completed_unit.id}' in response.text
     assert "1 篇可练习" in response.text
-    assert "学习概览" in response.text
-    assert "私有存储" in response.text
+    assert "阅读篇目" in response.text
+    assert "学习概览" not in response.text
+
+
+def test_practice_center_prioritizes_saved_reading(client, completed_unit):
+    client.post(
+        f"/practice/{completed_unit.id}/save",
+        json={"attempt_id": "reading-spotlight", "answers": {"1": "water"}, "elapsed_seconds": 42},
+    )
+    response = client.get("/practice")
+    assert response.status_code == 200
+    assert 'class="continue-reading"' in response.text
+    assert f'href="/practice/{completed_unit.id}"' in response.text
+    assert "1 / 12 题已作答" in response.text
+    assert "继续第 2 题" in response.text
+    assert response.text.count(completed_unit.package.passage.title) == 1
 
 
 def test_submission_scores_normalized_exact_answers(client, completed_unit):
@@ -391,8 +405,8 @@ def test_practice_center_reports_attempt_history(client, completed_unit):
     response = client.get("/practice")
     assert response.status_code == 200
     assert "1 篇可练习" in response.text
-    assert "学习概览" in response.text
-    assert "私有存储" in response.text
+    assert "阅读篇目" in response.text
+    assert "学习概览" not in response.text
     assert "1 / 12" in response.text
     assert f"/practice/{completed_unit.id}/result/attempt-history" in response.text
 

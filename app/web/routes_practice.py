@@ -5,6 +5,7 @@ import io
 import re
 import unicodedata
 from datetime import UTC, datetime
+from math import ceil
 from typing import Annotated, Any
 from urllib.parse import quote
 from uuid import uuid4
@@ -128,10 +129,12 @@ def practice_library_context(
                 item_state = "submitted"
             else:
                 item_state = "empty"
+            source_label = re.split(r"\s*[(（]", corpus.name, maxsplit=1)[0].strip()
             items.append(
                 {
                     "unit": unit,
                     "corpus": corpus,
+                    "source_label": source_label or corpus.name,
                     "package": package,
                     "attempts": unit_attempts,
                     "latest_submitted": submitted[0] if submitted else None,
@@ -176,8 +179,36 @@ def practice_library_context(
         "new": sum(item["state"] == "empty" for item in items),
         "done": sum(item["state"] == "submitted" for item in items),
     }
+    active_drafts = [item for item in items if item["latest_draft"] is not None]
+    continue_item = max(
+        active_drafts,
+        key=lambda item: item["latest_draft"]["updated_at"],
+        default=None,
+    )
+    if continue_item is not None:
+        updated = continue_item["latest_draft"]["updated_at"]
+        continue_item["last_studied"] = updated.astimezone().strftime("%m月%d日 %H:%M")
+        progress = continue_item["draft"]
+        continue_item["progress_percent"] = round(
+            100 * progress["answered"] / progress["total"]
+        ) if progress and progress["total"] else 0
+        elapsed = continue_item["latest_draft"]["payload"].get("elapsed_seconds")
+        continue_item["remaining_minutes"] = (
+            ceil(elapsed * (progress["total"] - progress["answered"]) / progress["answered"] / 60)
+            if isinstance(elapsed, int)
+            and elapsed >= 60
+            and progress
+            and 0 < progress["answered"] < progress["total"]
+            else None
+        )
+    list_items = [
+        item for item in visible
+        if selected or needle or continue_item is None or item["unit"].id != continue_item["unit"].id
+    ]
     return {
         "items": visible,
+        "list_items": list_items,
+        "continue_item": continue_item,
         "total_items": len(items),
         "matched": len(visible),
         "query": query or "",
