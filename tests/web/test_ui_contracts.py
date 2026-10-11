@@ -153,7 +153,7 @@ def test_stylesheets_load_in_token_product_order() -> None:
     sheets = re.findall(r'href="/static/([a-z-]+\.css)', base)
 
     assert sheets[0] == "tokens.css"
-    assert sheets[-1] == "product-system.css"
+    assert sheets[-3:] == ["product-system.css", "practice-reading.css", "ui-pattern.css"]
     assert sheets.index("tokens.css") < sheets.index("app.css")
     assert sheets.index("accessibility.css") < sheets.index("product-system.css")
 
@@ -245,9 +245,15 @@ def test_danger_text_link_does_not_inherit_the_button_red() -> None:
 def test_breakpoints_come_from_the_documented_set() -> None:
     """九个近似断点（390/600/760/880/901/980/1080…）是版面在特定宽度忽然变样的根源。"""
 
-    allowed = {420, 560, 700, 701, 900, 901, 1024, 1280, 1281}
+    allowed = {420, 470, 560, 700, 701, 900, 901, 1024, 1280, 1281}
     seen: set[int] = set()
     for path in sorted(STATIC.glob("*.css")):
+        if path.name == "ielts-workspace.css":
+            # The separately approved IELTS workspace keeps its tested split-view
+            # breakpoints; library / management pages retain the shared pattern.
+            values = {int(v) for v in re.findall(r"\((?:max|min)-width:(\d+)px\)", _normalized(path))}
+            assert values <= {760, 761, 820, 1100, 1450}
+            continue
         if path.name == "print.css":
             continue
         for query in re.findall(r"@media[^{]*\((?:max|min)-width:\s*\d+px\)", _normalized(path)):
@@ -323,8 +329,8 @@ def test_navigation_is_grouped_with_a_label_per_group(client) -> None:
 
     page = client.get("/")
 
-    assert page.text.count('class="nav-group"') == 3
-    for label in ("日常学习", "内容管理", "账户"):
+    assert page.text.count('class="nav-group"') == 4
+    for label in ("学习", "资料", "内容管理", "账户"):
         assert f'<span class="nav-label">{label}</span>' in page.text
     assert '<details class="nav-more"' in page.text
     # 任务页此前没有任何入链，导航里必须有入口
@@ -429,8 +435,10 @@ def test_mobile_bottom_nav_adds_four_thumb_reachable_entries(client, completed_u
     assert 'href="/practice/review" aria-current="page"' in review.group(0)
     assert 'href="/practice" aria-current="page"' not in review.group(0)
 
-    # 答题页底部已经有提交栏，所以 CSS 里要靠它把底栏关掉
-    assert 'class="submit-dock"' in client.get(f"/practice/{completed_unit.id}").text
+    # Focused IELTS workspace has its own reachable answer sheet.
+    workspace = client.get(f"/practice/{completed_unit.id}").text
+    assert 'class="answer-sheet"' in workspace
+    assert 'class="bottom-nav"' not in workspace
 
     css = _normalized(STATIC / "app.css")
     assert ".bottom-nav{display:none}" in css

@@ -3,7 +3,7 @@
 <header class="preview-head">
   <p class="eyebrow">Mistake book</p>
   {% if in_review_hub %}<h2>错题本</h2>{% else %}<h1>错题本</h1>{% endif %}
-  <p class="lead">从 {{ attempt_count }} 次作答中回顾理解偏差。反复出错的题目排在前面，结合原文证据与中文解析重新思考。</p>
+  <p class="lead">反复出错的题目排在前面，结合原文证据再想一遍。</p>
 </header>
 
 <div class="practice-topbar">
@@ -18,6 +18,7 @@
 
 
 {% if type_stats %}
+<details class="review-insights"><summary>查看各题型的作答情况</summary>
 <ul class="stat-bars compact">
   {% for stat in type_stats %}
   <li>
@@ -26,6 +27,7 @@
   </li>
   {% endfor %}
 </ul>
+</details>
 {% endif %}
 
 {% if available_types %}
@@ -65,9 +67,9 @@
     </details>
     {% endif %}
     <nav class="sample-links">
-      <a href="/practice/{{ item.unit.id }}">重做这一篇</a>
+      <a href="/practice/{{ item.unit.id }}?fresh=1&amp;mode=study">重新练习这一篇</a>
       <a href="/practice/{{ item.unit.id }}/result/{{ item.attempt_id }}">当时的判分</a>
-      <a href="/practice/{{ item.unit.id }}/analysis?attempt={{ item.attempt_id }}#paragraph-{{ item.result.evidence_paragraph }}">回到原文该段</a>
+      <a data-analysis-link data-exam-url="/practice/{{ item.unit.id }}?mode=exam" href="/practice/{{ item.unit.id }}/analysis?attempt={{ item.attempt_id }}#paragraph-{{ item.result.evidence_paragraph }}">回到原文该段</a>
     </nav>
   </article>
 {% endfor %}
@@ -75,3 +77,6 @@
 {% else %}
 <div class="empty"><h2>还没有错题</h2><p>{% if attempt_count %}这个筛选下没有错题；换个题型看看。{% else %}做完一篇并提交后，错题会自动汇总到这里。{% endif %}</p><a class="button" href="/practice">去练习</a></div>
 {% endif %}
+
+<dialog id="analysis-dialog" aria-labelledby="analysis-title" aria-describedby="analysis-message"><h2 id="analysis-title">正在打开解析</h2><p id="analysis-message" role="status" aria-live="polite"></p><div class="dialog-actions"><button id="analysis-close">返回复盘</button><button id="analysis-retry" hidden>重试</button><a id="analysis-exam" hidden>返回限时练习</a></div></dialog>
+<script src="/static/practice-result.js?v=2"></script>

@@ -13,9 +13,12 @@ def _submit_wrong_answer(client, unit, attempt_id: str = "wrong-1") -> None:
 
 
 def _tab_counts(text: str) -> dict[str, str]:
-    return dict(
-        re.findall(r"tab=(\w+)\"[^>]*><span>[^<]+</span><strong>(\d+)</strong>", text)
-    )
+    return {
+        key: count or "0"
+        for key, count in re.findall(
+            r'tab=(\w+)"[^>]*><span>[^<]+</span>(?:<strong>(\d+)</strong>)?</a>', text
+        )
+    }
 
 
 def test_review_hub_opens_on_mistakes_and_counts_every_tab(
@@ -29,7 +32,7 @@ def test_review_hub_opens_on_mistakes_and_counts_every_tab(
     page = client.get("/practice/review")
 
     assert page.status_code == 200
-    assert "<h1>复习，让知识<br><span>真正留下来。</span></h1>" in page.text
+    assert "<h1>复习</h1>" in page.text
     # 三个标签的数量来自真实记录：错题按未答/答错累计，收藏词 1 个，到期词 0 个
     counts = _tab_counts(page.text)
     assert set(counts) == {"mistakes", "words", "due"}
@@ -158,4 +161,4 @@ def test_navigation_and_practice_lead_to_the_single_review_entry(
 
     practice = client.get("/practice")
     assert 'href="/practice/review?tab=mistakes"' in practice.text
-    assert 'href="/practice/review?tab=words"' in practice.text
+    assert 'href="/practice/review"' in practice.text

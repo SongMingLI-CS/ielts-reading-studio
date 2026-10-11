@@ -27,13 +27,14 @@ def test_practice_library_searches_in_the_title(client, completed_unit) -> None:
     assert title not in misses.text
 
 
-def test_practice_library_filters_by_progress_and_counts(
+def test_practice_library_filters_by_progress_without_dashboard_counts(
     client, web_service, completed_unit
 ) -> None:
     before = client.get("/practice")
-    assert "1 篇可练习" in before.text
-    assert "未开始<span>1</span>" in before.text
-    assert "已完成<span>0</span>" in before.text
+    assert "所有文章" in before.text
+    assert "1 篇可练习" not in before.text
+    assert 'href="/practice?state=new"' in before.text
+    assert "未开始" in before.text
 
     fresh = client.get("/practice?state=new")
     assert completed_unit.package.passage.title in fresh.text
@@ -49,9 +50,8 @@ def test_practice_library_filters_by_progress_and_counts(
     )
 
     after = client.get("/practice")
-    assert "已完成<span>1</span>" in after.text
-    assert "未开始<span>0</span>" in after.text
-    assert "看解析" in after.text
+    assert "查看结果" in after.text
+    assert "得分" in after.text
 
     only_done = client.get("/practice?state=done")
     assert completed_unit.package.passage.title in only_done.text
@@ -71,7 +71,7 @@ def test_practice_library_offers_continue_with_the_next_question(
     page = client.get("/practice")
 
     assert "继续第 2 题" in page.text
-    assert f"1 / {total} 题已作答" in page.text
+    assert f"已完成 1 / {total} 题" in page.text
     # 草稿链接不能带 ?fresh=1，那会清掉已写好的答案
     card = re.search(
         r'<section class="continue-reading".*?</section>',
@@ -124,8 +124,8 @@ def test_practice_library_prefers_a_newer_draft_over_an_older_score(
     assert "继续第 3 题" in card.group(0)
     assert "?fresh=1" not in card.group(0)
     assert "重做" not in card.group(0)
-    # 这一篇算"进行中"，而作答次数仍单独统计
-    assert "1 篇进行中" in page.text
+    # 当前进度在继续学习区域展示，不再展示首页统计数。
+    assert f"已完成 2 / {_question_count(completed_unit)} 题" in card.group(0)
     assert 'href="/practice/' + completed_unit.id + '/result/old-score"' not in card.group(0)
 
 

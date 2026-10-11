@@ -259,7 +259,7 @@ def test_page_explains_why_chapters_failed_not_just_how_many(client, web_service
     # 最近一次运行写清完成/失败，而不是笼统的「没有产出完整章节」
     assert "最近一次运行：《story》失败章节重试 · 完成 0 章、失败 3 章" in page.text
     # 被中断（崩溃恢复）的章节也要露出来，否则统计加起来对不上进度库的行数
-    assert "<strong>1</strong>待重试" in page.text
+    assert "1 章待重试" in page.text
 
 
 def test_failed_run_surfaces_the_reason_instead_of_looking_successful(client, web_service):

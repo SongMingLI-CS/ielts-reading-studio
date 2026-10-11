@@ -190,8 +190,8 @@ def test_job_index_paginates_long_task_lists(client, web_service, completed_unit
     first = client.get("/jobs")
     second = client.get("/jobs?page=2")
     assert first.status_code == second.status_code == 200
-    assert first.text.count('class="jobs-id"') == 25
-    assert second.text.count('class="jobs-id"') == 5
+    assert first.text.count('class="job-record"') == 25
+    assert second.text.count('class="job-record"') == 5
     assert 'href="/jobs?page=2"' in first.text
     assert 'href="/jobs?page=1"' in second.text
 

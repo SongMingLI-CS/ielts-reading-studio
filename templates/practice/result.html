@@ -1,24 +1,9 @@
-{% extends "base.html" %}
-{% block title %}{{ package.passage.title }} · 练习结果{% endblock %}
-{% block content %}
-<section class="result-hero">
-  <div class="result-copy">
-    <p class="eyebrow">练习结果</p>
-    <div class="result-heading"><h1>{{ package.passage.title }}</h1><div class="result-score" aria-label="答对 {{ correct }} 题，共 {{ total }} 题"><strong>{{ correct }}</strong><span>/ {{ total }} 题</span></div></div>
-    <div class="result-facts">
-      <span><strong>{{ accuracy }}%</strong> 正确率</span>
-      <span>用时 {{ minutes }} 分 {{ seconds }} 秒</span>
-      <span>{{ package.passage.difficulty.value|title }}</span>
-      <span>{{ total }} 题</span>
-      {% if attempt.status != 'submitted' %}<span class="warn-chip">本次作答尚未提交</span>{% endif %}
-    </div>
-    <div class="result-actions">
-      <a class="button" href="/practice/{{ package.unit.id }}?fresh=1">重做本篇</a>
-      <a class="button ghost" href="/practice/{{ package.unit.id }}/analysis?attempt={{ attempt_id }}">全篇解析（含词汇）</a>
-      <a class="button ghost" href="/practice">返回练习中心</a>
-    </div>
-    <p class="result-note">本次作答与成绩已保存，可在学习记录中回顾。</p>
-  </div>
-</section>
-{% include "partials/answer_review.html" %}
-{% endblock %}
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csrf-token" content="{{ csrf_token() }}"><title>{{ package.passage.title }} · 练习结果</title><link rel="stylesheet" href="/static/ielts-workspace.css?v=2"></head><body data-mode="{{ attempt.payload.get('mode', 'study') }}">
+<header class="appbar"><a href="/practice">← 阅读训练</a><span class="brand">Learning Studio</span><a href="/practice/review">错题复习 →</a></header>
+<section class="taskbar"><div><span class="eyebrow">{% if attempt.payload.get('timed_out') %}限时结束 · 已交卷{% else %}练习结果 · 已保存{% endif %}</span><h1>{{ package.passage.title }}</h1></div><div class="task-status"><span><strong>{{ correct }}</strong> / {{ total }} 题 · {{ accuracy }}%</span><span>用时 {{ minutes }} 分 {{ seconds }} 秒</span></div></section>
+<div class="mobile-pane-tabs" role="tablist" aria-label="复盘视图"><button role="tab" aria-selected="false" data-show-pane="reading">文章</button><button role="tab" aria-selected="true" data-show-pane="questions">解析</button></div>
+<main class="practice-shell result-workspace" data-mobile-pane="questions"><section class="passage-panel"><div class="panelbar"><strong>原文与证据</strong><span>{{ package.passage.word_count }} words</span></div><div class="passage-scroll" tabindex="0"><h2>{{ package.passage.title }}</h2>{% for paragraph in package.passage.paragraphs %}<div class="paragraph" id="paragraph-{{ paragraph.label }}"><b>{{ paragraph.label }}</b><p>{{ paragraph.text }}</p></div>{% endfor %}</div></section>
+<section class="questions-panel"><div class="panelbar"><strong>成绩与解析</strong><button id="wrong-only" aria-pressed="false">只看错题</button></div><div class="questions-scroll">{% for group in review %}<section class="question-group"><span class="range">Questions {{ group.questions[0].number }}–{{ group.questions[-1].number }}</span><h3>{{ group.label }}</h3>{% for q in group.questions %}<div class="question result-question" id="review-{{ q.number }}" data-correct="{{ 'true' if q.correct else 'false' }}"><div class="qline"><span class="qnum">{{ q.number }}</span><div class="qbody"><p>{{ q.prompt }}</p><div class="feedback"><p class="{{ 'correct' if q.correct else 'incorrect' }}">{{ '✓ 答对' if q.correct else '✗ 答错' }}</p><p>你的答案：{{ q.submitted if q.submitted else '未作答' }}<br>正确答案：<strong>{{ q.answer }}</strong></p>{% if q.acceptable_answers %}<p>同样算对：{{ q.acceptable_answers|join('、') }}</p>{% endif %}<blockquote>{{ q.evidence_quote }}</blockquote><p>{{ q.chinese_explanation }}</p>{% if q.distractor_explanations %}<details><summary>其余选项说明</summary>{% for option, note in q.distractor_explanations.items() %}<p><b>{{ option }}</b> {{ note }}</p>{% endfor %}</details>{% endif %}<button data-evidence="{{ q.evidence_paragraph }}">定位段落 {{ q.evidence_paragraph }}</button></div></div></div></div>{% endfor %}</section>{% endfor %}</div></section></main>
+<footer class="answer-sheet"><nav id="numbers" aria-label="解析题号">{% for group in review %}{% for q in group.questions %}<button class="{{ 'answered' if q.correct else 'wrong' }}" data-result="{{ q.number }}" aria-label="第 {{ q.number }} 题，{{ '答对' if q.correct else '答错' }}">{{ q.number }}</button>{% endfor %}{% endfor %}</nav><a class="reset" data-analysis-link data-exam-url="/practice/{{ package.unit.id }}?mode=exam" href="/practice/{{ package.unit.id }}/analysis?attempt={{ attempt_id }}">全篇解析（含词汇）</a><a class="primary" href="/practice/{{ package.unit.id }}?fresh=1&amp;mode={{ attempt.payload.get('mode', 'study') }}">重新练习</a></footer>
+<dialog id="analysis-dialog" aria-labelledby="analysis-title" aria-describedby="analysis-message"><h2 id="analysis-title">正在打开解析</h2><p id="analysis-message" role="status" aria-live="polite"></p><div class="dialog-actions"><button id="analysis-close">返回复盘</button><button id="analysis-retry" hidden>重试</button><a id="analysis-exam" hidden>返回限时练习</a></div></dialog>
+<script src="/static/practice-result.js?v=2"></script></body></html>

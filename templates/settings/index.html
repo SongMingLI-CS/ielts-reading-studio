@@ -1,13 +1,22 @@
 {% extends "base.html" %}
 {% block title %}设置 · Learning Studio{% endblock %}
 {% block content %}
-<section class="library-hero">
-  <div class="library-copy">
-    <p class="eyebrow">工作区设置</p>
-    <h1>模型与工作空间</h1>
-    <p class="lead">查看使用中的模型、用量限制与数据位置，也可以测试模型连接。此页只展示当前配置；修改服务器上的 <code>config.yaml</code> 或 <code>.env</code> 并重启后生效。</p>
+<div class="ls-page ls-settings">
+<header class="ls-heading"><h1>设置</h1><p>模型、访问与工作空间。当前配置只读，修改方式见页末。</p></header>
+{% for group in groups %}
+<section class="config-block">
+  <header class="config-head"><div><h2>{{ group.title }}</h2><p>{{ group.blurb }}</p></div></header>
+  <div class="settings-rows">
+    {% for row in group.rows %}
+    <div class="settings-row">
+      <span class="settings-name">{{ row.name }}</span>
+      <code class="settings-value">{{ row.value }}</code>
+      <span class="settings-note">{{ row.note }}</span>
+    </div>
+    {% endfor %}
   </div>
 </section>
+{% endfor %}
 <section class="connection-check" aria-labelledby="connection-title">
   <div>
     <h2 id="connection-title">连接检查</h2>
@@ -34,26 +43,12 @@
       <span class="secret-dot {{ 'ok' if secret.ok else 'bad' }}" aria-hidden="true"></span>
       <strong>{{ secret.name }}</strong>
       <span class="badge {{ 'status-practice' if secret.ok else 'status-review' }}">{{ secret.state }}</span>
-      <span class="muted">{{ secret.detail }}</span>
+      <details class="secret-source"><summary>查看配置来源</summary><p>{{ secret.detail }}</p></details>
     </div>
     {% endfor %}
   </div>
 </section>
 
-{% for group in groups %}
-<section class="config-block">
-  <header class="config-head"><div><h2>{{ group.title }}</h2><p>{{ group.blurb }}</p></div></header>
-  <div class="settings-rows">
-    {% for row in group.rows %}
-    <div class="settings-row">
-      <span class="settings-name">{{ row.name }}</span>
-      <code class="settings-value">{{ row.value }}</code>
-      <span class="settings-note">{{ row.note }}</span>
-    </div>
-    {% endfor %}
-  </div>
-</section>
-{% endfor %}
 
 <section class="config-block">
   <header class="config-head"><div><h2>占用空间</h2><p>数据都在服务器上，定期下载备份更安心。</p></div></header>
@@ -65,10 +60,13 @@
     </div>
     {% endfor %}
   </dl>
+  <details class="settings-maintenance"><summary>修改配置与备份说明</summary>
   <ul class="keep-list">
     <li>备份会把数据库、<code>output/</code> 与 <code>input/</code> 打成 zip，且<b>不包含</b>任何密钥文件。</li>
     <li>想换模型或调整并发、返工次数：改 <code>config.yaml</code> 后执行 <code>sudo systemctl restart ielts-reading-studio</code>。</li>
     <li>想换 API Key 或网页登录口令：改 <code>.env.web</code>（服务器专用）后同样重启服务。</li>
   </ul>
+</details>
 </section>
+</div>
 {% endblock %}
