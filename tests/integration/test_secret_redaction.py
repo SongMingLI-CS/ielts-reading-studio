@@ -10,13 +10,18 @@ from tests.agents.test_deepseek import FakeClient, FakeHTTPError
 from tests.fixtures.valid_generation import DeterministicProvider
 
 
-def test_sentinel_key_never_reaches_errors_database_or_outputs(tmp_path, caplog):
+def test_sentinel_key_never_reaches_errors_database_or_outputs(tmp_path, caplog, monkeypatch):
     sentinel = "sk-SENTINEL-DO-NOT-LEAK-123456"
+    # Use the sentinel regardless of an empty CI variable or a developer's real key.
+    # monkeypatch also restores the process environment after this test.
+    monkeypatch.setenv("DEEPSEEK_API_KEY", sentinel)
     env_path = tmp_path / ".env"
     env_path.write_text(f"DEEPSEEK_API_KEY={sentinel}\n", encoding="utf-8")
     config_path = tmp_path / "config.yaml"
     config_path.write_text("output_dir: output\ndatabase_path: output/state.db\n", encoding="utf-8")
     config = AppConfig.load(config_path, require_api_key=True)
+    assert config.deepseek_api_key is not None
+    assert config.deepseek_api_key.get_secret_value() == sentinel
     source = tmp_path / "source.txt"
     source.write_text(
         "第一章 开始\n" + "正文。" * 300 + "\n第二章 后续\n" + "后文。" * 300,

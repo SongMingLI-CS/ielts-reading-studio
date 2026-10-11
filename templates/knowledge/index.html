@@ -1,31 +1,11 @@
 {% extends "base.html" %}
 {% block title %}我的知识库 · Learning Studio{% endblock %}
 {% block content %}
-<section class="kn-hero">
-  <div class="kn-hero-copy">
-    <p class="eyebrow">KNOWLEDGE / COLLECTION</p>
-    <h1>我的知识库</h1>
-    <p class="lead">把读过的内容整理成可以回顾的知识：词汇、固定搭配和同义表达。
-      每条都有例句与出处，连接<b>阅读练习</b>和<b>语境阅读</b>中的学习积累。
-      目前收录英语词汇与表达，技术概念笔记将在文档阅读模式中扩展。
-    </p>
-    <div class="kn-hero-actions">
-      <a class="button" href="/knowledge?{{ base_query }}&size=200" >本页全部展开</a>
-      <a class="button ghost" href="/knowledge/print?{{ base_query }}">打印 / 存 PDF</a>
-      <a class="button ghost" href="/knowledge/export.md?{{ base_query }}">导出 Markdown</a>
-    </div>
-  </div>
-  <dl class="kn-totals">
-    <div><dt>词条</dt><dd>{{ digest.stats.terms }}</dd><small>其中固定搭配/短语 {{ digest.stats.phrase_terms }}</small></div>
-    <div><dt>固定搭配</dt><dd>{{ digest.stats.collocations }}</dd><small>可集中记的搭配条目</small></div>
-    <div><dt>同义替换线索</dt><dd>{{ digest.stats.paraphrase }}</dd><small>来自阅读题的题干与原文</small></div>
-    <div><dt>来源</dt><dd>{{ digest.stats.reading_units + digest.stats.novel_chapters }}</dd><small>阅读 {{ digest.stats.reading_units }} 篇 · 小说 {{ digest.stats.novel_chapters }} 章</small></div>
-  </dl>
-  <p class="kn-totals-note">
-    复现 ≥2 次的词 {{ digest.stats.repeated }} 个 · 阅读与小说都出现的 {{ digest.stats.both_sources }} 个 ·
-    带音标的 {{ digest.stats.with_phonetic }} 个
-  </p>
-</section>
+<div class="ls-page ls-knowledge">
+<header class="ls-heading">
+  <h1>知识库</h1>
+  <p class="lead">查找读过的词汇、搭配与同义表达，回到它们的例句和出处。</p>
+</header>
 
 {% if not digest.stats.novel_available %}
 <p class="kn-note">
@@ -39,17 +19,21 @@
   <a class="kn-view{% if digest.view == view %} active{% endif %}"
      href="/knowledge?{{ view_queries[view] }}">
     <span class="kn-view-label">{{ label }}</span>
-    <span class="kn-view-count">{{ digest.view_counts[view] }}</span>
   </a>
   {% endfor %}
 </nav>
 
 <form class="kn-filter" method="get" action="/knowledge" data-autosubmit>{{ csrf_field() }}
   <input type="hidden" name="view" value="{{ digest.view }}">
-  <label class="kn-search">
+  <div class="kn-search-row"><label class="kn-search">
     <span>搜索</span>
     <input type="search" name="q" value="{{ filters.q }}" placeholder="词、中文释义、搭配、例句…">
   </label>
+  <div class="kn-filter-actions">
+    <button type="submit">搜索</button>
+    <a class="kn-reset" href="/knowledge?view={{ digest.view }}">重置</a>
+  </div></div>
+  <details class="kn-advanced"{% if filters.source != 'all' or filters.level != 'all' or filters.kind != 'all' or filters.pos != 'all' or filters.sort != 'alpha' or filters.has_collocation or filters.repeats or filters.meanings %} open{% endif %}><summary>筛选与排序</summary><div class="kn-advanced-fields">
   <label>
     <span>来源</span>
     <select name="source">
@@ -101,10 +85,7 @@
   <label class="kn-check"><input type="checkbox" name="repeats" value="true"{% if filters.repeats %} checked{% endif %}> 只看复现 ≥2 次</label>
   {% endif %}
   <label class="kn-check"><input type="checkbox" name="meanings" value="true"{% if filters.meanings %} checked{% endif %}> 只看有释义</label>
-  <div class="kn-filter-actions">
-    <button type="submit">应用筛选</button>
-    <a class="kn-reset" href="/knowledge?view={{ digest.view }}">重置</a>
-  </div>
+  </div></details>
 </form>
 
 <div class="kn-results-summary">
@@ -160,11 +141,13 @@
 </nav>
 {% endif %}
 
-<p class="kn-foot-note">
-  数据来源：<code>output/packages/*.json</code> 的已校验篇目与 <code>output/context-novel/</code> 的小说术语库，
-  全部由本地整理，不额外调用模型。
-  <a href="/practice/review?tab=words">复习 · 生词本</a>保留收藏、标记与导出，<a href="/vocabulary">词汇记忆</a>用于按词性/词族浏览与间隔复习。
-</p>
+<details class="kn-tools"><summary>整理与导出</summary><div class="kn-hero-actions">
+  <a href="/knowledge?{{ base_query }}&size=200">每页显示更多</a>
+  <a href="/knowledge/print?{{ base_query }}">打印 / 存 PDF</a>
+  <a href="/knowledge/export.md?{{ base_query }}">导出 Markdown</a>
+  <a href="/practice/review?tab=words">去生词本</a>
+</div></details>
+</div>
 {% endblock %}
 
 {% block scripts %}

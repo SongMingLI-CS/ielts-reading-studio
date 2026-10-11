@@ -3,7 +3,7 @@
 <header class="preview-head">
   <p class="eyebrow">Vocabulary</p>
   {% if in_review_hub %}<h2>生词本</h2>{% else %}<h1>生词本</h1>{% endif %}
-  <p class="lead">收藏阅读中值得记住的词，结合例句与搭配巩固用法。词汇按出现篇数排列，可标记「收藏」或「已掌握」，也可导出 CSV。</p>
+  <p class="lead">结合例句和搭配，回顾阅读中值得记住的词。</p>
 </header>
 
 <div class="practice-topbar">
@@ -18,12 +18,6 @@
 </div>
 
 
-
-<dl class="preview-facts">
-  <div><dt>全部词条</dt><dd>{{ total }}</dd></div>
-  <div><dt>已收藏</dt><dd>{{ saved_count }}</dd></div>
-  <div><dt>已掌握</dt><dd>{{ known_count }}</dd></div>
-</dl>
 
 <div class="filter-row">
   <a class="filter-chip {{ 'active' if not selected_scope }}" href="{{ base_url }}">全部</a>

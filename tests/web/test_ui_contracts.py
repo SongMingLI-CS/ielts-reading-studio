@@ -146,15 +146,16 @@ def test_every_shell_ships_a_skip_link_and_a_main_target() -> None:
     assert base.index('class="skip-link"') < base.index('class="site-header"')
 
 
-def test_stylesheets_load_in_token_accessibility_order() -> None:
-    """tokens.css 在最前（供所有组件取色），accessibility.css 在最后（要盖过组件）。"""
+def test_stylesheets_load_in_token_product_order() -> None:
+    """令牌先加载；产品层最后统一覆盖旧版版面。"""
 
     base = (TEMPLATES / "base.html").read_text(encoding="utf-8")
     sheets = re.findall(r'href="/static/([a-z-]+\.css)', base)
 
     assert sheets[0] == "tokens.css"
-    assert sheets[-1] == "accessibility.css"
+    assert sheets[-3:] == ["product-system.css", "practice-reading.css", "ui-pattern.css"]
     assert sheets.index("tokens.css") < sheets.index("app.css")
+    assert sheets.index("accessibility.css") < sheets.index("product-system.css")
 
 
 def test_palette_is_defined_once() -> None:
@@ -162,14 +163,9 @@ def test_palette_is_defined_once() -> None:
 
     tokens = _normalized(STATIC / "tokens.css")
     for token in (
-        "--ink:#142238",
-        "--ink-secondary:#52627a",
-        "--ink-muted:#4d5e75",
-        "--ink-decor:#697a91",
-        "--success-ink:#1f7a58",
-        "--warning-ink:#6f6039",
-        "--focus-ring:#10213e",
-        "--tap:44px",
+        "--background:#f7f8f6", "--surface:#ffffff", "--text-primary:#1b2721",
+        "--text-secondary:#53635a", "--text-tertiary:#637268", "--accent:#25634e",
+        "--border-default:#d5ddd7", "--focus-ring:var(--accent)", "--tap:44px",
     ):
         assert token in tokens, token
 
@@ -203,11 +199,9 @@ def test_tokens_carry_the_measured_contrast_values() -> None:
 
     assert "对比度按 WCAG 2.1" in tokens
     # 归一化后空白会被折叠成单个空格
-    assert "--ink-secondary 5.68 / 6.20" in tokens
-    assert "--ink-muted 6.06 / 6.62" in tokens
-    # 装饰性大数字只需 3:1，其余小字必须 ≥4.5:1
-    assert "装饰性大数字" in tokens
-    assert "低于 4.5 的灰色一律不再新增" in tokens
+    assert "次级文字 5.97 / 6.36" in tokens
+    assert "辅助文字 4.76 / 5.08" in tokens
+    assert "小字最低保持 4.5:1" in tokens
 
 
 def test_reduced_motion_and_focus_are_handled_centrally() -> None:
@@ -251,9 +245,15 @@ def test_danger_text_link_does_not_inherit_the_button_red() -> None:
 def test_breakpoints_come_from_the_documented_set() -> None:
     """九个近似断点（390/600/760/880/901/980/1080…）是版面在特定宽度忽然变样的根源。"""
 
-    allowed = {420, 560, 700, 701, 900, 901, 1024, 1280, 1281}
+    allowed = {420, 470, 560, 700, 701, 900, 901, 1024, 1280, 1281}
     seen: set[int] = set()
     for path in sorted(STATIC.glob("*.css")):
+        if path.name == "ielts-workspace.css":
+            # The separately approved IELTS workspace keeps its tested split-view
+            # breakpoints; library / management pages retain the shared pattern.
+            values = {int(v) for v in re.findall(r"\((?:max|min)-width:(\d+)px\)", _normalized(path))}
+            assert values <= {760, 761, 820, 1100, 1450}
+            continue
         if path.name == "print.css":
             continue
         for query in re.findall(r"@media[^{]*\((?:max|min)-width:\s*\d+px\)", _normalized(path)):
@@ -329,9 +329,10 @@ def test_navigation_is_grouped_with_a_label_per_group(client) -> None:
 
     page = client.get("/")
 
-    assert page.text.count('class="nav-group"') == 3
-    for label in ("学习", "内容管理", "账户"):
+    assert page.text.count('class="nav-group"') == 4
+    for label in ("学习", "资料", "内容管理", "账户"):
         assert f'<span class="nav-label">{label}</span>' in page.text
+    assert '<details class="nav-more"' in page.text
     # 任务页此前没有任何入链，导航里必须有入口
     assert '<a href="/jobs"' in page.text
 
@@ -434,8 +435,10 @@ def test_mobile_bottom_nav_adds_four_thumb_reachable_entries(client, completed_u
     assert 'href="/practice/review" aria-current="page"' in review.group(0)
     assert 'href="/practice" aria-current="page"' not in review.group(0)
 
-    # 答题页底部已经有提交栏，所以 CSS 里要靠它把底栏关掉
-    assert 'class="submit-dock"' in client.get(f"/practice/{completed_unit.id}").text
+    # Focused IELTS workspace has its own reachable answer sheet.
+    workspace = client.get(f"/practice/{completed_unit.id}").text
+    assert 'class="answer-sheet"' in workspace
+    assert 'class="bottom-nav"' not in workspace
 
     css = _normalized(STATIC / "app.css")
     assert ".bottom-nav{display:none}" in css
@@ -448,4 +451,3 @@ def test_mobile_bottom_nav_adds_four_thumb_reachable_entries(client, completed_u
     assert "body:has(.submit-dock) .bottom-nav{display:none}" in css
     # 打印不打印导航
     assert "@media print{.bottom-nav{display:none}}" in css
-

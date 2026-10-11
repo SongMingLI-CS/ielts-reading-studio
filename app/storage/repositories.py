@@ -660,6 +660,40 @@ class Repository:
         with self.database.engine.begin() as connection:
             connection.execute(statement)
 
+    def mutate_practice_attempt(self, attempt_id: str, unit_id: str, change):
+        """Serialize attempt transitions, including deadline and revision checks.
+
+        SQLite's write reservation is acquired before reading; competing workers
+        cannot both accept the same revision. No schema migration is needed.
+        """
+        with self.database.engine.connect() as connection:
+            connection.exec_driver_sql("BEGIN IMMEDIATE")
+            try:
+                row = connection.execute(select(practice_attempts).where(
+                    practice_attempts.c.id == attempt_id
+                )).mappings().one_or_none()
+                current = _practice_attempt(row) if row is not None else None
+                values = change(current)
+                if values is not None:
+                    if current is None:
+                        values["payload"] = _payload(values["payload"])
+                        connection.execute(insert(practice_attempts).values(
+                            id=attempt_id, unit_id=unit_id, **values,
+                        ))
+                    else:
+                        values["payload"] = _payload(values["payload"])
+                        connection.execute(update(practice_attempts).where(
+                            practice_attempts.c.id == attempt_id
+                        ).values(**values, updated_at=func.now()))
+                saved = connection.execute(select(practice_attempts).where(
+                    practice_attempts.c.id == attempt_id
+                )).mappings().one()
+                connection.commit()
+                return _practice_attempt(saved)
+            except Exception:
+                connection.rollback()
+                raise
+
     def get_practice_attempt(self, attempt_id: str) -> dict[str, Any] | None:
         with self.database.engine.connect() as connection:
             row = connection.execute(

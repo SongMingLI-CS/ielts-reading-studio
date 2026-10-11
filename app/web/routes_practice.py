@@ -3,8 +3,10 @@ from __future__ import annotations
 import csv
 import io
 import re
+import time
 import unicodedata
 from datetime import UTC, datetime
+from math import ceil
 from typing import Annotated, Any
 from urllib.parse import quote
 from uuid import uuid4
@@ -28,6 +30,7 @@ from .schemas import (
     AnswerResult,
     PracticeResult,
     PracticeSaveResult,
+    PracticeStart,
     PracticeSubmission,
 )
 from .templating import templates
@@ -128,10 +131,12 @@ def practice_library_context(
                 item_state = "submitted"
             else:
                 item_state = "empty"
+            source_label = re.split(r"\s*[(（]", corpus.name, maxsplit=1)[0].strip()
             items.append(
                 {
                     "unit": unit,
                     "corpus": corpus,
+                    "source_label": source_label or corpus.name,
                     "package": package,
                     "attempts": unit_attempts,
                     "latest_submitted": submitted[0] if submitted else None,
@@ -176,8 +181,36 @@ def practice_library_context(
         "new": sum(item["state"] == "empty" for item in items),
         "done": sum(item["state"] == "submitted" for item in items),
     }
+    active_drafts = [item for item in items if item["latest_draft"] is not None]
+    continue_item = max(
+        active_drafts,
+        key=lambda item: item["latest_draft"]["updated_at"],
+        default=None,
+    )
+    if continue_item is not None:
+        updated = continue_item["latest_draft"]["updated_at"]
+        continue_item["last_studied"] = updated.astimezone().strftime("%m月%d日 %H:%M")
+        progress = continue_item["draft"]
+        continue_item["progress_percent"] = round(
+            100 * progress["answered"] / progress["total"]
+        ) if progress and progress["total"] else 0
+        elapsed = continue_item["latest_draft"]["payload"].get("elapsed_seconds")
+        continue_item["remaining_minutes"] = (
+            ceil(elapsed * (progress["total"] - progress["answered"]) / progress["answered"] / 60)
+            if isinstance(elapsed, int)
+            and elapsed >= 60
+            and progress
+            and 0 < progress["answered"] < progress["total"]
+            else None
+        )
+    list_items = [
+        item for item in visible
+        if selected or needle or continue_item is None or item["unit"].id != continue_item["unit"].id
+    ]
     return {
         "items": visible,
+        "list_items": list_items,
+        "continue_item": continue_item,
         "total_items": len(items),
         "matched": len(visible),
         "query": query or "",
@@ -677,12 +710,30 @@ def practice_session(
     unit_id: str,
     service: Annotated[ReadingStudioService, Depends(get_service)],
     fresh: int = 0,
+    mode: str | None = None,
+    attempt: str | None = None,
 ):
     package = _completed_package(service, unit_id)
     attempts = service.repository.list_practice_attempts(unit_id)
-    draft = next(
-        (attempt for attempt in attempts if attempt["status"] == "in_progress"), None
+    latest_draft = next((item for item in attempts if item["status"] == "in_progress"), None)
+    mode = mode if mode in {"study", "exam"} else (
+        latest_draft["payload"].get("mode", "study") if mode is None and latest_draft else "study"
     )
+    if attempt:
+        chosen = service.repository.get_practice_attempt(attempt)
+        if not chosen or chosen["unit_id"] != unit_id:
+            raise HTTPException(404, "Attempt not found")
+        if chosen["status"] == "submitted":
+            return RedirectResponse(f"/practice/{unit_id}/result/{attempt}", status_code=303)
+        mode = chosen["payload"].get("mode", "study")
+    else:
+        chosen = None
+    draft = chosen or next((item for item in attempts
+        if item["status"] == "in_progress" and item["payload"].get("mode", "study") == mode), None)
+    if draft and not fresh:
+        draft = _transition(service, package, draft["id"], "state")
+        if draft["status"] == "submitted":
+            return RedirectResponse(f"/practice/{unit_id}/result/{draft['id']}", status_code=303)
     submitted = next(
         (attempt for attempt in attempts if attempt["status"] == "submitted"), None
     )
@@ -701,6 +752,7 @@ def practice_session(
         {
             "package": package,
             "attempt_id": attempt_id,
+            "form_attempt_id": attempt_id or uuid4().hex,
             "saved_answers": saved_answers,
             "resume_seconds": resume_seconds,
             "paragraph_labels": [
@@ -708,6 +760,11 @@ def practice_session(
             ],
             "latest_submitted": submitted,
             "question_type_labels": QUESTION_TYPE_LABELS,
+            "mode": mode,
+            "session_state": _public_state(draft) if draft and not fresh else None,
+            "option_token": _leading_token,
+            "display_instructions": _display_instructions,
+            "multiple_choice_count": _multiple_choice_count,
         },
     )
 
@@ -793,66 +850,123 @@ def _type_accuracy(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def _multiple_choice_count(instructions: str) -> int:
+    match = re.search(r"(?i)choose\s+(two|three|2|3)\b", instructions)
+    return {"two": 2, "three": 3, "2": 2, "3": 3}.get(match.group(1).lower(), 1) if match else 1
+
+
+def _display_instructions(group) -> str:
+    """Correct stale printed ranges from actual question numbers, display only."""
+    first, last = group.questions[0].number, group.questions[-1].number
+    return re.sub(r"(?i)(boxes|questions)\s+\d+\s*[–−-]\s*\d+",
+                  lambda match: f"{match.group(1)} {first}–{last}", group.instructions)
+
+
+def _public_state(attempt: dict) -> dict:
+    payload = attempt["payload"]
+    return {
+        "attempt_id": attempt["id"], "status": attempt["status"],
+        "revision": payload.get("revision", 0), "mode": payload.get("mode", "study"),
+        "deadline": payload.get("deadline"), "server_time": time.time(),
+        "answers": payload.get("answers", {}), "ui": payload.get("ui", {}),
+        "elapsed_seconds": payload.get("elapsed_seconds") or 0,
+        "redirect_url": (f"/practice/{attempt['unit_id']}/result/{attempt['id']}"
+                         if attempt["status"] == "submitted" else None),
+    }
+
+
+def _transition(service, package, attempt_id, action, submission=None, start=None):
+    """One transaction owns revision, deadline and terminal submission state.
+
+    Grading continues to use the existing production scorer. Expired exams grade
+    the last server-acknowledged answers, never a late browser payload.
+    """
+    def change(current):
+        if current and current["unit_id"] != package.unit.id:
+            raise HTTPException(409, "Attempt belongs to another passage")
+        if current and current["status"] == "submitted":
+            if action == "save":
+                raise HTTPException(409, {"code": "submitted", "message": "本次练习已提交，请查看成绩"})
+            return None
+        if action == "state" and current is None:
+            raise HTTPException(404, "Attempt not found")
+        now = time.time()
+        payload = dict(current["payload"]) if current else {
+            "answers": {}, "elapsed_seconds": 0, "revision": 0, "mode": "study",
+        }
+        expired = payload.get("mode") == "exam" and payload.get("deadline") is not None and now >= payload["deadline"]
+        if action == "start" and current:
+            return None
+        if action == "state" and not expired:
+            return None
+        if not expired and submission:
+            revision = payload.get("revision", 0)
+            # Legacy records without revisions can be resumed once. New state
+            # requires its revision; an old tab cannot silently overwrite it.
+            if current and "revision" in payload and submission.revision != revision:
+                raise HTTPException(409, {"code": "revision_conflict", "message": "另一页面已更新本次练习。请重新加载服务器草稿；本页未保存内容仍保留在页面中。"})
+            payload["answers"] = submission.answers
+            payload["elapsed_seconds"] = submission.elapsed_seconds
+            if submission.ui is not None:
+                payload["ui"] = submission.ui.model_dump()
+        if start:
+            payload["mode"] = start.mode
+            if start.mode == "exam":
+                payload.update(started_at=now, deadline=now + start.minutes * 60, duration_seconds=start.minutes * 60)
+        submitted = expired or action == "submit"
+        payload["revision"] = payload.get("revision", 0) + 1
+        if payload.get("mode") == "exam":
+            payload["elapsed_seconds"] = min(payload["duration_seconds"], max(0, int(now - payload["started_at"])))
+        values = {"status": "submitted" if submitted else "in_progress", "payload": payload, "score": None, "total": None}
+        if submitted:
+            results, correct = _score_submission(package, payload.get("answers", {}))
+            values.update(score=correct, total=len(results))
+            payload["submitted_at"] = now
+            payload["timed_out"] = expired
+        return values
+    return service.repository.mutate_practice_attempt(attempt_id, package.unit.id, change)
+
+
+@router.post("/practice/{unit_id}/start")
+def start_practice(unit_id: str, start: PracticeStart,
+                   service: Annotated[ReadingStudioService, Depends(get_service)]):
+    package = _completed_package(service, unit_id)
+    return _public_state(_transition(service, package, start.attempt_id, "start", start=start))
+
+
+@router.get("/practice/{unit_id}/state/{attempt_id}")
+def practice_state(unit_id: str, attempt_id: str, response: Response,
+                   service: Annotated[ReadingStudioService, Depends(get_service)]):
+    package = _completed_package(service, unit_id)
+    response.headers["Cache-Control"] = "no-store"
+    return _public_state(_transition(service, package, attempt_id, "state"))
+
+
 @router.post("/practice/{unit_id}/save", response_model=PracticeSaveResult)
-def save_practice(
-    unit_id: str,
-    submission: PracticeSubmission,
-    service: Annotated[ReadingStudioService, Depends(get_service)],
-):
-    _completed_package(service, unit_id)
-    attempt_id = submission.attempt_id or uuid4().hex
-    service.repository.save_practice_attempt(
-        attempt_id,
-        unit_id,
-        status="in_progress",
-        payload={
-            "answers": submission.answers,
-            "elapsed_seconds": submission.elapsed_seconds,
-        },
-    )
-    return PracticeSaveResult(attempt_id=attempt_id)
+def save_practice(unit_id: str, submission: PracticeSubmission,
+                  service: Annotated[ReadingStudioService, Depends(get_service)]):
+    package = _completed_package(service, unit_id)
+    attempt = _transition(service, package, submission.attempt_id or uuid4().hex, "save", submission)
+    return PracticeSaveResult(**_public_state(attempt))
 
 
 @router.post("/practice/{unit_id}/submit")
-async def submit_practice(
-    request: Request,
-    unit_id: str,
-    service: Annotated[ReadingStudioService, Depends(get_service)],
-):
-    """Score one attempt and store it.
-
-    A JSON body (used by the page script) receives the full result payload, while
-    a form body (the plain HTML form, used when JavaScript is unavailable)
-    redirects to the server-rendered result page. Both paths persist the attempt,
-    so submitting an answer can never be silently lost.
-    """
+async def submit_practice(request: Request, unit_id: str,
+                          service: Annotated[ReadingStudioService, Depends(get_service)]):
     package = _completed_package(service, unit_id)
     submission, is_form = await _read_submission(request)
-    results, correct_count = _score_submission(package, submission.answers)
-    attempt_id = submission.attempt_id or uuid4().hex
-    service.repository.save_practice_attempt(
-        attempt_id,
-        unit_id,
-        status="submitted",
-        score=correct_count,
-        total=len(results),
-        payload={
-            "answers": submission.answers,
-            "elapsed_seconds": submission.elapsed_seconds,
-        },
-    )
+    if is_form and (await request.form()).get("mode") == "exam":
+        existing = service.repository.get_practice_attempt(submission.attempt_id or "")
+        if not existing or existing["payload"].get("mode") != "exam":
+            raise HTTPException(409, "请启用 JavaScript 并开始服务器限时训练后交卷")
+    attempt = _transition(service, package, submission.attempt_id or uuid4().hex, "submit", submission)
+    payload = attempt["payload"]
+    results, correct_count = _score_submission(package, payload.get("answers", {}))
+    url = f"/practice/{unit_id}/result/{attempt['id']}"
     if is_form:
-        return RedirectResponse(
-            f"/practice/{unit_id}/result/{attempt_id}", status_code=303
-        )
-    return PracticeResult(
-        attempt_id=attempt_id,
-        correct=correct_count,
-        total=len(results),
-        elapsed_seconds=submission.elapsed_seconds,
-        redirect_url=f"/practice/{unit_id}/result/{attempt_id}",
-        results=results,
-    )
+        return RedirectResponse(url, status_code=303)
+    return PracticeResult(attempt_id=attempt["id"], correct=correct_count, total=len(results),
+                          elapsed_seconds=payload.get("elapsed_seconds"), redirect_url=url, results=results)
 
 
 @router.get("/practice/{unit_id}/result/{attempt_id}")
@@ -866,6 +980,8 @@ def practice_result(
     attempt = service.repository.get_practice_attempt(attempt_id)
     if attempt is None or attempt["unit_id"] != unit_id:
         raise HTTPException(status_code=404, detail="Attempt not found")
+    if attempt["status"] != "submitted":
+        raise HTTPException(409, "Submit this attempt before viewing its answers")
     payload = attempt["payload"]
     answers = payload.get("answers") or {}
     results, correct_count = _score_submission(package, answers)
@@ -898,6 +1014,11 @@ def practice_analysis(
     attempt: str | None = None,
 ):
     package = _completed_package(service, unit_id)
+    for active in service.repository.list_practice_attempts(unit_id):
+        if active["status"] == "in_progress" and active["payload"].get("mode") == "exam":
+            active = _transition(service, package, active["id"], "state")
+            if active["status"] != "submitted":
+                raise HTTPException(409, "考试进行中，交卷后才能查看解析")
     evidence_labels = {
         question.evidence_paragraph
         for group in package.question_groups
@@ -980,12 +1101,15 @@ async def _read_submission(request: Request) -> tuple[PracticeSubmission, bool]:
             raise HTTPException(status_code=422, detail="JSON body must be an object")
         return PracticeSubmission.model_validate(body), False
     form = await request.form()
-    answers: dict[str, str] = {}
+    answers: dict[str, str | list[str]] = {}
     for key, value in form.multi_items():
         if len(key) > 1 and key.startswith("q") and key[1:].isdigit():
             text = value if isinstance(value, str) else ""
             if text.strip():
-                answers[key[1:]] = text
+                number = key[1:]
+                previous = answers.get(number)
+                answers[number] = ([*previous, text] if isinstance(previous, list)
+                                   else [previous, text] if previous is not None else text)
     elapsed_raw = str(form.get("elapsed_seconds") or "").strip()
     attempt_id = str(form.get("attempt_id") or "").strip()
     return (
@@ -993,6 +1117,7 @@ async def _read_submission(request: Request) -> tuple[PracticeSubmission, bool]:
             attempt_id=attempt_id[:100] or None,
             answers=answers,
             elapsed_seconds=int(elapsed_raw) if elapsed_raw.isdigit() else None,
+            revision=int(str(form.get("revision"))) if str(form.get("revision", "")).isdigit() else None,
         ),
         True,
     )

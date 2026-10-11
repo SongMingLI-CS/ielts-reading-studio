@@ -1,61 +1,25 @@
-/* ---------------------------------------------------------------------------
-   设计令牌：颜色、触控尺寸、动效与断点。
-   这个文件在其他样式表之前加载，是可调色板的唯一来源——组件里出现的
-   var(--ink-muted) 之类的名字都由这里定义，改一处即可全站生效。
-
-   对比度按 WCAG 2.1 相对亮度公式计算，括号内是实测值（浅色底 #f2f5fb / #fff）：
-     --ink           14.62 / 15.96
-     --ink-secondary  5.68 / 6.20   次级正文（段落、说明）
-     --ink-muted      6.06 / 6.62   小字标签、表头、脚注
-     --ink-decor      4.01 / 4.38   装饰性大数字（24px 以上，阈值是 3:1）
-     --success-ink    4.78（on #edf6f2）
-     --warning-ink    6.16（on #fff）
-     --danger-ink     7.44（on #f2f5fb）
-   低于 4.5 的灰色一律不再新增：字面量色值只能从这里取。
-   --------------------------------------------------------------------------- */
+/* Learning Studio design system. Legacy aliases below keep older components consistent.
+   对比度按 WCAG 2.1 相对亮度公式，在背景 / 白色表面上实测：
+   主文字 14.51 / 15.46，次级文字 5.97 / 6.36，辅助文字 4.76 / 5.08，
+   操作强调 6.63 / 7.06。小字最低保持 4.5:1。
+   断点约定：--bp-xs 420px, --bp-sm 560px, --bp-md 700px,
+   --bp-lg 900px, --bp-xl 1024px, --bp-2xl 1280px。 */
 :root{
-  /* 文字 */
-  --ink:#142238;
-  --ink-secondary:#52627a;
-  --ink-muted:#4d5e75;
-  --ink-decor:#697a91;
-  --success-ink:#1f7a58;
-  --warning-ink:#6f6039;
-  --danger-ink:#8f2f13;
-  /* 品牌与表面：旧组件保留变量名，共用蓝色科技调色板 */
-  --forest:#10213e;
-  --green:#2459cc;
-  --mint:#e6efff;
-  --cream:#f8faff;
-  --canvas:#f2f5fb;
-  --surface:#ffffff;
-  --accent:#066c7f;
-  --accent-soft:#e6f5f8;
-  --header-ink:#e8f0ff;
-  --header-muted:#adc1df;
+  --background:#f7f8f6;--surface:#ffffff;--surface-hover:#f1f4f2;--surface-selected:#e8f0ec;
+  --border-subtle:#e7ebe8;--border-default:#d5ddd7;--border-strong:#aebcb2;
+  --text-primary:#1b2721;--text-secondary:#53635a;--text-tertiary:#637268;
+  --accent:#25634e;--accent-hover:#194b3b;--accent-soft:#e8f1eb;
+  --success:#25704f;--warning:#8c621f;--danger:#a4423a;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-8:32px;--space-10:40px;--space-12:48px;
+  --radius-small:4px;--radius-medium:8px;--radius-large:12px;
+  --type-display:clamp(30px,3.2vw,42px);--type-h1:30px;--type-h2:21px;--type-h3:16px;
+  --type-body:15px;--type-small:13px;--type-label:12px;--type-caption:12px;--type-metadata:11px;
   --font-ui:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
   --font-code:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
-  --line:#d9e2f1;
-  --orange:#df7049;
-  /* 焦点：深蓝实线 + 浅色外环，深浅底都看得见（2.4.11 需要 ≥3:1） */
-  --focus-ring:#10213e;
-  --focus-width:3px;
-  --focus-offset:2px;
-  --focus-halo:#ffffff;
-  /* 触控：可点区域的统一下限（Apple HIG / Material 都用 44px 这一档） */
-  --tap:44px;
-  /* 动效：过渡时长与曲线集中取值，减少动态效果时统一归零 */
-  --motion-fast:.15s;
-  --motion-base:.2s;
-  --motion-ease:cubic-bezier(.2,.7,.3,1);
+  --ink:var(--text-primary);--ink-secondary:var(--text-secondary);--ink-muted:var(--text-tertiary);--ink-decor:var(--text-tertiary);
+  --success-ink:var(--success);--warning-ink:var(--warning);--danger-ink:var(--danger);
+  --forest:#243e34;--green:var(--accent);--mint:var(--accent-soft);--cream:#fbfcfa;--canvas:var(--background);
+  --header-ink:var(--text-primary);--header-muted:var(--text-secondary);--line:var(--border-default);--orange:var(--warning);
+  --focus-ring:var(--accent);--focus-width:2px;--focus-offset:2px;--focus-halo:#fff;--tap:44px;
+  --motion-fast:.12s;--motion-base:.18s;--motion-ease:ease-out;
 }
-/* 断点（CSS 变量不能用在 media 查询里，这里只作约定，改版时按这套对齐）：
-     --bp-xs   420px  窄手机：单列、隐藏次要说明
-     --bp-sm   560px  手机：紧凑 hero、概览压成一行
-     --bp-md   700px  手机横屏 / 大手机：底栏出现、库工具栏隐藏
-     --bp-lg   900px  平板：双栏塌成单列，触控尺寸补到 44px
-     --bp-xl  1024px  小笔记本：多列容器收成两列或一列
-     --bp-2xl 1280px  桌面：导航收成一行、内容 1120px
-   历史遗留的 390 / 600 / 760 / 880 / 901 / 980 / 1080 已按上表归并；除这六档与
-   它们的 min-width 互补写法（701 / 901 / 1281）外，不再新增宽度。见 accessibility.css
-   与各组件样式表。 */

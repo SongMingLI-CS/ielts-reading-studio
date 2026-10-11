@@ -3,19 +3,14 @@
 {% block content %}
 {% set base_url = review_base ~ '?tab=' ~ tab %}
 {% set words_url = review_base ~ '?tab=words' %}
-<div class="review-workspace">
-<header class="preview-head review-hero">
-  <img class="review-cover" src="/static/media/knowledge-glass.webp" alt="" width="1600" height="900" fetchpriority="high" decoding="async">
-  <div class="review-hero-copy">
-  <p class="eyebrow">REVIEW / MAKE IT STICK</p>
-  <h1>复习，让知识<br><span>真正留下来。</span></h1>
-  <p class="lead">回到尚未理解的题目，巩固收藏的表达。错题按错误次数排序，词汇按间隔复习计划安排，让每次回顾都有重点。</p>
-  </div>
-  <div class="review-glass-note" aria-hidden="true"><span class="review-note-mark">↻</span><div><strong>温故，而知新。</strong><small>READ · RECALL · REMEMBER</small></div></div>
+<div class="review-workspace ls-page ls-review">
+<header class="ls-heading">
+  <h1>复习</h1>
+  <p class="lead">回顾没读懂的题目，记住阅读中遇到的表达。</p>
 </header>
 
 <nav class="review-tabs" aria-label="复习内容">
-  {% for value, label, count in tabs %}<a href="{{ review_base }}?tab={{ value }}"{% if tab == value %} aria-current="page"{% endif %}><span>{{ label }}</span><strong>{{ count }}</strong></a>{% endfor %}
+  {% for value, label, count in tabs %}<a href="{{ review_base }}?tab={{ value }}"{% if tab == value %} aria-current="page"{% endif %}><span>{{ label }}</span>{% if count %}<strong>{{ count }}</strong>{% endif %}</a>{% endfor %}
 </nav>
 
 <section class="review-content">

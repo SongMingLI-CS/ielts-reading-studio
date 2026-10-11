@@ -10,3 +10,8 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 outputs/ui-review/preview-data/
+# Local prototypes, acceptance evidence and database backups are not release assets.
+outputs/
+backups/
+*.db-wal
+*.db-shm

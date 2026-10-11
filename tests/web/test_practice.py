@@ -17,7 +17,7 @@ def test_practice_page_does_not_render_answer_key(client, completed_unit):
     assert 'aria-controls="reading-pane answer-pane"' in response.text
     assert 'aria-valuenow="53"' in response.text
     assert 'src="/static/request.js?v=1"' in response.text
-    assert 'src="/static/practice.js?v=5"' in response.text
+    assert 'src="/static/practice.js?v=7"' in response.text
 
 
 def test_session_form_can_submit_without_javascript(client, completed_unit):
@@ -61,9 +61,23 @@ def test_practice_center_lists_completed_packages(client, completed_unit):
     assert response.status_code == 200
     assert completed_unit.package.passage.title in response.text
     assert f'/practice/{completed_unit.id}' in response.text
-    assert "1 篇可练习" in response.text
-    assert "学习概览" in response.text
-    assert "私有存储" in response.text
+    assert 'class="reading-shelf"' in response.text
+    assert "所有文章" in response.text
+    assert "学习概览" not in response.text
+
+
+def test_practice_center_prioritizes_saved_reading(client, completed_unit):
+    client.post(
+        f"/practice/{completed_unit.id}/save",
+        json={"attempt_id": "reading-spotlight", "answers": {"1": "water"}, "elapsed_seconds": 42},
+    )
+    response = client.get("/practice")
+    assert response.status_code == 200
+    assert 'class="continue-reading"' in response.text
+    assert f'href="/practice/{completed_unit.id}"' in response.text
+    assert "已完成 1 / 12 题" in response.text
+    assert "继续第 2 题" in response.text
+    assert response.text.count(completed_unit.package.passage.title) == 1
 
 
 def test_submission_scores_normalized_exact_answers(client, completed_unit):
@@ -189,7 +203,9 @@ def test_practice_draft_is_saved_in_local_sqlite(client, completed_unit):
         json={"attempt_id": "attempt-draft", "answers": {"1": "water"}, "elapsed_seconds": 42},
     )
     assert response.status_code == 200
-    assert response.json() == {"attempt_id": "attempt-draft", "saved": True}
+    assert response.json()["attempt_id"] == "attempt-draft"
+    assert response.json()["saved"] is True
+    assert response.json()["revision"] == 1
 
     saved = client.app.state.service.repository.get_practice_attempt("attempt-draft")
     assert saved is not None
@@ -247,7 +263,7 @@ def test_mistake_book_collects_wrong_answers_with_explanations(client, completed
     assert "你的答案" in page.text and "正确答案" in page.text
     assert "原文证据" in page.text
     assert "原文给出了答案。" in page.text
-    assert "重做这一篇" in page.text
+    assert "重新练习这一篇" in page.text
     assert f"/practice/{completed_unit.id}/result/wrong-1" in page.text
 
 
@@ -308,7 +324,7 @@ def test_vocabulary_book_merges_packages_and_marks_words(web_service, client, co
     assert "probe" in page.text and "探测；探查" in page.text
     assert "trowel" in page.text
     assert "1 篇" in page.text
-    assert "全部词条" in page.text
+    assert 'href="/practice/vocabulary">全部</a>' in page.text
 
     saved = client.post(
         "/practice/vocabulary/mark", data={"word": "probe", "action": "save"}, follow_redirects=False
@@ -390,9 +406,9 @@ def test_practice_center_reports_attempt_history(client, completed_unit):
     )
     response = client.get("/practice")
     assert response.status_code == 200
-    assert "1 篇可练习" in response.text
-    assert "学习概览" in response.text
-    assert "私有存储" in response.text
+    assert 'class="reading-shelf"' in response.text
+    assert "所有文章" in response.text
+    assert "学习概览" not in response.text
     assert "1 / 12" in response.text
     assert f"/practice/{completed_unit.id}/result/attempt-history" in response.text
 

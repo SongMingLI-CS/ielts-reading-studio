@@ -173,6 +173,27 @@ def test_job_index_lists_tasks_with_readable_names_and_progress(
     # 状态显示中文，而不是把 queued/running 这类内部值直接丢给用户
     assert "生成中" in page.text
     assert ">running<" not in page.text
+    detail = client.get("/jobs/job-1")
+    assert detail.status_code == 200
+    assert "<h1>第 1–3 章阅读生成任务</h1>" in detail.text
+
+
+def test_job_index_paginates_long_task_lists(client, web_service, completed_unit) -> None:
+    for number in range(30):
+        web_service.repository.create_job(
+            f"job-page-{number:02d}",
+            completed_unit.corpus_id,
+            "completed",
+            {"ordinals": [number + 1]},
+        )
+
+    first = client.get("/jobs")
+    second = client.get("/jobs?page=2")
+    assert first.status_code == second.status_code == 200
+    assert first.text.count('class="job-record"') == 25
+    assert second.text.count('class="job-record"') == 5
+    assert 'href="/jobs?page=2"' in first.text
+    assert 'href="/jobs?page=1"' in second.text
 
 
 def test_job_index_surfaces_failed_tasks_and_filters_them(
@@ -452,4 +473,3 @@ def test_units_waiting_for_a_human_are_reachable_under_the_failed_filter(
 
     finished = client.get("/jobs?status=finished")
     assert 'href="/jobs/job-review"' not in finished.text
-

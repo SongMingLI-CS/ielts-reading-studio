@@ -28,12 +28,12 @@ def test_writing_page_is_available_from_site_navigation(client):
     response = client.get("/writing")
 
     assert response.status_code == 200
-    assert "英文写作反馈" in response.text
+    assert "<h1>写作反馈</h1>" in response.text
     assert 'id="writing-form"' in response.text
     assert 'id="writing-loading"' in response.text
     assert 'id="writing-stage"' in response.text
     assert 'src="/static/request.js?v=1"' in response.text
-    assert 'src="/static/writing.js?v=2"' in response.text
+    assert 'src="/static/writing.js?v=3"' in response.text
     assert 'href="/writing" aria-current="page"' in response.text
 
 
