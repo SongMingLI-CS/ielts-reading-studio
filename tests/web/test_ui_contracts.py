@@ -163,9 +163,9 @@ def test_palette_is_defined_once() -> None:
 
     tokens = _normalized(STATIC / "tokens.css")
     for token in (
-        "--background:#f7f8f6", "--surface:#ffffff", "--text-primary:#1b2721",
-        "--text-secondary:#53635a", "--text-tertiary:#637268", "--accent:#25634e",
-        "--border-default:#d5ddd7", "--focus-ring:var(--accent)", "--tap:44px",
+        "--background:#eeebe5", "--surface:#fffdf8", "--text-primary:#322f29",
+        "--text-secondary:#5d574e", "--text-tertiary:#6a6359", "--accent:#a65d43",
+        "--border-default:#ded7cb", "--focus-ring:var(--accent)", "--tap:44px",
     ):
         assert token in tokens, token
 
@@ -199,9 +199,25 @@ def test_tokens_carry_the_measured_contrast_values() -> None:
 
     assert "对比度按 WCAG 2.1" in tokens
     # 归一化后空白会被折叠成单个空格
-    assert "次级文字 5.97 / 6.36" in tokens
-    assert "辅助文字 4.76 / 5.08" in tokens
+    assert "次级文字 6.01 / 7.03" in tokens
+    assert "辅助文字 4.98 / 5.83" in tokens
     assert "小字最低保持 4.5:1" in tokens
+
+
+def test_warm_palette_keeps_small_copy_readable() -> None:
+    """Check actual contrast so a future palette change cannot keep stale audit comments."""
+    text = (STATIC / "tokens.css").read_text(encoding="utf-8")
+    colors = dict(re.findall(r"(--[a-z-]+):\s*(#[0-9a-f]{6})", text))
+
+    def luminance(color: str) -> float:
+        channels = [int(color[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        linear = [v / 12.92 if v <= .04045 else ((v + .055) / 1.055) ** 2.4 for v in channels]
+        return sum(v * weight for v, weight in zip(linear, (.2126, .7152, .0722)))
+
+    for foreground in ("--text-primary", "--text-secondary", "--text-tertiary", "--accent-hover"):
+        for background in ("--background", "--surface"):
+            light, dark = sorted((luminance(colors[foreground]), luminance(colors[background])), reverse=True)
+            assert (light + .05) / (dark + .05) >= 4.5, (foreground, background)
 
 
 def test_reduced_motion_and_focus_are_handled_centrally() -> None:

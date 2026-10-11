@@ -1,24 +1,24 @@
-/* Learning Studio design system. Legacy aliases below keep older components consistent.
-   对比度按 WCAG 2.1 相对亮度公式，在背景 / 白色表面上实测：
-   主文字 14.51 / 15.46，次级文字 5.97 / 6.36，辅助文字 4.76 / 5.08，
-   操作强调 6.63 / 7.06。小字最低保持 4.5:1。
+/* Shared warm-paper design system, derived from the reading practice workspace.
+   对比度按 WCAG 2.1 相对亮度公式，在背景 / 米白表面上实测：
+   主文字 11.21 / 13.12，次级文字 6.01 / 7.03，辅助文字 4.98 / 5.83。
+   小字最低保持 4.5:1；背景上的文字链接使用 --accent-hover。
    断点约定：--bp-xs 420px, --bp-sm 560px, --bp-md 700px,
    --bp-lg 900px, --bp-xl 1024px, --bp-2xl 1280px。 */
 :root{
-  --background:#f7f8f6;--surface:#ffffff;--surface-hover:#f1f4f2;--surface-selected:#e8f0ec;
-  --border-subtle:#e7ebe8;--border-default:#d5ddd7;--border-strong:#aebcb2;
-  --text-primary:#1b2721;--text-secondary:#53635a;--text-tertiary:#637268;
-  --accent:#25634e;--accent-hover:#194b3b;--accent-soft:#e8f1eb;
-  --success:#25704f;--warning:#8c621f;--danger:#a4423a;
+  --background:#eeebe5;--surface:#fffdf8;--surface-hover:#f9f6f0;--surface-selected:#f4e8df;
+  --border-subtle:#e4dfd6;--border-default:#ded7cb;--border-strong:#b49d88;
+  --text-primary:#322f29;--text-secondary:#5d574e;--text-tertiary:#6a6359;
+  --accent:#a65d43;--accent-hover:#85452e;--accent-soft:#f4e8df;
+  --success:#3e6750;--warning:#7c5a19;--danger:#a4423a;
   --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-8:32px;--space-10:40px;--space-12:48px;
-  --radius-small:4px;--radius-medium:8px;--radius-large:12px;
+  --radius-small:6px;--radius-medium:10px;--radius-large:12px;
   --type-display:clamp(30px,3.2vw,42px);--type-h1:30px;--type-h2:21px;--type-h3:16px;
   --type-body:15px;--type-small:13px;--type-label:12px;--type-caption:12px;--type-metadata:11px;
-  --font-ui:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  --font-ui:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
   --font-code:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
   --ink:var(--text-primary);--ink-secondary:var(--text-secondary);--ink-muted:var(--text-tertiary);--ink-decor:var(--text-tertiary);
   --success-ink:var(--success);--warning-ink:var(--warning);--danger-ink:var(--danger);
-  --forest:#243e34;--green:var(--accent);--mint:var(--accent-soft);--cream:#fbfcfa;--canvas:var(--background);
+  --forest:var(--text-primary);--green:var(--accent);--mint:var(--accent-soft);--cream:var(--surface);--canvas:var(--background);
   --header-ink:var(--text-primary);--header-muted:var(--text-secondary);--line:var(--border-default);--orange:var(--warning);
   --focus-ring:var(--accent);--focus-width:2px;--focus-offset:2px;--focus-halo:#fff;--tap:44px;
   --motion-fast:.12s;--motion-base:.18s;--motion-ease:ease-out;
