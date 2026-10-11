@@ -227,3 +227,27 @@ def test_bootstrap_helper_returns_a_usable_token(web_service):
 
         assert len(token) == 64
         assert client.headers["X-CSRF-Token"] == token
+
+
+def test_public_https_site_needs_no_login_but_still_requires_csrf(web_service):
+    config = web_service.config
+    config.web_username = None
+    config.web_password = None
+    config.web_public_access = True
+    config.web_force_https = True
+    app = create_app(config=config, service=web_service)
+    with TestClient(app, base_url="https://testserver") as public:
+        page = public.get("/practice")
+        assert page.status_code == 200
+        assert "www-authenticate" not in page.headers
+        assert "Secure" in page.headers["set-cookie"]
+        missing = public.post("/logout", follow_redirects=False)
+        assert missing.status_code == 403
+        assert missing.json()["code"] == "csrf_missing_token"
+        token = token_from_page(public)
+        permitted = public.post(
+            "/logout", headers={"X-CSRF-Token": token}, follow_redirects=False
+        )
+        assert permitted.status_code == 303
+    with TestClient(app, base_url="http://testserver") as insecure:
+        assert insecure.get("/practice").status_code == 403

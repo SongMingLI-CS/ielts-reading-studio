@@ -47,6 +47,8 @@ class AppConfig(BaseModel):
     deepseek_api_key: SecretStr | None = None
     web_username: str | None = None
     web_password: SecretStr | None = None
+    # Explicit operator opt-in to a public deployment without login credentials.
+    web_public_access: bool = False
     scholar_kernel_url: str = ""
     scholar_kernel_api_url: str = ""
     scholar_kernel_bridge_token: SecretStr | None = None
@@ -186,7 +188,8 @@ class AppConfig(BaseModel):
 
         issues: list[str] = []
         if not self.web_username or not self.web_password:
-            issues.append("远程监听必须先设置 IELTS_WEB_USERNAME 与 IELTS_WEB_PASSWORD")
+            if not self.web_public_access:
+                issues.append("远程监听必须先设置 IELTS_WEB_USERNAME 与 IELTS_WEB_PASSWORD")
         else:
             password = self.web_password.get_secret_value()
             if len(password) < self.web_password_min_length:
@@ -257,6 +260,10 @@ class AppConfig(BaseModel):
             raw["web_username"] = os.environ["IELTS_WEB_USERNAME"]
         if os.getenv("IELTS_WEB_PASSWORD"):
             raw["web_password"] = os.environ["IELTS_WEB_PASSWORD"]
+        if os.getenv("IELTS_WEB_PUBLIC_ACCESS"):
+            raw["web_public_access"] = os.environ["IELTS_WEB_PUBLIC_ACCESS"].strip().lower() in {
+                "1", "true", "yes", "on",
+            }
         if os.getenv("IELTS_WEB_PASSWORD_MIN_LENGTH"):
             raw["web_password_min_length"] = os.environ["IELTS_WEB_PASSWORD_MIN_LENGTH"].strip()
         if os.getenv("IELTS_WEB_SESSION_SECRET"):
