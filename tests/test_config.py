@@ -131,3 +131,29 @@ def test_absolute_data_paths_are_not_re_anchored(tmp_path):
     assert config.input_dir == tmp_path / "in"
     assert config.output_dir == tmp_path / "out"
     assert config.database_path == tmp_path / "db" / "state.db"
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+def test_public_access_requires_explicit_opt_in_and_keeps_https_checks(tmp_path, enabled):
+    config = AppConfig(
+        base_dir=tmp_path,
+        web_public_access=enabled,
+        web_force_https=True,
+        web_session_secret="public-site-session-key-32-characters",
+        web_trusted_proxies="127.0.0.1",
+    )
+    issues = config.production_issues(host="0.0.0.0")
+    assert bool(issues) is not enabled
+    config.web_force_https = False
+    assert any("HTTPS" in issue for issue in config.production_issues(host="0.0.0.0"))
+    config.web_session_secret = None
+    assert any("SESSION_SECRET" in issue for issue in config.production_issues(host="0.0.0.0"))
+
+
+def test_public_access_opt_in_is_loaded_from_environment(tmp_path, monkeypatch):
+    path = tmp_path / "config.yaml"
+    path.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setenv("IELTS_WEB_PUBLIC_ACCESS", "1")
+    assert AppConfig.load(path).web_public_access is True
+    monkeypatch.setenv("IELTS_WEB_PUBLIC_ACCESS", "0")
+    assert AppConfig.load(path).web_public_access is False

@@ -131,7 +131,7 @@ class SecurityGate:
             if rejection is not None:
                 return rejection
         elif state.session is None:
-            # Local single-user mode: still issue a session, because CSRF needs one.
+            # Credential-free mode: still issue a session, because CSRF needs one.
             state.session = await run_in_threadpool(
                 self._create_session, state.client.address, True, self.config.web_username
             )
@@ -449,6 +449,5 @@ class SecurityGate:
             response.headers.setdefault("Cache-Control", headers_module.CACHE_CONTROL_PRIVATE)
             response.headers.setdefault("Pragma", headers_module.PRAGMA_PRIVATE)
         return response
-
 
 

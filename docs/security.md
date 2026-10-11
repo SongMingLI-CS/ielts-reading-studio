@@ -182,3 +182,20 @@ worker 进程 ──> 同一个 SQLite（认领作业）──> Provider
 - [ ] 定期查看 `journalctl -u ielts-reading-studio`，确认没有持续的 403/429 峰值。
 - [ ] 限速与预算保持默认值；确需放宽时先在本地验证行为。
 
+
+
+## 公开免登录部署（显式选择）
+
+默认公网闸门仍要求登录凭据。运营者明确选择整站公开时，可以在 `.env.web` 中设置：
+
+```dotenv
+IELTS_WEB_PUBLIC_ACCESS=1
+IELTS_WEB_USERNAME=
+IELTS_WEB_PASSWORD=
+```
+
+空值会覆盖进程中旧凭据，也避免 `.env` 中的旧值回填。`IELTS_WEB_PUBLIC_ACCESS` 仅允许公网预检接受无凭据配置；若凭据仍存在，现有登录保护仍然生效。
+
+HTTPS、强会话密钥、可信代理、Secure Cookie、CSRF、请求限流和考试防泄题规则继续生效。此模式没有用户隔离：所有访问者共享文章、学习记录、备份、管理操作和 Provider 额度。CSRF 防护不会阻止持有合法会话的访客执行这些操作。
+
+恢复登录：将 `IELTS_WEB_PUBLIC_ACCESS=0`，恢复网站用户名和密码，运行 `scripts/deploy.sh --check`，再重启 Web 服务。公开期间已建立的免登录会话在启用登录前需要失效（例如轮换会话密钥），避免旧会话继续访问。不要将网站密码或会话密钥提交到 Git。
